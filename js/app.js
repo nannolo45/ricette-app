@@ -13,6 +13,8 @@ import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
 import { parseRecipeText } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
+import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags } from './recipe-tools.js';
+import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -46,6 +48,12 @@ function ingredientsOf(r) {
   return (r.ingredients || []).map((i) => (i.name == null ? parseIngredient(i.raw || '') : i));
 }
 
+// A pantry item can carry several barcodes (e.g. two brands of milk).
+function codesOf(p) { return [...new Set([...(p.barcodes || []), ...(p.barcode ? [p.barcode] : [])])]; }
+function hasCode(p, code) { return codesOf(p).includes(code); }
+function withCode(p, code) { const codes = [...new Set([...codesOf(p), code])]; return { barcode: codes[0], barcodes: codes }; }
+function pantryByCode(code) { return live('pantry').find((p) => hasCode(p, code)); }
+
 function findPantry(name) { return live('pantry').find((p) => namesMatch(p.name, name)); }
 
 function toast(msg) {
@@ -62,7 +70,7 @@ function route() {
   return { name, id: id && decodeURIComponent(id) };
 }
 
-const TAB_OF = { recipes: 'recipes', folder: 'recipes', recipe: 'recipes', edit: 'recipes', list: 'list', pantry: 'pantry', settings: 'settings' };
+const TAB_OF = { putaway: 'list', recipes: 'recipes', folder: 'recipes', suggest: 'recipes', recipe: 'recipes', edit: 'recipes', list: 'list', pantry: 'pantry', settings: 'settings' };
 
 // ---------- folders ----------
 
@@ -187,9 +195,9 @@ function ensureLowItems() {
     const cur = state.shopping.find((s) => s.id === id);
     const low = p.deleted ? null : lowInfo(p);
     if (low) {
-      if (!cur || cur.deleted || cur.checked) {
+      if (!cur || cur.deleted) {
         upsert('shopping', { id, name: p.name, qty: low.buy, unit: p.unit || '', checked: false, auto: true, pantryId: p.id, sources: [] }, { silent: true });
-      } else if (cur.qty !== low.buy || cur.name !== p.name || cur.unit !== (p.unit || '')) {
+      } else if (!cur.checked && cur.qty !== low.buy || cur.name !== p.name || cur.unit !== (p.unit || '')) {
         upsert('shopping', { ...cur, name: p.name, qty: low.buy, unit: p.unit || '' }, { silent: true });
       }
     } else if (cur && !cur.deleted && !cur.checked) {
@@ -202,14 +210,7 @@ function setChecked(id, checked) {
   const it = get('shopping', id);
   if (!it) return;
   let stocked = it.stocked || null;
-  if (checked && !stocked && it.qty != null) {
-    const p = it.pantryId ? get('pantry', it.pantryId) : findPantry(it.name);
-    const add = p ? convert(it.qty, it.unit, p.unit) : null;
-    if (p && add != null) {
-      upsert('pantry', { ...p, qty: round((num(p.qty) || 0) + add) }, { silent: true });
-      stocked = { pantryId: p.id, amount: add };
-    }
-  }
+  // (older versions added to the pantry on check; undo that if unchecked)
   if (!checked && stocked) {
     const p = get('pantry', stocked.pantryId);
     if (p) upsert('pantry', { ...p, qty: Math.max(0, round((num(p.qty) || 0) - stocked.amount)) }, { silent: true });
@@ -244,6 +245,7 @@ function planForRecipe(r, n, usePantry) {
 function cook(r, n) {
   const base = r.servings || 4;
   let count = 0;
+  upsert('recipes', { ...r, cookedCount: (r.cookedCount || 0) + 1, lastCooked: Date.now() }, { silent: true });
   for (const ing of ingredientsOf(r)) {
     if (ing.qty == null) continue;
     const p = findPantry(ing.name);
@@ -320,8 +322,6 @@ function viewRecipes() {
   const queue = live('queue').filter((q) => q.status !== 'done');
   const folderId = currentFolderId();
   const path = folderPath(folderId);
-  const searching = Boolean(normalizeName(ui.search));
-  const subfolders = childFolders(folderId);
   return `
   <form class="import" id="import-form">
     <input type="url" name="url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off">
@@ -335,6 +335,12 @@ function viewRecipes() {
   <div class="row">
     <input type="search" id="search" placeholder="${esc(t('search'))}" value="${esc(ui.search)}">
   </div>
+  <div class="toolbar">
+    <label class="sort">⇅ <select id="sort" aria-label="${esc(t('sortBy'))}">${SORTS.map((k) => `<option value="${k}" ${k === sortKey() ? 'selected' : ''}>${esc(t(`sort_${k}`))}</option>`).join('')}</select></label>
+    <button class="btn small ${ui.showFilters || filterCount() ? 'on' : ''}" data-action="toggle-filters">⚲ ${esc(t('filters'))}${filterCount() ? ` (${filterCount()})` : ''}</button>
+    <a class="btn small primary" href="#/suggest">🍳 ${esc(t('whatToCook'))}</a>
+  </div>
+  ${ui.showFilters ? filterPanel() : ''}
   <div class="folder-bar">
     <div class="crumbs">
       <a href="#/recipes">${esc(t('allRecipes'))}</a>
@@ -346,41 +352,188 @@ function viewRecipes() {
       <button class="btn small" data-action="new-recipe">+ ${esc(t('manual'))}</button>
     </div>
   </div>
-  <div id="cards">${searching ? '' : folderTiles(subfolders)}${recipeCards()}</div>`;
+  <div id="cards">${cardsHtml()}</div>`;
 }
 
-function folderTiles(folders) {
-  if (!folders.length) return '';
-  return `<div class="folders">${folders.map((f) => `
-    <a class="folder" href="${folderHref(f.id)}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-      <span class="folder-name">${esc(f.name)}</span>
-      <small>${countIn(f.id)}</small>
-    </a>`).join('')}</div>`;
+// ---------- sorting, filters, tags ----------
+
+const SORTS = ['new', 'old', 'az', 'za', 'quick', 'fewest', 'cooked', 'recent', 'pantry'];
+function sortKey() { return SORTS.includes(state.settings.sort) ? state.settings.sort : 'new'; }
+
+function filters() { return (ui.filters ||= { tags: [], source: '', maxTime: 0, ready: '' }); }
+function filterCount() { const f = filters(); return f.tags.length + (f.source ? 1 : 0) + (f.maxTime ? 1 : 0) + (f.ready ? 1 : 0); }
+
+function tagLabel(tag) { return tag.startsWith('auto:') ? t(`tag_${tag.slice(5)}`) : tag; }
+
+function allTags() {
+  const count = new Map();
+  for (const r of live('recipes')) for (const tg of tagsOf(r)) count.set(tg, (count.get(tg) || 0) + 1);
+  return [...count.entries()].sort((a, b) => b[1] - a[1] || tagLabel(a[0]).localeCompare(tagLabel(b[0])));
 }
 
-function recipeCards() {
+function chip(label, action, value, on, extra = '') {
+  return `<button type="button" class="chip ${on ? 'on' : ''}" data-action="${action}" data-value="${esc(value)}">${esc(label)}${extra}</button>`;
+}
+
+function filterPanel() {
+  const f = filters();
+  return `<div class="filter-panel">
+    <div class="f-row"><span class="f-label">${esc(t('tags'))}</span>${allTags().map(([tg, n]) => chip(tagLabel(tg), 'f-tag', tg, f.tags.includes(tg), ` <small>${n}</small>`)).join('') || `<small>${esc(t('noTagsYet'))}</small>`}</div>
+    <div class="f-row"><span class="f-label">${esc(t('sourceLabel'))}</span>${[['web', t('srcWeb')], ['book', `📖 ${t('srcBook')}`], ['note', `✍️ ${t('srcNote')}`]].map(([v, l]) => chip(l, 'f-source', v, f.source === v)).join('')}</div>
+    <div class="f-row"><span class="f-label">${esc(t('time'))}</span>${[15, 30, 60].map((m) => chip(`≤ ${m} min`, 'f-time', m, f.maxTime === m)).join('')}</div>
+    <div class="f-row"><span class="f-label">${esc(t('tabPantry'))}</span>${chip(t('readyNow'), 'f-ready', 'all', f.ready === 'all')}${chip(t('missingAtMost2'), 'f-ready', 'two', f.ready === 'two')}</div>
+    ${filterCount() ? `<button type="button" class="btn small ghost" data-action="f-clear">${esc(t('clearFilters'))}</button>` : ''}
+  </div>`;
+}
+
+function expiringIds() { return new Set(expiringItems().map((x) => x.p.id)); }
+
+function cardsHtml() {
+  const filtering = Boolean(normalizeName(ui.search)) || filterCount() > 0;
+  const { list, coverage } = recipeList();
+  const head = filtering ? `<p class="result-count">${esc(t('nRecipes', list.length))}</p>` : '';
+  return (filtering ? '' : folderTiles(childFolders(currentFolderId()))) + head + recipeCards(list, coverage, filtering);
+}
+
+function recipeList() {
   const q = normalizeName(ui.search);
+  const f = filters();
+  const filtering = Boolean(q) || filterCount() > 0;
   const folderId = currentFolderId();
-  // Searching looks through every folder; otherwise show this folder's recipes.
-  const list = live('recipes')
-    .filter((r) => (q ? (normalizeName(r.title).includes(q) || normalizeName(r.source?.book).includes(q)
-      || ingredientsOf(r).some((i) => normalizeName(i.name).includes(q))) : recipeFolderId(r) === folderId))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const needCoverage = f.ready || sortKey() === 'pantry';
+  const pantry = live('pantry');
+  const exp = expiringIds();
+  const coverage = new Map();
+  const cov = (r) => { if (!coverage.has(r.id)) coverage.set(r.id, pantryCoverage(r, pantry, { basics: state.settings.basics !== false, expiringIds: exp })); return coverage.get(r.id); };
+  // Searching or filtering looks through every folder; otherwise show this folder's recipes.
+  let list = live('recipes').filter((r) => {
+    if (!filtering) return recipeFolderId(r) === folderId;
+    if (q && !(normalizeName(r.title).includes(q) || normalizeName(r.source?.book).includes(q)
+      || tagsOf(r).some((tg) => normalizeName(tagLabel(tg)).includes(q))
+      || ingredientsOf(r).some((i) => normalizeName(i.name).includes(q)))) return false;
+    if (f.tags.length) { const tg = tagsOf(r); if (!f.tags.every((x) => tg.includes(x))) return false; }
+    if (f.source && (r.source?.type || 'web') !== f.source) return false;
+    if (f.maxTime) { const m = minutesOf(r.time); if (m == null || m > f.maxTime) return false; }
+    if (f.ready) { const c = cov(r); if (!c.total || c.missing.length > (f.ready === 'all' ? 0 : 2)) return false; }
+    return true;
+  });
+  const title = (r) => String(r.title || '');
+  const sorters = {
+    new: (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
+    old: (a, b) => (a.createdAt || 0) - (b.createdAt || 0),
+    az: (a, b) => title(a).localeCompare(title(b), getLang()),
+    za: (a, b) => title(b).localeCompare(title(a), getLang()),
+    quick: (a, b) => (minutesOf(a.time) ?? 1e9) - (minutesOf(b.time) ?? 1e9),
+    fewest: (a, b) => (a.ingredients || []).length - (b.ingredients || []).length,
+    cooked: (a, b) => (b.cookedCount || 0) - (a.cookedCount || 0) || title(a).localeCompare(title(b)),
+    recent: (a, b) => (b.lastCooked || 0) - (a.lastCooked || 0) || title(a).localeCompare(title(b)),
+  };
+  if (sortKey() === 'pantry') {
+    const ranked = rankByPantry(list, pantry, { basics: state.settings.basics !== false, expiringIds: exp });
+    for (const x of ranked) coverage.set(x.r.id, x.c);
+    const rankedIds = new Set(ranked.map((x) => x.r.id));
+    list = [...ranked.map((x) => x.r), ...list.filter((r) => !rankedIds.has(r.id))];
+  } else {
+    list.sort(sorters[sortKey()]);
+  }
+  if (needCoverage) for (const r of list) cov(r);
+  return { list, coverage };
+}
+
+function coverageBadge(c) {
+  if (!c || !c.total) return '';
+  if (!c.missing.length) return `<span class="have-all">✓ ${esc(t('haveAll'))}</span>`;
+  return `<span class="missing">${esc(t('missingN', c.missing.length))}</span>`;
+}
+
+function recipeCards(list, coverage, filtering) {
+  const folderId = currentFolderId();
   if (!list.length) {
-    if (q) return '';
+    if (filtering) return `<p class="empty">${esc(t('noMatches'))}</p>`;
     if (folderId) return childFolders(folderId).length ? '' : `<p class="empty">${esc(t('folderEmpty'))}</p>`;
     return live('recipes').length || childFolders(null).length ? '' : `<p class="empty">${esc(t('noRecipes'))}</p>`;
   }
-  return `<div class="cards">${list.map((r) => `
+  return `<div class="cards">${list.map((r) => {
+    const tags = tagsOf(r).slice(0, 3);
+    return `
     <a class="card" href="#/recipe/${encodeURIComponent(r.id)}">
       <div class="thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></div>
       <div class="card-body">
         <div class="card-title">${esc(r.title)}</div>
         <div class="card-meta">${sourceIcon(r)}${esc(t('people', r.servings || 4))}${r.time ? ` · ${esc(r.time)}` : ''}</div>
-        ${q && recipeFolderId(r) ? `<div class="card-meta">📁 ${esc(folderPath(r.folderId).map((f) => f.name).join(' › '))}</div>` : ''}
+        ${coverage.has(r.id) ? `<div class="card-meta">${coverageBadge(coverage.get(r.id))}</div>` : ''}
+        ${tags.length ? `<div class="card-tags">${tags.map((tg) => `<span class="tag ${tg.startsWith('auto:') ? 'auto' : ''}">${esc(tagLabel(tg))}</span>`).join('')}</div>` : ''}
+        ${filtering && recipeFolderId(r) ? `<div class="card-meta">📁 ${esc(folderPath(r.folderId).map((x) => x.name).join(' › '))}</div>` : ''}
       </div>
-    </a>`).join('')}</div>`;
+    </a>`;
+  }).join('')}</div>`;
+}
+
+// ---------- what can I cook? ----------
+
+function suggestions() {
+  return rankByPantry(live('recipes'), live('pantry'), { basics: state.settings.basics !== false, expiringIds: expiringIds() });
+}
+
+function missingText(m) {
+  if (m.have > 0 && m.need != null) return `${m.name} (${t('haveOf', qtyText(m.have, m.unit), qtyText(m.need, m.unit))})`;
+  return m.name;
+}
+
+function viewSuggest() {
+  const pantryEmpty = !live('pantry').some((p) => (num(p.qty) || 0) > 0);
+  const ranked = pantryEmpty ? [] : suggestions().slice(0, 40);
+  const expSoon = new Map(expiringItems().map((x) => [x.p.id, x.d]));
+  return `
+  <a class="back" href="#/recipes">← ${esc(t('allRecipes'))}</a>
+  <h1>🍳 ${esc(t('whatToCook'))}</h1>
+  <p class="hint">${esc(t('suggestHint'))}</p>
+  <label class="check"><input type="checkbox" id="basics" ${state.settings.basics !== false ? 'checked' : ''}> ${esc(t('basicsAlways'))}</label>
+  ${pantryEmpty ? `<p class="empty">${esc(t('pantryEmptyForSuggest'))}<br><a class="btn" href="#/pantry">${esc(t('tabPantry'))}</a></p>` : ''}
+  ${!pantryEmpty && !ranked.length ? `<p class="empty">${esc(t('noRecipes'))}</p>` : ''}
+  <ul class="suggest">${ranked.map(({ r, c }) => `
+    <li>
+      <a class="s-main" href="#/recipe/${encodeURIComponent(r.id)}">
+        <span class="s-thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></span>
+        <span class="s-text">
+          <strong>${esc(r.title)}</strong>
+          ${c.missing.length ? `<span class="missing">${esc(t('missingN', c.missing.length))}: ${esc(c.missing.map(missingText).join(', '))}</span>`
+            : `<span class="have-all">✓ ${esc(t('haveAll'))}</span>`}
+          ${c.uses.length ? `<span class="uses">♻️ ${esc(t('usesExpiring'))}: ${esc(c.uses.map((p) => `${p.name} (${expiryText(expSoon.get(p.id) ?? 0)})`).join(', '))}</span>` : ''}
+        </span>
+      </a>
+      ${c.missing.length ? `<button class="btn small" data-action="add-missing" data-id="${esc(r.id)}">🛒 ${esc(t('addMissing'))}</button>` : ''}
+    </li>`).join('')}</ul>`;
+}
+
+function addMissingToList(id) {
+  const r = get('recipes', id);
+  if (!r) return;
+  const c = pantryCoverage(r, live('pantry'), { basics: state.settings.basics !== false });
+  for (const m of c.missing) addToShopping({ name: m.name, qty: m.short == null ? null : round(m.short), unit: m.unit }, r.title);
+  changed();
+  toast(t('addedToList', c.missing.length));
+}
+
+// Folder cover: chosen photo, otherwise the newest recipe photo inside the folder.
+function folderCover(f) {
+  if (f.cover) return f.cover;
+  const ids = descendantIds(f.id);
+  const r = live('recipes').filter((x) => ids.has(recipeFolderId(x)) && coverOf(x)).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+  return r ? coverOf(r) : '';
+}
+
+function folderTiles(folders) {
+  if (!folders.length) return '';
+  return `<div class="folders">${folders.map((f) => {
+    const cover = folderCover(f);
+    return `
+    <a class="folder-card" href="${folderHref(f.id)}">
+      <div class="f-thumb">${cover ? photoTag(cover) : ''}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+      <div class="f-body"><span class="folder-name">${esc(f.name)}</span><small>${esc(t('nRecipes', countIn(f.id)))}</small></div>
+    </a>`;
+  }).join('')}</div>`;
 }
 
 function sourceIcon(r) {
@@ -438,6 +591,11 @@ function viewRecipe(id) {
     ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(t('source'))} ↗</a>` : ''}
   </div>
   ${r.review ? `<div class="review"><span>${esc(t('reviewBanner'))}</span><a class="btn small primary" href="#/edit/${encodeURIComponent(id)}">${esc(t('reviewCheck'))}</a></div>` : ''}
+  <div class="tag-row">
+    ${tagsOf(r).map((tg) => `<span class="tag ${tg.startsWith('auto:') ? 'auto' : ''}">${esc(tagLabel(tg))}<button type="button" class="tag-x" data-action="tag-remove" data-id="${esc(id)}" data-value="${esc(tg)}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}
+    <form class="tag-form" id="tag-form" data-id="${esc(id)}"><input name="tag" id="tag-input" list="all-tags" placeholder="+ ${esc(t('addTag'))}" autocomplete="off" maxlength="30"></form>
+    <datalist id="all-tags">${[...new Set(live('recipes').flatMap((x) => x.tags || []))].sort().map((tg) => `<option value="${esc(tg)}">`).join('')}</datalist>
+  </div>
   <label class="move">📁 <select data-action="move-recipe" data-id="${esc(id)}" aria-label="${esc(t('folder'))}">${folderOptions(recipeFolderId(r))}</select></label>
   <div class="servings">
     <button class="round" data-action="srv-dec" data-id="${esc(id)}" aria-label="−">−</button>
@@ -550,10 +708,184 @@ function viewList() {
     <input name="item" id="add-item-input" required placeholder="${esc(t('addItemPh'))}" autocomplete="off">
     <button class="btn primary" aria-label="+">+</button>
   </form>
-  ${open.length ? `<ul class="list">${open.map(itemRow).join('')}</ul>
+  ${open.length ? `${groupByDept(open, shopCat).map(([cat, items]) => `<h3 class="dept-h">${categoryIcon(cat)} ${esc(t(`cat_${cat}`))}</h3>
+    <ul class="list">${items.map(itemRow).join('')}</ul>`).join('')}
     <button class="btn" data-action="share-list">${esc(t('share'))}</button>` : `<p class="empty">${esc(t('listEmpty'))}</p>`}
   ${done.length ? `<h2>${esc(t('inCart'))} (${done.length})</h2><ul class="list done">${done.map(itemRow).join('')}</ul>
-    <button class="btn" data-action="clear-checked">${esc(t('clearChecked'))}</button>` : ''}`;
+    <div class="button-row">
+      <button class="btn primary" data-action="put-away">📦 ${esc(t('putAway'))}</button>
+      <button class="btn" data-action="clear-checked">${esc(t('clearChecked'))}</button>
+    </div>
+    <p class="hint small">${esc(t('putAwayExplain'))}</p>` : ''}`;
+}
+
+function bestRowFor(productName, rows) {
+  const words = (x) => normalizeName(x).split(' ').filter((w) => w.length >= 4);
+  let best = -1, bestScore = 0;
+  rows.forEach((r, i) => {
+    if (r.barcode) return;
+    let score = 0;
+    if (namesMatch(r.name, productName)) score = 3;
+    else if (words(productName).some((w) => words(r.name).map(singular).includes(singular(w)))) score = 1;
+    if (score > bestScore) { best = i; bestScore = score; }
+  });
+  return best;
+}
+
+async function putAwayScan() {
+  const P = ui.putaway;
+  if (!P) return;
+  const code = await scanBarcode($('#scanner'), tt);
+  if (!code || ui.putaway !== P) return;
+  const rows = P.rows;
+  let idx = rows.findIndex((r) => r.barcode === code);
+  if (idx >= 0) {
+    // the same product again = one more pack
+    const r = rows[idx];
+    const add = r.packQty ? convert(r.packQty, r.packUnit || '', r.unit || '') : (r.unit ? null : 1);
+    if (add != null) r.qty = round((num(r.qty) || 0) + add);
+    r.include = true;
+  } else {
+    const known = pantryByCode(code);
+    if (known) idx = rows.findIndex((r) => !r.barcode && (r.pantryId === known.id || normalizeName(r.name) === normalizeName(known.name) || namesMatch(r.name, known.name)));
+    let product = null;
+    if (!known && navigator.onLine) { try { product = await lookupProduct(code, getLang()); } catch { product = null; } }
+    if (ui.putaway !== P) return;
+    if (idx < 0 && product?.found) idx = bestRowFor(product.name, rows);
+    if (idx >= 0) {
+      const r = rows[idx];
+      Object.assign(r, { barcode: code, include: true });
+      if (known) r.pantryId = r.pantryId || known.id;
+      if (product?.found) Object.assign(r, { brand: product.brand || '', packQty: product.qty, packUnit: product.unit, cat: product.cat || r.cat });
+    } else {
+      const name = known?.name || (product?.found ? product.name : t('productCode', code));
+      rows.push({
+        itemId: null, include: true, name, expires: '', barcode: code, pantryId: known?.id || null,
+        qty: known?.packQty || (product?.found ? product.qty : 1), unit: known?.packUnit || (product?.found ? product.unit : '') || '',
+        brand: product?.brand || known?.brand || '', packQty: product?.qty || known?.packQty, packUnit: product?.unit || known?.packUnit,
+        cat: product?.cat || null, lookupPending: !known && !product?.found && !navigator.onLine, nameFromCode: !known && !product?.found,
+      });
+      idx = rows.length - 1;
+    }
+  }
+  P.flash = idx;
+  render();
+  document.getElementById(`pa-expires-${idx}`)?.focus();
+  toast(`🏷️ ${rows[idx].name}`);
+}
+
+function commitPutAway() {
+  const P = ui.putaway;
+  if (!P) return;
+  let n = 0;
+  for (const r of P.rows.filter((x) => x.include && x.name.trim())) {
+    const tg = pantryTargetFor(r);
+    const qty = num(r.qty);
+    const unit = r.unit || '';
+    if (tg) {
+      const before = num(tg.qty) || 0;
+      const wasEmpty = before <= 0;
+      let newQty = before;
+      let newUnit = tg.unit || '';
+      if (!r.stocked && qty != null) {
+        const add = convert(qty, unit, newUnit);
+        if (add != null) newQty = round(before + add);
+        else if (wasEmpty) { newQty = qty; newUnit = unit; }
+      }
+      upsert('pantry', {
+        ...tg, qty: newQty, unit: newUnit,
+        expires: r.expires ? (wasEmpty ? r.expires : earlier(tg.expires, r.expires)) : (wasEmpty ? null : tg.expires || null),
+        ...(r.barcode ? withCode(tg, r.barcode) : {}),
+        brand: tg.brand || r.brand || '', packQty: tg.packQty || r.packQty || null, packUnit: tg.packQty ? tg.packUnit : (r.packUnit || null),
+        cat: tg.cat || r.cat || null,
+      }, { silent: true });
+    } else {
+      upsert('pantry', {
+        id: uid(), name: r.name.trim(), qty: qty ?? 1, unit, expires: r.expires || null, min: null, target: null,
+        ...(r.barcode ? { barcode: r.barcode, barcodes: [r.barcode] } : {}), brand: r.brand || '', packQty: r.packQty || null, packUnit: r.packUnit || null,
+        cat: r.cat || null, lookupPending: Boolean(r.lookupPending), nameFromCode: Boolean(r.nameFromCode),
+      }, { silent: true });
+    }
+    if (r.itemId) remove('shopping', r.itemId);
+    n++;
+  }
+  ui.putaway = null;
+  ensureLowItems();
+  location.hash = '#/pantry';
+  changed();
+  toast(t('putAwayDone', n));
+}
+
+function shopCat(i) {
+  const p = (i.pantryId && get('pantry', i.pantryId)) || live('pantry').find((x) => normalizeName(x.name) === normalizeName(i.name));
+  return p ? categoryOf(p) : categorize(i.name);
+}
+
+function groupByDept(items, catOf) {
+  const groups = new Map(CATEGORY_IDS.map((c) => [c, []]));
+  for (const i of items) groups.get(catOf(i)).push(i);
+  return [...groups.entries()].filter(([, list]) => list.length);
+}
+
+// ---------- putting the shopping away ----------
+
+const singular = (s) => normalizeName(s).replace(/(?:es|s|e|i)$/, '');
+
+function pantryTargetFor(row) {
+  const pantry = live('pantry');
+  return (row.pantryId && get('pantry', row.pantryId))
+    || (row.barcode && pantry.find((p) => hasCode(p, row.barcode)))
+    || pantry.find((p) => normalizeName(p.name) === normalizeName(row.name))
+    || pantry.find((p) => singular(p.name) === singular(row.name))
+    || null;
+}
+
+function startPutAway() {
+  const rows = live('shopping').filter((i) => i.checked).map((i) => {
+    const row = { itemId: i.id, include: true, name: i.name, qty: i.qty, unit: i.unit || '', expires: '', pantryId: i.pantryId || null, stocked: Boolean(i.stocked) };
+    if (row.qty == null) {
+      const tg = pantryTargetFor(row);
+      if (tg?.packQty) { row.qty = tg.packQty; row.unit = tg.packUnit || ''; } else { row.qty = 1; row.unit = tg?.unit || ''; }
+    }
+    return row;
+  });
+  ui.putaway = { rows, flash: -1 };
+  location.hash = '#/putaway';
+}
+
+function viewPutAway() {
+  const P = ui.putaway;
+  if (!P) return `<a class="back" href="#/list">← ${esc(t('tabList'))}</a><p class="empty">${esc(t('putAwayEmpty'))}</p>`;
+  const n = P.rows.filter((r) => r.include).length;
+  return `
+  <a class="back" href="#/list">← ${esc(t('tabList'))}</a>
+  <h1>📦 ${esc(t('putAway'))}</h1>
+  <p class="hint">${esc(t('putAwayHint'))}</p>
+  <button class="btn scan-btn" type="button" data-action="pa-scan">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8"/></svg>
+    ${esc(t('putAwayScan'))}</button>
+  <form id="putaway-form">
+    <ul class="putaway">${P.rows.map((r, i) => {
+      const tg = pantryTargetFor(r);
+      const where = tg ? t('addsTo', tg.name, qtyText(num(tg.qty) || 0, tg.unit) || '0') : t('newIn', `${categoryIcon(r.cat || categorize(r.name))} ${t(`cat_${r.cat || categorize(r.name)}`)}`);
+      return `<li class="${i === P.flash ? 'flash' : ''} ${r.include ? '' : 'off'}">
+        <input type="checkbox" class="pa-inc" id="pa-include-${i}" data-pa="include" data-i="${i}" ${r.include ? 'checked' : ''} aria-label="${esc(r.name)}">
+        <div class="pa-main">
+          <input class="pa-name" id="pa-name-${i}" data-pa="name" data-i="${i}" value="${esc(r.name)}" aria-label="${esc(t('name'))}">
+          <div class="pa-fields">
+            <input class="pa-qty" id="pa-qty-${i}" data-pa="qty" data-i="${i}" inputmode="decimal" value="${esc(r.qty ?? '')}" aria-label="${esc(t('quantity'))}">
+            <select id="pa-unit-${i}" data-pa="unit" data-i="${i}" aria-label="${esc(t('unit'))}">${UNITS.map((u) => `<option value="${u}" ${u === (r.unit || '') ? 'selected' : ''}>${esc(unitOptionLabel(u))}</option>`).join('')}</select>
+            <label class="pa-exp"><span>${esc(t('expires'))}</span><input type="date" id="pa-expires-${i}" data-pa="expires" data-i="${i}" value="${esc(r.expires || '')}"></label>
+          </div>
+          <small>→ ${esc(where)}${r.barcode ? ` · 🏷️ ${esc(r.brand || r.barcode)}` : ''}${r.stocked ? ` · ${esc(t('alreadyCounted'))}` : ''}</small>
+        </div>
+      </li>`;
+    }).join('')}</ul>
+    <div class="button-row">
+      <button class="btn primary" ${n ? '' : 'disabled'}>📦 ${esc(t('putAwayConfirm', n))}</button>
+      <a class="btn" href="#/list">${esc(t('cancel'))}</a>
+    </div>
+  </form>`;
 }
 
 function pantryRow(p) {
@@ -563,8 +895,9 @@ function pantryRow(p) {
   let exp = '';
   if (st === 'expired' || st === 'soon') exp = ` <span class="badge ${st === 'expired' ? 'bad' : 'warn'}">${esc(expiryText(d))}</span>`;
   else if (st === 'ok') exp = ` <small class="exp">${esc(t('expiresOn', shortDate(p.expires)))}</small>`;
-  return `<li class="${low ? 'low' : ''} ${st === 'expired' ? 'expired' : ''}">
-    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${low ? ` <span class="badge warn">${esc(t('low'))}</span>` : ''}${exp}</button>
+  const out = (num(p.qty) || 0) <= 0;
+  return `<li class="${low || out ? 'low' : ''} ${st === 'expired' ? 'expired' : ''}">
+    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${out ? ` <span class="badge bad">${esc(t('outOfStock'))}</span>` : low ? ` <span class="badge warn">${esc(t('low'))}</span>` : ''}${exp}</button>
     <div class="stepper">
       <button class="round" data-action="p-dec" data-id="${esc(p.id)}" aria-label="−">−</button>
       <span class="q">${esc(qtyText(num(p.qty) || 0, p.unit) || '0')}</span>
@@ -574,8 +907,10 @@ function pantryRow(p) {
 
 function viewPantry() {
   const expiring = expiringItems().map((x) => x.p);
-  const ids = new Set(expiring.map((p) => p.id));
-  const rest = live('pantry').filter((p) => !ids.has(p.id)).sort((a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
+  const isOut = (p) => (num(p.qty) || 0) <= 0;
+  const rank = (p) => (isOut(p) ? 0 : lowInfo(p) ? 1 : 2);
+  const depts = groupByDept(live('pantry'), categoryOf).map(([c, items]) => [c, items.sort((a, b) => rank(a) - rank(b) || normalizeName(a.name).localeCompare(normalizeName(b.name)))]);
+  const counts = (items) => ({ out: items.filter(isOut).length, low: items.filter((p) => !isOut(p) && lowInfo(p)).length });
   return `
   <form id="add-pantry" class="row">
     <input name="item" id="add-pantry-input" required placeholder="${esc(t('addPantryPh'))}" autocomplete="off">
@@ -584,11 +919,21 @@ function viewPantry() {
   <button class="btn scan-btn" data-action="scan">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8"/></svg>
     ${esc(t('scan'))}</button>
+  <a class="btn suggest-link" href="#/suggest">🍳 ${esc(t('whatCanICook'))}</a>
   <p class="hint">${esc(t('pantryHint'))}</p>
-  ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map(pantryRow).join('')}</ul>
-    ${rest.length ? `<h2>${esc(t('everythingElse'))}</h2>` : ''}` : ''}
-  ${rest.length ? `<ul class="list pantry">${rest.map(pantryRow).join('')}</ul>` : ''}
-  ${!expiring.length && !rest.length ? `<p class="empty">${esc(t('pantryEmpty'))}</p>` : ''}`;
+  ${depts.length ? `<div class="dept-overview">${depts.map(([c, items]) => {
+    const n = counts(items);
+    return `<button type="button" class="dept-chip ${n.out ? 'bad' : n.low ? 'warn' : ''}" data-action="dept-jump" data-value="${c}">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${items.length}</small>${n.out + n.low ? ` <b>${n.out + n.low}</b>` : ''}</button>`;
+  }).join('')}</div>` : ''}
+  ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map(pantryRow).join('')}</ul>` : ''}
+  ${depts.map(([c, items]) => {
+    const n = counts(items);
+    return `<section class="dept-sec" id="dept-${c}">
+      <h3 class="dept-h">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${items.length}</small>
+        ${n.out ? `<span class="badge bad">${esc(t('deptOut', n.out))}</span>` : ''}${n.low ? `<span class="badge warn">${esc(t('deptLow', n.low))}</span>` : ''}</h3>
+      <ul class="list pantry">${items.map(pantryRow).join('')}</ul></section>`;
+  }).join('')}
+  ${!depts.length ? `<p class="empty">${esc(t('pantryEmpty'))}</p>` : ''}`;
 }
 
 function viewSettings() {
@@ -650,6 +995,8 @@ function render() {
   switch (r.name) {
     case 'recipe': html = viewRecipe(r.id); break;
     case 'folder': html = viewRecipes(); break;
+    case 'suggest': html = viewSuggest(); break;
+    case 'putaway': html = viewPutAway(); break;
     case 'edit': html = viewEdit(r.id); break;
     case 'list': html = viewList(); break;
     case 'pantry': html = viewPantry(); break;
@@ -669,7 +1016,7 @@ function render() {
 // Background changes shouldn't wipe a form the user is typing in.
 function renderIfSafe() {
   const r = route();
-  if (r.name === 'edit' || r.name === 'settings' || modal.open) return;
+  if (r.name === 'edit' || r.name === 'settings' || r.name === 'putaway' || modal.open) return;
   render();
 }
 
@@ -687,7 +1034,7 @@ function openModal(html, onSubmit) {
     if (submitter && submitter.value === 'delete') { onSubmit(form, 'delete'); return; }
     onSubmit(form, 'ok');
   });
-  modal.showModal();
+  if (!modal.open) modal.showModal();
 }
 
 modal.addEventListener('close', () => {
@@ -732,9 +1079,15 @@ function openAddToList(r) {
 }
 
 function openPantryEdit(p) {
+  let codes = codesOf(p);
+  const codesHtml = () => `${codes.map((c, i) => `<span class="tag">🏷️ ${esc(c)}<button type="button" class="tag-x" data-action="code-remove" data-i="${i}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}
+    <button type="button" class="btn small" data-action="code-add">📷 ${esc(t('linkBarcode'))}</button>`;
   openModal(`
     <h2>${esc(p.name)}</h2>
     <label>${esc(t('name'))}<input name="name" required value="${esc(p.name)}"></label>
+    <label>${esc(t('department'))}<select name="cat">${CATEGORIES.map((c) => `<option value="${c.id}" ${c.id === categoryOf(p) ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
+    <div class="field-label">${esc(t('barcodes'))}</div>
+    <div class="code-row" id="code-row"></div>
     <div class="two">
       <label>${esc(t('quantity'))}<input name="qty" inputmode="decimal" value="${esc(p.qty ?? '')}"></label>
       <label>${esc(t('unit'))}<select name="unit">${UNITS.map((u) => `<option value="${u}" ${u === (p.unit || '') ? 'selected' : ''}>${esc(unitOptionLabel(u))}</option>`).join('')}</select></label>
@@ -752,8 +1105,15 @@ function openPantryEdit(p) {
       <button class="btn danger" value="delete" formnovalidate>${esc(t('delete'))}</button>
     </div>`, (form, action) => {
     if (action === 'delete') { remove('pantry', p.id); ensureLowItems(); changed(); return; }
+    // a barcode belongs to one item only
+    for (const other of live('pantry').filter((x) => x.id !== p.id && codesOf(x).some((c) => codes.includes(c)))) {
+      const rest = codesOf(other).filter((c) => !codes.includes(c));
+      upsert('pantry', { ...other, barcode: rest[0] || null, barcodes: rest }, { silent: true });
+    }
     upsert('pantry', {
       ...p, name: form.name.value.trim(), qty: num(form.qty.value) ?? 0, unit: form.unit.value,
+      cat: form.cat.value === categorize(form.name.value) && !p.cat ? null : form.cat.value,
+      barcode: codes[0] || null, barcodes: codes,
       min: num(form.min.value), target: num(form.target.value),
       expires: form.expires.value || null,
       remindDays: form.remindDays.value === '' ? null : Math.max(0, parseInt(form.remindDays.value, 10) || 0),
@@ -761,6 +1121,20 @@ function openPantryEdit(p) {
     ensureLowItems();
     changed();
   });
+  const row = () => { const el = modal.querySelector('#code-row'); if (el) el.innerHTML = codesHtml(); };
+  row();
+  modal.onclick = async (e) => {
+    const rm = e.target.closest('[data-action=code-remove]');
+    if (rm) { codes.splice(+rm.dataset.i, 1); row(); return; }
+    if (!e.target.closest('[data-action=code-add]')) return;
+    const code = await scanBarcode($('#scanner'), tt);
+    if (code && !codes.includes(code)) {
+      const owner = live('pantry').find((x) => x.id !== p.id && hasCode(x, code));
+      if (owner) toast(t('barcodeMoved', owner.name));
+      codes.push(code);
+      row();
+    }
+  };
 }
 
 // ---------- events ----------
@@ -792,6 +1166,18 @@ view.addEventListener('submit', (e) => {
       changed();
       openPantryEdit(p);
     }
+  } else if (form.id === 'putaway-form') {
+    commitPutAway();
+  } else if (form.id === 'tag-form') {
+    const r = get('recipes', form.dataset.id);
+    const tag = form.tag.value.trim().replace(/\s+/g, ' ');
+    if (r && tag) {
+      const auto = autoTags(r).find((a) => t(`tag_${a}`).toLowerCase() === tag.toLowerCase());
+      if (auto) upsert('recipes', { ...r, hiddenTags: (r.hiddenTags || []).filter((x) => x !== auto) }, { silent: true });
+      else if (!(r.tags || []).some((x) => x.toLowerCase() === tag.toLowerCase())) upsert('recipes', { ...r, tags: [...(r.tags || []), tag] }, { silent: true });
+      changed();
+      $('#tag-input')?.focus();
+    }
   } else if (form.id === 'edit-form') {
     saveRecipe(form);
   } else if (form.id === 'gh-form') {
@@ -802,6 +1188,14 @@ view.addEventListener('submit', (e) => {
 view.addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.action === 'toggle') setChecked(el.dataset.id, el.checked);
+  if (el.dataset.pa && ui.putaway) {
+    const row = ui.putaway.rows[+el.dataset.i];
+    row[el.dataset.pa] = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.dataset.pa === 'name') { row.pantryId = null; row.cat = null; }
+    render();
+  }
+  if (el.id === 'sort') { saveSettings({ sort: el.value }); $('#cards').innerHTML = cardsHtml(); hydrate($('#cards')); }
+  if (el.id === 'basics') { saveSettings({ basics: el.checked }).then(render); }
   if (el.name === 'sourceType') el.closest('.source-fields')?.classList.toggle('is-book', el.value === 'book');
   if (el.dataset.action === 'move-recipe') {
     const r = get('recipes', el.dataset.id);
@@ -823,10 +1217,10 @@ view.addEventListener('change', (e) => {
 });
 
 view.addEventListener('input', (e) => {
+  if (e.target.dataset.pa && ui.putaway && e.target.type !== 'checkbox') ui.putaway.rows[+e.target.dataset.i][e.target.dataset.pa] = e.target.value;
   if (e.target.id === 'search') {
     ui.search = e.target.value;
-    const searching = Boolean(normalizeName(ui.search));
-    $('#cards').innerHTML = (searching ? '' : folderTiles(childFolders(currentFolderId()))) + recipeCards();
+    $('#cards').innerHTML = cardsHtml();
     hydrate($('#cards'));
   }
 });
@@ -887,6 +1281,24 @@ view.addEventListener('click', (e) => {
     case 'folder-new': openFolderEdit(null, currentFolderId()); break;
     case 'scan': startScan(); break;
     case 'photo-import': openPhotoCapture(); break;
+    case 'put-away': startPutAway(); break;
+    case 'pa-scan': putAwayScan(); break;
+    case 'dept-jump': document.getElementById(`dept-${btn.dataset.value}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
+    case 'toggle-filters': ui.showFilters = !ui.showFilters; render(); break;
+    case 'f-tag': { const f = filters(); const v = btn.dataset.value; f.tags = f.tags.includes(v) ? f.tags.filter((x) => x !== v) : [...f.tags, v]; render(); break; }
+    case 'f-source': { const f = filters(); f.source = f.source === btn.dataset.value ? '' : btn.dataset.value; render(); break; }
+    case 'f-time': { const f = filters(); const v = +btn.dataset.value; f.maxTime = f.maxTime === v ? 0 : v; render(); break; }
+    case 'f-ready': { const f = filters(); f.ready = f.ready === btn.dataset.value ? '' : btn.dataset.value; render(); break; }
+    case 'f-clear': ui.filters = null; render(); break;
+    case 'tag-remove': {
+      const r = get('recipes', id);
+      const v = btn.dataset.value;
+      if (v.startsWith('auto:')) upsert('recipes', { ...r, hiddenTags: [...new Set([...(r.hiddenTags || []), v.slice(5)])] }, { silent: true });
+      else upsert('recipes', { ...r, tags: (r.tags || []).filter((x) => x !== v) }, { silent: true });
+      changed();
+      break;
+    }
+    case 'add-missing': addMissingToList(id); break;
     case 'notify-on': enableNotifications(); break;
     case 'notify-off': disableNotifications(); break;
     case 'notify-test': {
@@ -1181,7 +1593,7 @@ function packText(p) {
 async function startScan() {
   const code = await scanBarcode($('#scanner'), tt);
   if (!code) return;
-  const known = live('pantry').find((p) => p.barcode === code);
+  const known = pantryByCode(code);
   if (known) openScanKnown(known);
   else openScanNew(code);
 }
@@ -1210,6 +1622,20 @@ function openScanKnown(p) {
   });
 }
 
+// Pantry items (without this barcode) that look like the scanned product: "Latte" for "Latte intero UHT".
+function linkCandidates(name, code) {
+  if (!name) return [];
+  const words = (x) => normalizeName(x).split(' ').filter((w) => w.length >= 4).map(singular);
+  const pw = words(name);
+  return live('pantry')
+    .filter((p) => !hasCode(p, code))
+    .map((p) => ({ p, score: namesMatch(p.name, name) ? 3 : words(p.name).filter((w) => pw.includes(w)).length }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || (codesOf(a.p).length - codesOf(b.p).length))
+    .slice(0, 3)
+    .map((x) => x.p);
+}
+
 function scanForm(code, info, state2) {
   const note = state2 === 'loading' ? `<p class="hint"><span class="spinner"></span> ${tt('lookingUp')}</p>`
     : state2 === 'notfound' ? `<p class="hint">${tt('notFoundOff')}</p>`
@@ -1219,6 +1645,10 @@ function scanForm(code, info, state2) {
     <h2>${tt('newProduct')}</h2>
     <p class="hint barcode-no">${info.brand ? `<strong>${esc(info.brand)}</strong> · ` : ''}${tt('barcode')}: ${esc(code)}</p>
     ${note}
+    ${(() => {
+      const cands = state2 === 'found' ? linkCandidates(info.name, code) : [];
+      return cands.length ? `<div class="link-cands"><p>${tt('isItOneOfThese')}</p>${cands.map((p) => `<button type="button" class="btn small" data-action="link-cand" data-id="${esc(p.id)}">🔗 ${esc(p.name)} <small>${esc(qtyText(num(p.qty) || 0, p.unit) || '0')}</small></button>`).join('')}<p class="hint small">${tt('orNewProduct')}</p></div>` : '';
+    })()}
     <label>${tt('name')}<input name="name" ${state2 === 'offline' ? '' : 'required'} value="${esc(info.name || '')}" autocomplete="off"></label>
     ${info.brand ? `<input type="hidden" name="brand" value="${esc(info.brand)}">` : '<input type="hidden" name="brand" value="">'}
     <div class="two">
@@ -1251,14 +1681,14 @@ function openScanNew(code) {
     if (twin) {
       const add = convert(qty, unit, twin.unit || '');
       upsert('pantry', {
-        ...twin, barcode: code, packQty: qty, packUnit: unit,
+        ...twin, ...withCode(twin, code), packQty: qty, packUnit: unit, cat: twin.cat || info.cat || null,
         qty: round((num(twin.qty) || 0) + (add ?? 0)), expires: earlier(twin.expires, expires),
       }, { silent: true });
       toast(t('mergedInto', twin.name));
     } else {
       upsert('pantry', {
-        id: uid(), name, brand: form.brand.value || '', qty, unit, packQty: qty, packUnit: unit, barcode: code,
-        expires, min: num(form.min.value), target: null, lookupPending: pending, nameFromCode: !nameTyped,
+        id: uid(), name, brand: form.brand.value || '', qty, unit, packQty: qty, packUnit: unit, barcode: code, barcodes: [code],
+        expires, min: num(form.min.value), target: null, lookupPending: pending, nameFromCode: !nameTyped, cat: info.cat || null,
       }, { silent: true });
       toast(t('addedToPantry', name));
     }
@@ -1278,6 +1708,19 @@ function openScanNew(code) {
     if (typed.min) f.min.value = typed.min;
     f.querySelector(status === 'found' ? 'input[name=expires]' : 'input[name=name]')?.focus();
   });
+  modal.onclick = (e) => {
+    const b = e.target.closest('[data-action=link-cand]');
+    if (!b) return;
+    const p = get('pantry', b.dataset.id);
+    if (!p) return;
+    const linked = upsert('pantry', {
+      ...p, ...withCode(p, code), brand: p.brand || info.brand || '', cat: p.cat || info.cat || null,
+      packQty: p.packQty || info.qty || null, packUnit: p.packQty ? p.packUnit : (info.unit || null),
+    }, { silent: true });
+    changed();
+    toast(t('barcodeLinked', p.name));
+    openScanKnown(linked);
+  };
 }
 
 // Products scanned offline get their name once we're back online.
@@ -1309,8 +1752,20 @@ async function resolvePendingProducts() {
 function openFolderEdit(folder, parentId = null) {
   const isNew = !folder;
   const f = folder || { id: uid(), name: '', parentId };
+  let cover = f.cover || null;
+  const coverBox = () => {
+    const shown = cover || folderCover({ ...f, cover: null });
+    return `${shown ? photoTag(shown) : '<span class="no-cover">📁</span>'}
+      <div class="cover-actions">
+        <label class="btn small"><input type="file" accept="image/*" id="folder-cover-input" hidden>${esc(t('chooseCover'))}</label>
+        ${cover ? `<button type="button" class="btn small ghost" data-action="cover-auto">${esc(t('autoCover'))}</button>` : `<small>${esc(t('autoCoverHint'))}</small>`}
+      </div>`;
+  };
+  const refreshCover = () => { const el = modal.querySelector('#cover-box'); if (el) { el.innerHTML = coverBox(); hydrate(el); } };
   openModal(`
     <h2>${esc(t(isNew ? 'newFolder' : 'editFolder'))}</h2>
+    <div class="field-label">${esc(t('cover'))}</div>
+    <div class="cover-box" id="cover-box"></div>
     <label>${esc(t('name'))}<input name="name" required value="${esc(f.name)}" autocomplete="off"></label>
     <label>${esc(t('insideFolder'))}<select name="parentId">${folderOptions(f.parentId || '', isNew ? new Set() : descendantIds(f.id))}</select></label>
     <div class="button-row">
@@ -1330,9 +1785,16 @@ function openFolderEdit(folder, parentId = null) {
     }
     const name = form.name.value.trim();
     if (!name) return;
-    upsert('folders', { ...f, name, parentId: form.parentId.value || null }, { silent: true });
+    upsert('folders', { ...f, name, parentId: form.parentId.value || null, cover }, { silent: true });
     changed();
   });
+  refreshCover();
+  modal.onchange = async (e) => {
+    if (e.target.id !== 'folder-cover-input' || !e.target.files.length) return;
+    try { cover = await addPhoto(`folder-${f.id}`, e.target.files[0]); } catch { toast(t('photoError')); }
+    refreshCover();
+  };
+  modal.onclick = (e) => { if (e.target.closest('[data-action=cover-auto]')) { cover = null; refreshCover(); } };
   setTimeout(() => modal.querySelector('input[name=name]')?.focus(), 50);
 }
 

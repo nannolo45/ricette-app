@@ -90,8 +90,9 @@ export function hydrate(root) {
 
 // Download every photo once, so they're all available offline.
 export async function prefetchAll() {
-  for (const r of live('recipes')) {
-    for (const path of [...(r.photos || []), ...(r.sourcePhotos || [])]) {
+  const all = [...live('recipes').flatMap((r) => [...(r.photos || []), ...(r.sourcePhotos || [])]), ...live('folders').map((f) => f.cover).filter(Boolean)];
+  for (const r of [{ photos: all }]) {
+    for (const path of r.photos.filter(isRepoPhoto)) {
       if (urls.has(path)) continue;
       if (navigator.onLine === false) return;
       await photoUrl(path);

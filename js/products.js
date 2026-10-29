@@ -1,11 +1,12 @@
 // Product lookup by barcode in Open Food Facts (free, open data, ODbL).
 import { kvGet, kvSet } from './store.js';
 import { parseIngredient } from './parse.js';
+import { offCategory } from './categories.js';
 
 const API = 'https://world.openfoodfacts.org/api/v2/product/';
 const FIELDS = [
   'product_name', 'product_name_it', 'product_name_de', 'product_name_en', 'generic_name',
-  'brands', 'quantity', 'product_quantity', 'product_quantity_unit',
+  'brands', 'quantity', 'product_quantity', 'product_quantity_unit', 'categories_tags',
 ].join(',');
 const NOT_FOUND_TTL = 7 * 24 * 3600 * 1000;
 
@@ -53,6 +54,7 @@ export async function lookupProduct(code, lang, { fetchImpl = fetch } = {}) {
     result = {
       found: Boolean(names.it || names.de || names.en), at: Date.now(), names, name: names[lang] || names.it,
       brand: String(p.brands || '').split(',')[0].trim(), qty: pack.qty, unit: pack.unit,
+      cat: offCategory(p.categories_tags),
     };
   } else {
     result = { found: false, at: Date.now() };
