@@ -1,10 +1,10 @@
 // Offline support. Each app version is cached as a whole; a new version is
 // downloaded in the background and takes over when the user taps "Update"
 // (or the next time the app is started from scratch).
-const VERSION = 'ricette-v8';
+const VERSION = 'ricette-v9';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
-  'js/app.js', 'js/store.js', 'js/sync.js', 'js/parse.js', 'js/i18n.js', 'js/photos.js', 'js/expiry.js', 'js/barcode.js', 'js/scanner.js', 'js/products.js',
+  'js/app.js', 'js/store.js', 'js/sync.js', 'js/parse.js', 'js/i18n.js', 'js/photos.js', 'js/expiry.js', 'js/barcode.js', 'js/scanner.js', 'js/products.js', 'js/recipe-text.js', 'js/dish-image.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 
@@ -14,7 +14,15 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  const type = event.data && event.data.type;
+  if (type === 'SKIP_WAITING') self.skipWaiting();
+  // A fresh start of the app: if no other window is open, switch to this version right away.
+  if (type === 'SKIP_IF_ALONE') {
+    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      if (wins.length <= 1) return self.skipWaiting();
+      return null;
+    }));
+  }
 });
 
 self.addEventListener('activate', (event) => {

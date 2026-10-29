@@ -11,6 +11,8 @@ import { addPhoto, addScan, hydrate, prefetchAll, coverOf, isRepoPhoto } from '.
 import { daysUntil, expiryState, todayStr } from './expiry.js';
 import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
+import { parseRecipeText } from './recipe-text.js';
+import { findDishImage } from './dish-image.js';
 import { lookupProduct } from './products.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -394,7 +396,7 @@ function sourceLabel(src) {
   return '';
 }
 
-const PHOTO_ERRORS = { no_api_key: 'errNoKey', api_key_invalid: 'errKeyInvalid', api_no_credit: 'errNoCredit', not_a_recipe: 'errNotRecipe' };
+const PHOTO_ERRORS = { no_text: 'errNoText', not_a_recipe: 'errNotRecipe', ocr_unavailable: 'errOcr' };
 
 function queueItem(q) {
   let host = q.url;
@@ -427,7 +429,7 @@ function viewRecipe(id) {
   return `
   <a class="back" href="${folderHref(recipeFolderId(r))}">← ${esc(recipeFolderId(r) ? folderOf(r.folderId).name : t('allRecipes'))}</a>
   ${coverOf(r) ? `<div class="hero">${photoTag(coverOf(r), { fallback: r.image })}</div>` : ''}
-  ${r.imageCredit && coverOf(r) === (r.photos || [])[0] ? `<p class="credit">${esc(t('photoBy'))} <a href="${esc(r.imageCredit.url)}" target="_blank" rel="noopener">${esc([r.imageCredit.creator, r.imageCredit.license].filter(Boolean).join(', ') || r.imageCredit.title || '↗')}</a></p>` : ''}
+  ${r.imageCredit && coverOf(r) === (r.imageCredit.photo || (r.photos || [])[0]) ? `<p class="credit">${esc(t('photoBy'))} <a href="${esc(r.imageCredit.url)}" target="_blank" rel="noopener">${esc([r.imageCredit.creator, r.imageCredit.license].filter(Boolean).join(', ') || r.imageCredit.title || '↗')}</a></p>` : ''}
   ${(r.photos || []).length > 1 ? `<div class="gallery">${r.photos.slice(1).map((p) => `<button class="shot" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
   <h1>${esc(r.title)}</h1>
   <div class="meta-line">
@@ -435,6 +437,7 @@ function viewRecipe(id) {
     ${r.time ? `<span>⏱ ${esc(r.time)}</span>` : ''}
     ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(t('source'))} ↗</a>` : ''}
   </div>
+  ${r.review ? `<div class="review"><span>${esc(t('reviewBanner'))}</span><a class="btn small primary" href="#/edit/${encodeURIComponent(id)}">${esc(t('reviewCheck'))}</a></div>` : ''}
   <label class="move">📁 <select data-action="move-recipe" data-id="${esc(id)}" aria-label="${esc(t('folder'))}">${folderOptions(recipeFolderId(r))}</select></label>
   <div class="servings">
     <button class="round" data-action="srv-dec" data-id="${esc(id)}" aria-label="−">−</button>
@@ -488,12 +491,15 @@ function viewEdit(id) {
   const r = isNew ? { title: '', url: ui.prefillUrl, servings: 4, ingredients: [], steps: [], folderId: ui.newFolder || null, ...(ui.prefillSource || {}) } : get('recipes', id);
   if (!r) return `<p class="empty">${esc(t('notFound'))}</p>`;
   if (!ui.edit || ui.edit.route !== id) {
-    ui.edit = { route: id, id: isNew ? uid() : id, photos: [...(r.photos || [])], busy: false };
+    ui.edit = { route: id, id: isNew ? uid() : id, photos: [...(r.photos || [])], busy: false, imageCredit: r.imageCredit || null };
+    if (isNew && ui.prefillSource?.findImageFor) lookForDishPhoto(ui.edit, ui.prefillSource.findImageFor, ui.prefillSource.lang);
   }
   const ingText = ingredientsOf(r).map((i) => i.raw || [formatQty(i.qty, i.unit), unitLabel(i.unit, i.qty), i.name].filter(Boolean).join(' ')).join('\n');
   return `
   <a class="back" href="${isNew ? folderHref(ui.newFolder) : `#/recipe/${encodeURIComponent(id)}`}">← ${esc(t('back'))}</a>
   <h1>${esc(t(isNew ? 'newRecipe' : 'editRecipe'))}</h1>
+  ${(r.sourcePhotos || ui.prefillSource?.sourcePhotos || []).length ? `<div class="field-label">${esc(t('originalForCheck'))}</div>
+    <div class="gallery">${(r.sourcePhotos || ui.prefillSource.sourcePhotos).map((p) => `<button type="button" class="shot page" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
   <form id="edit-form" class="form" data-id="${esc(id)}">
     <div class="field-label">${esc(t('photos'))}</div>
     <div class="photo-strip" id="photo-strip">${photoStrip()}</div>
@@ -672,6 +678,7 @@ function renderIfSafe() {
 function openModal(html, onSubmit) {
   modal.onchange = null;
   modal.onclick = null;
+  modal.oninput = null;
   modal.innerHTML = `<form method="dialog" class="form">${html}</form>`;
   const form = modal.querySelector('form');
   form.addEventListener('submit', (e) => {
@@ -890,6 +897,8 @@ view.addEventListener('click', (e) => {
     case 'folder-edit': openFolderEdit(get('folders', id)); break;
     case 'new-recipe':
       ui.newFolder = currentFolderId();
+      ui.prefillSource = null;
+      ui.prefillUrl = '';
       ui.edit = null;
       location.hash = '#/edit/new';
       break;
@@ -1054,7 +1063,52 @@ function refreshCapture() {
   if (!c || !strip) return;
   strip.innerHTML = captureStrip(c);
   hydrate(strip);
-  modal.querySelector('button[value=ok]').disabled = !c.scans.length || c.busy;
+  const pasted = modal.querySelector('textarea[name=pasted]')?.value.trim();
+  modal.querySelector('button[value=ok]').disabled = (!c.scans.length && !pasted) || c.busy;
+}
+
+// Text copied from the photo (iPhone Live Text, Google Lens) → read here on the device → edit form to check.
+function openParsedText(text, kind, form, c) {
+  const r = parseRecipeText(text);
+  ui.prefillUrl = '';
+  ui.newFolder = currentFolderId();
+  ui.prefillSource = {
+    title: r.title, servings: r.servings, time: r.time, notes: r.notes, steps: r.steps,
+    ingredients: r.ingredients.map((i) => parseIngredient(i.raw)),
+    source: { type: kind, book: kind === 'book' ? form.book.value.trim() : '', page: kind === 'book' ? form.page.value.trim() : '' },
+    sourcePhotos: [...c.scans],
+    findImageFor: r.title, lang: r.lang,
+  };
+  ui.edit = null;
+  ui.capture = null;
+  location.hash = '#/edit/new';
+  if (route().name === 'edit') render();
+}
+
+// Look up a photo of the dish on Wikipedia and offer it as the cover.
+async function lookForDishPhoto(edit, title, lang) {
+  if (!title || !navigator.onLine) return;
+  let found;
+  try { found = await findDishImage(title, lang || getLang()); } catch { return; }
+  if (!found || ui.edit !== edit || edit.photos.length) return;
+  try {
+    const res = await fetch(found.url);
+    if (!res.ok) throw new Error('img');
+    const path = await addPhoto(edit.id, await res.blob());
+    if (ui.edit !== edit || edit.photos.length) return;
+    edit.photos.push(path);
+    edit.imageCredit = { ...found.credit, photo: path };
+    refreshPhotoStrip();
+    toast(t('photoFromWiki'));
+  } catch {
+    // the picture can't be downloaded from here: link it instead
+    const inp = document.querySelector('#edit-form input[name=image]');
+    if (ui.edit === edit && inp && !inp.value) {
+      inp.value = found.url;
+      edit.imageCredit = { ...found.credit, photo: found.url };
+      toast(t('photoFromWiki'));
+    }
+  }
 }
 
 function openPhotoCapture() {
@@ -1072,13 +1126,20 @@ function openPhotoCapture() {
       <label>${esc(t('page'))}<input name="page" inputmode="numeric" autocomplete="off" placeholder="${esc(t('optional'))}"></label>
     </div>
     ${booksDatalist()}
-    ${isConfigured() ? `<p class="hint small">${esc(t('captureCost'))}</p>` : `<p class="hint small">${esc(t('importNeedsGithub'))}</p>`}
+    <details class="paste" ${c.pasteOpen ? 'open' : ''}>
+      <summary>${esc(t('pasteText'))}</summary>
+      <p class="hint small">${esc(t('pasteHint'))}</p>
+      <textarea name="pasted" rows="7" placeholder="${esc(t('pasteTextPh'))}"></textarea>
+    </details>
+    <p class="hint small">${esc(t(isConfigured() ? 'captureFree' : 'importNeedsGithub'))}</p>
     <div class="button-row">
       <button class="btn primary" value="ok" disabled>${esc(t('readRecipe'))}</button>
       <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
     </div>`, (form) => {
-    if (!c.scans.length) return;
     const kind = form.kind.value;
+    const pasted = form.pasted.value.trim();
+    if (pasted) { openParsedText(pasted, kind, form, c); return; }
+    if (!c.scans.length) return;
     upsert('queue', {
       id: c.id, type: 'photo', kind, scans: [...c.scans], status: 'pending', addedAt: Date.now(), folderId: currentFolderId(),
       book: kind === 'book' ? form.book.value.trim() : '', page: kind === 'book' ? form.page.value.trim() : '',
@@ -1100,6 +1161,7 @@ function openPhotoCapture() {
       c.busy = false; refreshCapture();
     }
   };
+  modal.oninput = (e) => { if (e.target.name === 'pasted') refreshCapture(); };
   modal.onclick = (e) => {
     const b = e.target.closest('[data-action=scan-remove]');
     if (!b) return;
@@ -1312,6 +1374,8 @@ function saveRecipe(form) {
       page: form.sourceType.value === 'book' ? form.page.value.trim() : '',
     } : null,
     sourcePhotos: prev.sourcePhotos || ui.prefillSource?.sourcePhotos || [],
+    imageCredit: ui.edit?.imageCredit || null,
+    review: false,
     photos: [...(ui.edit?.photos || [])],
     parsed: true,
   }, { silent: true });
@@ -1446,6 +1510,11 @@ async function setupUpdates() {
     ready();
     w.addEventListener('statechange', ready);
   };
+  if (reg.waiting && navigator.serviceWorker.controller) {
+    // opened from scratch while a new version was waiting: use it straight away
+    ui.reloadOnUpdate = true;
+    reg.waiting.postMessage({ type: 'SKIP_IF_ALONE' });
+  }
   watch(reg.waiting);
   watch(reg.installing);
   reg.addEventListener('updatefound', () => watch(reg.installing));

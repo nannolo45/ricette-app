@@ -291,3 +291,7 @@ form.capture:not(.is-book) .book-only, .source-fields:not(.is-book) .book-only {
 .credit a { color: var(--muted); }
 .meta-line .src { color: var(--ink); font-weight: 600; }
 .src-ico { font-size: .85em; }
+.review { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--warn) 14%, var(--surface)); font-size: .9rem; }
+details.paste { margin: 10px 0 4px; }
+details.paste summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+details.paste textarea { margin-top: 6px; }
