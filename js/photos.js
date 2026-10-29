@@ -46,6 +46,19 @@ export async function addScan(captureId, file) {
   return storePhoto(`images/scans/${captureId}-${uid().slice(0, 6)}.jpg`, await resize(file, 2000, 0.86));
 }
 
+// A file to upload as is (a cookbook PDF/EPUB): waits with the photos, removed from the device once uploaded.
+export async function addUpload(path, blob) {
+  await kvSet(`img:${path}`, blob);
+  const pending = (await kvGet('pendingPhotos')) || [];
+  if (!pending.includes(path)) pending.push(path);
+  await kvSet('pendingPhotos', pending);
+  return path;
+}
+
+export async function isUploadPending(path) {
+  return ((await kvGet('pendingPhotos')) || []).includes(path);
+}
+
 async function storePhoto(path, blob) {
   await kvSet(`img:${path}`, blob);
   const pending = (await kvGet('pendingPhotos')) || [];

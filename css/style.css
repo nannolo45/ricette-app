@@ -497,3 +497,13 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; -webkit-user-s
   .people-pick { order: 5; flex: 1 1 100%; justify-content: space-between; }
 }
 @media (min-width: 701px) { .people-pick .pp-label { display: none; } }
+
+/* whole-book import */
+.import-tools .book-import { grid-column: 1 / -1; }
+.book-import small { color: var(--muted); font-weight: 500; font-size: .78rem; }
+.q-book { font-size: 1.8rem; line-height: 1; flex: none; }
+.queue.book small.hint { display: block; margin-top: 2px; }
+.queue.done { border-color: var(--green); }
+.queue-note.done { background: none; border: 1px solid var(--line); color: var(--green); }
+.file-pick { display: flex; justify-content: center; width: 100%; margin: 4px 0; cursor: pointer; }
+.book-file { margin: 4px 0 8px; font-weight: 600; overflow-wrap: anywhere; }

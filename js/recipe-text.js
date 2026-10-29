@@ -14,6 +14,7 @@ const ING_HEAD_LOOSE = /^(ingredienti|zutaten|ingredients)\b.{0,40}$/i;
 const SERVINGS = [
   /\b(?:serves|servings|porzioni|portionen|yield|makes)\s*:?\s*(\d{1,2})\b/i,
   /\b(\d{1,2})\s*(?:persone|porzioni|personen|portionen|persons|people|servings|portions|pers\.)/i,
+  /\b(?:für|per|for|makes|ergibt|circa)\s+(?:ca\.?\s+|about\s+)?(\d{1,2})\s*(?:stück|stücke|stk\.?|pezzi|fette|slices|pieces|cookies|biscotti|muffins?|kekse)\b/i,
 ];
 const TIME = /(?:tempo(?: totale| di preparazione)?|preparazione|cottura|zeit|zubereitungszeit|gesamtzeit|backzeit|ready in|time|total time|prep(?:aration)? time)\s*:?\s*([\d][^·|•\n]{0,40}?(?:min(?:uti|uten|utes)?|h|ore|ora|stunden?|std\.?|hours?)\b(?:\s*\+\s*[\d][^·|•\n]{0,30}?(?:min(?:uti|uten|utes)?|h|ore|ora|stunden?|hours?)\b(?:\s+[a-zà-ü ]{0,25})?)?)/i;
 
@@ -49,13 +50,13 @@ function clean(s) {
     .trim();
 }
 
-function isHeader(t) {
+export function isHeader(t) {
   for (const [kind, re] of Object.entries(HEAD)) if (t.length <= 40 && re.test(t)) return kind;
   if (t.length <= 45 && ING_HEAD_LOOSE.test(t) && !/\d+\s*(?:g|ml|kg|l)\b/i.test(t)) return 'ing';
   return null;
 }
 
-function isIngredientLike(t) {
+export function isIngredientLike(t) {
   if (t.length > 75) return false;
   if (TO_TASTE.test(t)) return true;
   const p = parseIngredient(t);
@@ -63,7 +64,7 @@ function isIngredientLike(t) {
   return false;
 }
 
-function isStepLike(t) {
+export function isStepLike(t) {
   return NUMBERED.test(t) || t.length > 60 || (/[.!?]$/.test(t) && t.split(' ').length >= 6);
 }
 

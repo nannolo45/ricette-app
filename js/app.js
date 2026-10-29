@@ -7,7 +7,7 @@ import {
   UNITS, stepFor, setDecimalSeparator,
 } from './parse.js';
 import { t, setLang, getLang, LANGS, unitLabel, unitOptionLabel, detectLang } from './i18n.js';
-import { addPhoto, addScan, hydrate, prefetchAll, coverOf, isRepoPhoto } from './photos.js';
+import { addPhoto, addScan, addUpload, hydrate, prefetchAll, coverOf, isRepoPhoto } from './photos.js';
 import { daysUntil, expiryState, todayStr } from './expiry.js';
 import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
@@ -290,7 +290,7 @@ function postSync() {
     }
   }
   for (const q of live('queue')) {
-    if (q.status === 'done' && Date.now() - (q.updatedAt || 0) > 60_000) remove('queue', q.id);
+    if (q.status === 'done' && q.type !== 'book' && Date.now() - (q.updatedAt || 0) > 60_000) remove('queue', q.id);
   }
   ensureLowItems();
   if (imported) toast(t('importedN', imported));
@@ -335,7 +335,7 @@ function updateSyncBadge(syncing = isSyncing()) {
 // ---------- views ----------
 
 function viewImport() {
-  const queue = live('queue').filter((q) => q.status !== 'done').sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  const queue = live('queue').filter((q) => q.status !== 'done' || q.type === 'book').sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   const recent = live('recipes').filter((r) => r.createdAt).sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
   const folder = folderOf(state.settings.importFolder) ? state.settings.importFolder : '';
   return `
@@ -349,6 +349,7 @@ function viewImport() {
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
       ${esc(t('fromPhoto'))}</button>
     <button class="btn" data-action="new-recipe">✍️ ${esc(t('manualLong'))}</button>
+    <button class="btn book-import" data-action="book-import">📚 ${esc(t('wholeBook'))} <small>PDF · EPUB</small></button>
   </div>
   <label class="import-folder">📁 ${esc(t('saveIn'))}
     <select id="import-folder">${folderOptions(folder)}</select></label>
@@ -369,8 +370,9 @@ function viewRecipes() {
   const folderId = currentFolderId();
   const path = folderPath(folderId);
   const queueN = live('queue').filter((q) => q.status !== 'done').length;
+  const booksDone = live('queue').filter((q) => q.type === 'book' && q.status === 'done').length;
   return `
-  ${queueN ? `<a class="queue-note" href="#/import">⏳ ${esc(t('importsWaiting', queueN))}</a>` : ''}
+  ${queueN ? `<a class="queue-note" href="#/import">⏳ ${esc(t('importsWaiting', queueN))}</a>` : booksDone ? `<a class="queue-note done" href="#/import">📚 ${esc(t('booksImported', booksDone))}</a>` : ''}
   <div class="row">
     <input type="search" id="search" placeholder="${esc(t('search'))}" value="${esc(ui.search)}">
   </div>
@@ -727,7 +729,35 @@ function sourceLabel(src) {
 
 const PHOTO_ERRORS = { no_text: 'errNoText', not_a_recipe: 'errNotRecipe', ocr_unavailable: 'errOcr' };
 
+const BOOK_ERRORS = { no_recipes_found: 'errBookNoRecipes', no_text: 'errBookNoText', unsupported_format: 'errBookFormat' };
+
+function bookItem(q) {
+  const name = q.bookTitle || q.book || q.file?.split('/').pop() || '';
+  if (q.status === 'done') {
+    return `<div class="queue done book">
+      <div class="q-main"><span class="q-book">📚</span><div><strong>${esc(t('bookDone', q.count || 0))}</strong><br><small>${esc(name)}</small></div></div>
+      <div class="actions">
+        ${q.bookFolder && folderOf(q.bookFolder) ? `<button class="btn small primary" data-action="open-book" data-id="${esc(q.bookFolder)}">${esc(t('openFolder'))}</button>` : ''}
+        <button class="btn small ghost" data-action="q-remove" data-id="${esc(q.id)}">${esc(t('ok'))}</button>
+      </div></div>`;
+  }
+  if (q.status === 'error') {
+    return `<div class="queue error book">
+      <div class="q-main"><span class="q-book">📚</span><div><strong>${esc(t(BOOK_ERRORS[q.error] || 'errBook'))}</strong><br><small>${esc(name)}</small></div></div>
+      <div class="actions">
+        <button class="btn small" data-action="q-retry" data-id="${esc(q.id)}">${esc(t('retry'))}</button>
+        <button class="btn small ghost" data-action="q-remove" data-id="${esc(q.id)}">${esc(t('remove'))}</button>
+      </div></div>`;
+  }
+  const waiting = !isConfigured() || !navigator.onLine || state.meta.dirty;
+  return `<div class="queue pending book">
+    <div class="q-main"><span class="q-book">📚</span><div><span class="spinner"></span> ${esc(t(waiting ? 'bookUploading' : 'bookReading'))}<br><small>${esc(name)}</small>
+      <small class="hint">${esc(t('bookReadingHint'))}</small></div></div>
+    <div class="actions"><button class="btn small ghost" data-action="q-remove" data-id="${esc(q.id)}">${esc(t('remove'))}</button></div></div>`;
+}
+
 function queueItem(q) {
+  if (q.type === 'book') return bookItem(q);
   let host = q.url;
   try { host = new URL(q.url).hostname.replace(/^www\./, ''); } catch { /* keep url */ }
   const isPhoto = q.type === 'photo';
@@ -1412,8 +1442,13 @@ function renderShell() {
   updateSyncBadge();
 }
 
+let lastRendered = '';
 function render() {
   const r = route();
+  // a background re-render (sync, another tab) keeps the place on the page
+  const here = location.hash || '#/recipes';
+  const keepY = here === lastRendered ? window.scrollY : null;
+  lastRendered = here;
   const active = document.activeElement;
   const focusId = active && active.id;
   const typed = focusId && active.tagName === 'INPUT' ? active.value : null;
@@ -1438,8 +1473,9 @@ function render() {
   updatePantryBadge();
   if (focusId) {
     const el = document.getElementById(focusId);
-    if (el) { if (typed != null && el.tagName === 'INPUT') el.value = typed; el.focus(); if (sel) try { el.setSelectionRange(...sel); } catch { /* not a text input */ } }
+    if (el) { if (typed != null && el.tagName === 'INPUT') el.value = typed; el.focus({ preventScroll: true }); if (sel) try { el.setSelectionRange(...sel); } catch { /* not a text input */ } }
   }
+  if (keepY != null && Math.abs(window.scrollY - keepY) > 1) window.scrollTo(0, keepY);
   updateSyncBadge();
 }
 
@@ -1725,6 +1761,8 @@ view.addEventListener('click', (e) => {
     case 'folder-new': openFolderEdit(null, currentFolderId()); break;
     case 'scan': startScan(); break;
     case 'photo-import': openPhotoCapture(); break;
+    case 'book-import': openBookImport(); break;
+    case 'open-book': ui.search = ''; ui.filters = null; ui.showFilters = false; location.hash = folderHref(id); break;
     case 'put-away': startPutAway(); break;
     case 'pa-scan': putAwayScan(); break;
     case 'dept-jump': document.getElementById(`dept-${btn.dataset.value}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
@@ -2293,6 +2331,56 @@ function openFolderDelete(f) {
     changed();
     toast(t('folderDeleted'));
   });
+}
+
+const MAX_BOOK = 50 * 1024 * 1024;
+
+function openBookImport() {
+  let file = null;
+  const folder = folderOf(state.settings.importFolder) ? state.settings.importFolder : '';
+  openModal(`
+    <h2>📚 ${esc(t('wholeBook'))}</h2>
+    <p class="hint">${esc(t('bookIntro'))}</p>
+    <label class="btn file-pick">${esc(t('chooseBook'))}<input type="file" id="book-input" accept=".pdf,.epub,application/pdf,application/epub+zip" hidden></label>
+    <p class="book-file" id="book-file" aria-live="polite"></p>
+    <label>${esc(t('bookTitle'))}<input name="title" id="book-title" autocomplete="off" placeholder="${esc(t('bookTitleAuto'))}"></label>
+    <label>📁 ${esc(t('saveIn'))}<select name="folderId">${folderOptions(folder)}</select></label>
+    <label class="check"><input type="checkbox" name="makeFolder" checked> <span>${esc(t('bookMakeFolder'))}</span></label>
+    ${!isConfigured() ? `<p class="hint warn">${esc(t('bookNeedsGithub'))}</p>` : ''}
+    <p class="hint small">${esc(t('bookHow'))}</p>
+    <div class="button-row">
+      <button class="btn primary" value="ok" disabled>${esc(t('bookStart'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+    </div>`, async (form) => {
+    if (!file) return;
+    const ext = /\.epub$/i.test(file.name) || file.type === 'application/epub+zip' ? 'epub' : 'pdf';
+    const id = `b${uid().slice(0, 10)}`;
+    const path = `books/${id}.${ext}`;
+    await addUpload(path, file);
+    upsert('queue', {
+      id, type: 'book', file: path, book: form.title.value.trim(), fileName: file.name,
+      folderId: form.folderId.value || null, makeFolder: form.makeFolder.checked,
+      status: 'pending', addedAt: Date.now(),
+    }, { silent: true });
+    changed();
+    toast(t('bookQueued'));
+  });
+  modal.onchange = (e) => {
+    if (e.target.id !== 'book-input') return;
+    const f = e.target.files[0];
+    const info = modal.querySelector('#book-file');
+    const ok = modal.querySelector('button[value=ok]');
+    file = null;
+    ok.disabled = true;
+    if (!f) { info.textContent = ''; return; }
+    if (!/\.(pdf|epub)$/i.test(f.name) && !/pdf|epub/.test(f.type)) { info.innerHTML = `<span class="warn">${esc(t('errBookFormat'))}</span>`; return; }
+    if (f.size > MAX_BOOK) { info.innerHTML = `<span class="warn">${esc(t('bookTooBig', Math.round(f.size / 1048576)))}</span>`; return; }
+    file = f;
+    info.textContent = `${f.name} · ${(f.size / 1048576).toFixed(1).replace('.', getLang() === 'en' ? '.' : ',')} MB`;
+    const title = modal.querySelector('#book-title');
+    if (!title.value) title.value = f.name.replace(/\.(pdf|epub)$/i, '').replace(/[-_]+/g, ' ').trim();
+    ok.disabled = false;
+  };
 }
 
 async function addPhotos(files) {

@@ -1,6 +1,6 @@
 // Two-way sync of local collections with JSON files in a GitHub repository.
 import {
-  state, COLLECTIONS, mergeLists, purgeTombstones, serialize, replaceCollection, saveMeta, kvGet, kvSet,
+  state, COLLECTIONS, mergeLists, purgeTombstones, serialize, replaceCollection, saveMeta, kvGet, kvSet, kvDel,
 } from './store.js';
 
 export const PATHS = {
@@ -127,7 +127,10 @@ async function uploadPendingPhotos() {
       body: JSON.stringify({ message: `app: add ${path}`, content: await blobToBase64(blob), branch: branch() }),
     });
     // 422 = file already there (e.g. uploaded before a crash): fine.
-    if (res.ok || res.status === 422) continue;
+    if (res.ok || res.status === 422) {
+      if (path.startsWith('books/')) await kvDel(`img:${path}`); // books are only kept until they're on GitHub
+      continue;
+    }
     left.push(path);
     if (res.status === 401 || res.status === 403) { await kvSet('pendingPhotos', left.concat(pending.slice(pending.indexOf(path) + 1))); throw fail(res); }
   }
