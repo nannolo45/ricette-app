@@ -8,6 +8,10 @@ import {
 } from './parse.js';
 import { t, setLang, getLang, LANGS, unitLabel, unitOptionLabel, detectLang } from './i18n.js';
 import { addPhoto, hydrate, prefetchAll, coverOf, isRepoPhoto } from './photos.js';
+import { daysUntil, expiryState, todayStr } from './expiry.js';
+import { getOrCreateVapidPublicKey } from './sync.js';
+import { scanBarcode } from './scanner.js';
+import { lookupProduct } from './products.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -56,7 +60,63 @@ function route() {
   return { name, id: id && decodeURIComponent(id) };
 }
 
-const TAB_OF = { recipes: 'recipes', recipe: 'recipes', edit: 'recipes', list: 'list', pantry: 'pantry', settings: 'settings' };
+const TAB_OF = { recipes: 'recipes', folder: 'recipes', recipe: 'recipes', edit: 'recipes', list: 'list', pantry: 'pantry', settings: 'settings' };
+
+// ---------- folders ----------
+
+const byTitle = (a, b) => (a.name || a.title || '').localeCompare(b.name || b.title || '', undefined, { sensitivity: 'base' });
+
+function folderOf(id) { return id ? get('folders', id) : null; }
+
+function currentFolderId() {
+  const r = route();
+  return r.name === 'folder' && folderOf(r.id) ? r.id : null;
+}
+
+function childFolders(parentId) {
+  return live('folders').filter((f) => (f.parentId || null) === (parentId || null)).sort(byTitle);
+}
+
+function folderPath(id) {
+  const path = [];
+  const seen = new Set();
+  let f = folderOf(id);
+  while (f && !seen.has(f.id)) { seen.add(f.id); path.unshift(f); f = folderOf(f.parentId); }
+  return path;
+}
+
+function descendantIds(id) {
+  const out = new Set([id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const f of live('folders')) if (f.parentId && out.has(f.parentId) && !out.has(f.id)) { out.add(f.id); grew = true; }
+  }
+  return out;
+}
+
+function recipeFolderId(r) { return r.folderId && folderOf(r.folderId) ? r.folderId : null; }
+
+function countIn(folderId) {
+  const ids = descendantIds(folderId);
+  return live('recipes').filter((r) => ids.has(recipeFolderId(r))).length;
+}
+
+// <option>s for every folder, indented by depth.
+function folderOptions(selected, exclude = new Set()) {
+  const out = [`<option value="">${esc(t('noFolder'))}</option>`];
+  const walk = (parentId, depth) => {
+    for (const f of childFolders(parentId)) {
+      if (exclude.has(f.id)) continue;
+      out.push(`<option value="${esc(f.id)}" ${f.id === selected ? 'selected' : ''}>${'\u00a0\u00a0'.repeat(depth)}${depth ? '└ ' : ''}${esc(f.name)}</option>`);
+      walk(f.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out.join('');
+}
+
+function folderHref(id) { return id ? `#/folder/${encodeURIComponent(id)}` : '#/recipes'; }
 
 // ---------- shopping / pantry logic ----------
 
@@ -83,6 +143,40 @@ function lowInfo(p) {
   const tgt = num(p.target);
   const target = tgt != null && tgt > min ? tgt : Math.max(min * 2, min + stepFor(p.unit));
   return { buy: round(target - qty) };
+}
+
+function remindDefault() {
+  const d = num(state.settings.remindDays);
+  return d == null ? 3 : d;
+}
+
+function expiringItems() {
+  return live('pantry')
+    .map((p) => ({ p, st: expiryState(p, remindDefault()), d: daysUntil(p.expires) }))
+    .filter((x) => x.st === 'soon' || x.st === 'expired')
+    .sort((a, b) => a.d - b.d);
+}
+
+function expiryText(d) {
+  if (d < 0) return t('expiredAgo', -d);
+  if (d === 0) return t('expiresToday');
+  if (d === 1) return t('expiresTomorrow');
+  return t('expiresIn', d);
+}
+
+function shortDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(getLang(), { day: 'numeric', month: 'short' });
+}
+
+function updatePantryBadge() {
+  const n = expiringItems().length;
+  const a = document.querySelector('nav.tabs a[data-tab=pantry]');
+  if (!a) return;
+  let b = a.querySelector('.count');
+  if (!n) { b?.remove(); return; }
+  if (!b) { b = document.createElement('span'); b.className = 'count'; a.querySelector('.ico').append(b); }
+  b.textContent = n;
 }
 
 function ensureLowItems() {
@@ -167,7 +261,11 @@ function postSync() {
   let imported = 0;
   for (const r of live('recipes')) {
     if (r.parsed === false) {
-      upsert('recipes', { ...r, parsed: true, ingredients: (r.ingredients || []).map((i) => parseIngredient(i.raw || '')) }, { silent: true });
+      const q = state.queue.find((x) => x.recipeId === r.id || `r_${x.id}` === r.id);
+      upsert('recipes', {
+        ...r, parsed: true, folderId: r.folderId || q?.folderId || null,
+        ingredients: (r.ingredients || []).map((i) => parseIngredient(i.raw || '')),
+      }, { silent: true });
       imported++;
     }
   }
@@ -177,6 +275,7 @@ function postSync() {
   ensureLowItems();
   if (imported) toast(t('importedN', imported));
   prefetchAll();
+  if (live('pantry').some((p) => p.lookupPending)) resolvePendingProducts();
 }
 
 // ---------- sync scheduling ----------
@@ -217,6 +316,10 @@ function updateSyncBadge(syncing = isSyncing()) {
 
 function viewRecipes() {
   const queue = live('queue').filter((q) => q.status !== 'done');
+  const folderId = currentFolderId();
+  const path = folderPath(folderId);
+  const searching = Boolean(normalizeName(ui.search));
+  const subfolders = childFolders(folderId);
   return `
   <form class="import" id="import-form">
     <input type="url" name="url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off">
@@ -226,26 +329,53 @@ function viewRecipes() {
   ${queue.map(queueItem).join('')}
   <div class="row">
     <input type="search" id="search" placeholder="${esc(t('search'))}" value="${esc(ui.search)}">
-    <a class="btn" href="#/edit/new">+ ${esc(t('manual'))}</a>
   </div>
-  <div class="cards" id="cards">${recipeCards()}</div>`;
+  <div class="folder-bar">
+    <div class="crumbs">
+      <a href="#/recipes">${esc(t('allRecipes'))}</a>
+      ${path.map((f) => `<span>›</span><a href="${folderHref(f.id)}">${esc(f.name)}</a>`).join('')}
+    </div>
+    <div class="folder-actions">
+      ${folderId ? `<button class="btn small ghost" data-action="folder-edit" data-id="${esc(folderId)}">${esc(t('edit'))}</button>` : ''}
+      <button class="btn small" data-action="folder-new">+ ${esc(t('folder'))}</button>
+      <button class="btn small" data-action="new-recipe">+ ${esc(t('manual'))}</button>
+    </div>
+  </div>
+  <div id="cards">${searching ? '' : folderTiles(subfolders)}${recipeCards()}</div>`;
+}
+
+function folderTiles(folders) {
+  if (!folders.length) return '';
+  return `<div class="folders">${folders.map((f) => `
+    <a class="folder" href="${folderHref(f.id)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span class="folder-name">${esc(f.name)}</span>
+      <small>${countIn(f.id)}</small>
+    </a>`).join('')}</div>`;
 }
 
 function recipeCards() {
   const q = normalizeName(ui.search);
+  const folderId = currentFolderId();
+  // Searching looks through every folder; otherwise show this folder's recipes.
   const list = live('recipes')
-    .filter((r) => !q || normalizeName(r.title).includes(q)
-      || ingredientsOf(r).some((i) => normalizeName(i.name).includes(q)))
+    .filter((r) => (q ? (normalizeName(r.title).includes(q)
+      || ingredientsOf(r).some((i) => normalizeName(i.name).includes(q))) : recipeFolderId(r) === folderId))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  if (!list.length) return q ? '' : `<p class="empty">${esc(t('noRecipes'))}</p>`;
-  return list.map((r) => `
+  if (!list.length) {
+    if (q) return '';
+    if (folderId) return childFolders(folderId).length ? '' : `<p class="empty">${esc(t('folderEmpty'))}</p>`;
+    return live('recipes').length || childFolders(null).length ? '' : `<p class="empty">${esc(t('noRecipes'))}</p>`;
+  }
+  return `<div class="cards">${list.map((r) => `
     <a class="card" href="#/recipe/${encodeURIComponent(r.id)}">
       <div class="thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></div>
       <div class="card-body">
         <div class="card-title">${esc(r.title)}</div>
         <div class="card-meta">${esc(t('people', r.servings || 4))}${r.time ? ` · ${esc(r.time)}` : ''}</div>
+        ${q && recipeFolderId(r) ? `<div class="card-meta">📁 ${esc(folderPath(r.folderId).map((f) => f.name).join(' › '))}</div>` : ''}
       </div>
-    </a>`).join('');
+    </a>`).join('')}</div>`;
 }
 
 function queueItem(q) {
@@ -273,7 +403,7 @@ function viewRecipe(id) {
   const n = ui.servings[id] || base;
   const ings = ingredientsOf(r);
   return `
-  <a class="back" href="#/recipes">← ${esc(t('back'))}</a>
+  <a class="back" href="${folderHref(recipeFolderId(r))}">← ${esc(recipeFolderId(r) ? folderOf(r.folderId).name : t('allRecipes'))}</a>
   ${coverOf(r) ? `<div class="hero">${photoTag(coverOf(r), { fallback: r.image })}</div>` : ''}
   ${(r.photos || []).length > 1 ? `<div class="gallery">${r.photos.slice(1).map((p) => `<button class="shot" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
   <h1>${esc(r.title)}</h1>
@@ -281,6 +411,7 @@ function viewRecipe(id) {
     ${r.time ? `<span>⏱ ${esc(r.time)}</span>` : ''}
     ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(t('source'))} ↗</a>` : ''}
   </div>
+  <label class="move">📁 <select data-action="move-recipe" data-id="${esc(id)}" aria-label="${esc(t('folder'))}">${folderOptions(recipeFolderId(r))}</select></label>
   <div class="servings">
     <button class="round" data-action="srv-dec" data-id="${esc(id)}" aria-label="−">−</button>
     <span>${esc(t('people', n))}</span>
@@ -328,19 +459,20 @@ function refreshPhotoStrip() {
 
 function viewEdit(id) {
   const isNew = id === 'new';
-  const r = isNew ? { title: '', url: ui.prefillUrl, servings: 4, ingredients: [], steps: [] } : get('recipes', id);
+  const r = isNew ? { title: '', url: ui.prefillUrl, servings: 4, ingredients: [], steps: [], folderId: ui.newFolder || null } : get('recipes', id);
   if (!r) return `<p class="empty">${esc(t('notFound'))}</p>`;
   if (!ui.edit || ui.edit.route !== id) {
     ui.edit = { route: id, id: isNew ? uid() : id, photos: [...(r.photos || [])], busy: false };
   }
   const ingText = ingredientsOf(r).map((i) => i.raw || [formatQty(i.qty, i.unit), unitLabel(i.unit, i.qty), i.name].filter(Boolean).join(' ')).join('\n');
   return `
-  <a class="back" href="${isNew ? '#/recipes' : `#/recipe/${encodeURIComponent(id)}`}">← ${esc(t('back'))}</a>
+  <a class="back" href="${isNew ? folderHref(ui.newFolder) : `#/recipe/${encodeURIComponent(id)}`}">← ${esc(t('back'))}</a>
   <h1>${esc(t(isNew ? 'newRecipe' : 'editRecipe'))}</h1>
   <form id="edit-form" class="form" data-id="${esc(id)}">
     <div class="field-label">${esc(t('photos'))}</div>
     <div class="photo-strip" id="photo-strip">${photoStrip()}</div>
     <label>${esc(t('title'))}<input name="title" required value="${esc(r.title)}"></label>
+    <label>${esc(t('folder'))}<select name="folderId">${folderOptions(recipeFolderId(r))}</select></label>
     <label>${esc(t('url'))}<input name="url" type="url" value="${esc(r.url || '')}"></label>
     <div class="two">
       <label>${esc(t('servingsLabel'))}<input name="servings" type="number" min="1" step="1" value="${esc(r.servings || 4)}"></label>
@@ -380,24 +512,39 @@ function viewList() {
     <button class="btn" data-action="clear-checked">${esc(t('clearChecked'))}</button>` : ''}`;
 }
 
+function pantryRow(p) {
+  const low = lowInfo(p);
+  const st = expiryState(p, remindDefault());
+  const d = daysUntil(p.expires);
+  let exp = '';
+  if (st === 'expired' || st === 'soon') exp = ` <span class="badge ${st === 'expired' ? 'bad' : 'warn'}">${esc(expiryText(d))}</span>`;
+  else if (st === 'ok') exp = ` <small class="exp">${esc(t('expiresOn', shortDate(p.expires)))}</small>`;
+  return `<li class="${low ? 'low' : ''} ${st === 'expired' ? 'expired' : ''}">
+    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${low ? ` <span class="badge warn">${esc(t('low'))}</span>` : ''}${exp}</button>
+    <div class="stepper">
+      <button class="round" data-action="p-dec" data-id="${esc(p.id)}" aria-label="−">−</button>
+      <span class="q">${esc(qtyText(num(p.qty) || 0, p.unit) || '0')}</span>
+      <button class="round" data-action="p-inc" data-id="${esc(p.id)}" aria-label="+">+</button>
+    </div></li>`;
+}
+
 function viewPantry() {
-  const items = live('pantry').sort((a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
+  const expiring = expiringItems().map((x) => x.p);
+  const ids = new Set(expiring.map((p) => p.id));
+  const rest = live('pantry').filter((p) => !ids.has(p.id)).sort((a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
   return `
   <form id="add-pantry" class="row">
     <input name="item" id="add-pantry-input" required placeholder="${esc(t('addPantryPh'))}" autocomplete="off">
     <button class="btn primary" aria-label="+">+</button>
   </form>
+  <button class="btn scan-btn" data-action="scan">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8"/></svg>
+    ${esc(t('scan'))}</button>
   <p class="hint">${esc(t('pantryHint'))}</p>
-  ${items.length ? `<ul class="list pantry">${items.map((p) => {
-    const low = lowInfo(p);
-    return `<li class="${low ? 'low' : ''}">
-      <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${esc(p.name)}${low ? ` <span class="badge warn">${esc(t('low'))}</span>` : ''}</button>
-      <div class="stepper">
-        <button class="round" data-action="p-dec" data-id="${esc(p.id)}" aria-label="−">−</button>
-        <span class="q">${esc(qtyText(num(p.qty) || 0, p.unit) || '0')}</span>
-        <button class="round" data-action="p-inc" data-id="${esc(p.id)}" aria-label="+">+</button>
-      </div></li>`;
-  }).join('')}</ul>` : `<p class="empty">${esc(t('pantryEmpty'))}</p>`}`;
+  ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map(pantryRow).join('')}</ul>
+    ${rest.length ? `<h2>${esc(t('everythingElse'))}</h2>` : ''}` : ''}
+  ${rest.length ? `<ul class="list pantry">${rest.map(pantryRow).join('')}</ul>` : ''}
+  ${!expiring.length && !rest.length ? `<p class="empty">${esc(t('pantryEmpty'))}</p>` : ''}`;
 }
 
 function viewSettings() {
@@ -414,7 +561,7 @@ function viewSettings() {
   <form class="form" id="gh-form">
     <div class="two">
       <label>${esc(t('owner'))}<input name="owner" value="${esc(s.owner)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
-      <label>${esc(t('repo'))}<input name="repo" value="${esc(s.repo)}" placeholder="ricette-data" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+      <label>${esc(t('repo'))}<input name="repo" value="${esc(s.repo)}" placeholder="ricette" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
     </div>
     <label>${esc(t('token'))}<input name="token" type="password" value="${esc(s.token)}" autocomplete="off" spellcheck="false">
       <small>${esc(t('tokenHint'))}</small></label>
@@ -426,6 +573,11 @@ function viewSettings() {
     </div>
     <p class="hint">${esc(t('lastSync'))}: ${esc(last)}<br>${esc(t('setupHelp'))}</p>
   </form>
+  <h2>${esc(t('reminders'))}</h2>
+  <form class="form" id="remind-form">
+    <label>${esc(t('remindDefault'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(remindDefault())}"></label>
+  </form>
+  ${notifySection()}
   <h2>${esc(t('backup'))}</h2>
   <button class="btn" data-action="export">${esc(t('exportData'))}</button>
   <p class="hint">${esc(t('installHint'))}</p>`;
@@ -436,7 +588,7 @@ function viewSettings() {
 function renderShell() {
   document.title = t('appName');
   $('#app-title').textContent = t('appName');
-  for (const a of document.querySelectorAll('nav a')) {
+  for (const a of document.querySelectorAll('nav.tabs a')) {
     a.querySelector('.label').textContent = t(`tab${a.dataset.tab.charAt(0).toUpperCase()}${a.dataset.tab.slice(1)}`);
   }
   updateSyncBadge();
@@ -449,10 +601,11 @@ function render() {
   const typed = focusId && active.tagName === 'INPUT' ? active.value : null;
   let sel = null;
   try { sel = focusId && active.selectionStart != null ? [active.selectionStart, active.selectionEnd] : null; } catch { sel = null; }
-  for (const a of document.querySelectorAll('nav a')) a.classList.toggle('active', a.dataset.tab === TAB_OF[r.name]);
+  for (const a of document.querySelectorAll('nav.tabs a')) a.classList.toggle('active', a.dataset.tab === TAB_OF[r.name]);
   let html;
   switch (r.name) {
     case 'recipe': html = viewRecipe(r.id); break;
+    case 'folder': html = viewRecipes(); break;
     case 'edit': html = viewEdit(r.id); break;
     case 'list': html = viewList(); break;
     case 'pantry': html = viewPantry(); break;
@@ -461,6 +614,7 @@ function render() {
   }
   view.innerHTML = html;
   hydrate(view);
+  updatePantryBadge();
   if (focusId) {
     const el = document.getElementById(focusId);
     if (el) { if (typed != null && el.tagName === 'INPUT') el.value = typed; el.focus(); if (sel) try { el.setSelectionRange(...sel); } catch { /* not a text input */ } }
@@ -535,6 +689,11 @@ function openPantryEdit(p) {
       <label>${esc(t('quantity'))}<input name="qty" inputmode="decimal" value="${esc(p.qty ?? '')}"></label>
       <label>${esc(t('unit'))}<select name="unit">${UNITS.map((u) => `<option value="${u}" ${u === (p.unit || '') ? 'selected' : ''}>${esc(unitOptionLabel(u))}</option>`).join('')}</select></label>
     </div>
+    <div class="two">
+      <label>${esc(t('expires'))}<input name="expires" type="date" value="${esc(p.expires || '')}"></label>
+      <label>${esc(t('remindBefore'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.remindDays ?? '')}" placeholder="${esc(remindDefault())}"></label>
+    </div>
+    <small class="hint-small">${esc(t('remindHint', remindDefault()))}</small>
     <label>${esc(t('minQty'))}<input name="min" inputmode="decimal" value="${esc(p.min ?? '')}"><small>${esc(t('minHint'))}</small></label>
     <label>${esc(t('target'))}<input name="target" inputmode="decimal" value="${esc(p.target ?? '')}"><small>${esc(t('targetHint'))}</small></label>
     <div class="button-row">
@@ -546,6 +705,8 @@ function openPantryEdit(p) {
     upsert('pantry', {
       ...p, name: form.name.value.trim(), qty: num(form.qty.value) ?? 0, unit: form.unit.value,
       min: num(form.min.value), target: num(form.target.value),
+      expires: form.expires.value || null,
+      remindDays: form.remindDays.value === '' ? null : Math.max(0, parseInt(form.remindDays.value, 10) || 0),
     }, { silent: true });
     ensureLowItems();
     changed();
@@ -591,19 +752,31 @@ view.addEventListener('submit', (e) => {
 view.addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.action === 'toggle') setChecked(el.dataset.id, el.checked);
+  if (el.dataset.action === 'move-recipe') {
+    const r = get('recipes', el.dataset.id);
+    upsert('recipes', { ...r, folderId: el.value || null }, { silent: true });
+    changed();
+    toast(t('movedTo', el.value ? folderOf(el.value).name : t('allRecipes')));
+  }
   if (el.id === 'photo-input' && el.files.length && ui.edit) addPhotos([...el.files]);
   if (el.name === 'lang' && el.form?.id === 'lang-form') {
-    saveSettings({ lang: el.value });
+    saveSettings({ lang: el.value }).then(() => { if (thisDevice()) saveDevice({}); });
     applyLang(el.value);
     renderShell();
     render();
+  }
+  if (el.name === 'remindDays' && el.form?.id === 'remind-form') {
+    const v = Math.max(0, parseInt(el.value, 10) || 0);
+    saveSettings({ remindDays: v }).then(() => { if (thisDevice()) saveDevice({}); else render(); });
   }
 });
 
 view.addEventListener('input', (e) => {
   if (e.target.id === 'search') {
     ui.search = e.target.value;
-    $('#cards').innerHTML = recipeCards();
+    const searching = Boolean(normalizeName(ui.search));
+    $('#cards').innerHTML = (searching ? '' : folderTiles(childFolders(currentFolderId()))) + recipeCards();
+    hydrate($('#cards'));
   }
 });
 
@@ -635,6 +808,8 @@ view.addEventListener('click', (e) => {
     case 'q-manual': {
       const q = get('queue', id);
       ui.prefillUrl = q.url;
+      ui.newFolder = q.folderId || null;
+      ui.edit = null;
       remove('queue', id);
       location.hash = '#/edit/new';
       break;
@@ -648,7 +823,8 @@ view.addEventListener('click', (e) => {
     case 'p-inc':
     case 'p-dec': {
       const p = get('pantry', id);
-      const step = stepFor(p.unit);
+      const pack = p.packQty ? convert(p.packQty, p.packUnit || '', p.unit || '') : null;
+      const step = pack && pack > 0 ? pack : stepFor(p.unit);
       const qty = Math.max(0, round((num(p.qty) || 0) + (action === 'p-inc' ? step : -step)));
       upsert('pantry', { ...p, qty }, { silent: true });
       ensureLowItems();
@@ -656,6 +832,21 @@ view.addEventListener('click', (e) => {
       break;
     }
     case 'p-edit': openPantryEdit(get('pantry', id)); break;
+    case 'folder-new': openFolderEdit(null, currentFolderId()); break;
+    case 'scan': startScan(); break;
+    case 'notify-on': enableNotifications(); break;
+    case 'notify-off': disableNotifications(); break;
+    case 'notify-test': {
+      const items = expiringItems();
+      showLocal(t('notifyTitle'), items.length ? reminderBody(items) : t('notifyTestBody')).catch(() => {});
+      break;
+    }
+    case 'folder-edit': openFolderEdit(get('folders', id)); break;
+    case 'new-recipe':
+      ui.newFolder = currentFolderId();
+      ui.edit = null;
+      location.hash = '#/edit/new';
+      break;
     case 'photo-remove':
       ui.edit.photos.splice(+btn.dataset.i, 1);
       refreshPhotoStrip();
@@ -677,6 +868,288 @@ view.addEventListener('click', (e) => {
   }
 });
 
+// ---------- notifications ----------
+
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+function thisDevice() { return state.settings.deviceId ? get('devices', state.settings.deviceId) : null; }
+function pushOn() { const d = thisDevice(); return Boolean(d && d.enabled && d.subscription); }
+
+function notifySection() {
+  let body;
+  if (!pushSupported()) {
+    body = `<p class="hint">${esc(t(isIOS() && !isStandalone() ? 'notifyIOS' : 'notifyUnsupported'))}</p>`;
+  } else if (!isConfigured()) {
+    body = `<p class="hint">${esc(t('notifyNeedsGithub'))}</p>`;
+  } else if (pushOn() && Notification.permission === 'granted') {
+    body = `<p class="conn good">${esc(t('notifyOn'))}</p>
+      <div class="button-row">
+        <button class="btn" data-action="notify-test">${esc(t('notifyTest'))}</button>
+        <button class="btn ghost" data-action="notify-off">${esc(t('notifyDisable'))}</button>
+      </div>`;
+  } else if (Notification.permission === 'denied') {
+    body = `<p class="conn bad">${esc(t('notifyDenied'))}</p>`;
+  } else {
+    body = `<p class="hint">${esc(t('notifyExplain'))}</p>
+      <button class="btn primary" data-action="notify-on">🔔 ${esc(t('notifyEnable'))}</button>`;
+  }
+  return `<div id="notify">${ui.notifyMsg ? `<p class="conn bad">${esc(ui.notifyMsg)}</p>` : ''}${body}</div>`;
+}
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+function deviceName() {
+  const ua = navigator.userAgent;
+  if (/iphone/i.test(ua)) return 'iPhone';
+  if (/ipad/i.test(ua) || isIOS()) return 'iPad';
+  if (/android/i.test(ua)) return 'Android';
+  if (/mac/i.test(ua)) return 'Mac';
+  if (/windows/i.test(ua)) return 'Windows';
+  return 'Linux';
+}
+
+async function saveDevice(patch) {
+  let id = state.settings.deviceId;
+  if (!id) { id = uid(); await saveSettings({ deviceId: id }); }
+  const prev = get('devices', id) || { id, name: deviceName() };
+  upsert('devices', {
+    ...prev, ...patch,
+    lang: getLang(),
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    remindDays: remindDefault(),
+  }, { silent: true });
+  changed();
+}
+
+async function enableNotifications() {
+  ui.notifyMsg = '';
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { render(); return; }
+    const key = await getOrCreateVapidPublicKey();
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    const keyBytes = urlBase64ToUint8Array(key);
+    // A subscription made with different keys (e.g. from an old setup) must be replaced.
+    if (sub && sub.options?.applicationServerKey) {
+      const cur = new Uint8Array(sub.options.applicationServerKey);
+      if (cur.length !== keyBytes.length || cur.some((b, i) => b !== keyBytes[i])) { await sub.unsubscribe(); sub = null; }
+    }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes });
+    await saveDevice({ enabled: true, subscription: sub.toJSON() });
+    toast(t('notifyOn'));
+  } catch (e) {
+    ui.notifyMsg = `${t('notifyFailed')} (${e.code || e.name || e.message})`;
+    render();
+  }
+}
+
+async function disableNotifications() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+  } catch { /* ignore */ }
+  await saveDevice({ enabled: false, subscription: null });
+}
+
+function reminderBody(items) {
+  const lines = items.slice(0, 4).map((x) => `${x.p.name}: ${expiryText(x.d)}`);
+  if (items.length > 4) lines.push(t('andMore', items.length - 4));
+  return lines.join('\n');
+}
+
+async function showLocal(title, body) {
+  const reg = await navigator.serviceWorker?.ready;
+  const opts = { body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'expiry', data: { url: './#/pantry' } };
+  if (reg?.showNotification) return reg.showNotification(title, opts);
+  return new Notification(title, opts);
+}
+
+// When this device doesn't get push reminders (e.g. no GitHub or no push
+// support), remind once a day while the app is open.
+async function localReminder() {
+  const items = expiringItems();
+  if (!items.length || pushOn()) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const today = todayStr();
+  if (state.settings.lastLocalReminder === today) return;
+  await saveSettings({ lastLocalReminder: today });
+  try { await showLocal(t('notifyTitle'), reminderBody(items)); } catch { /* ignore */ }
+}
+
+// ---------- barcode scanning ----------
+
+const tt = (k, ...a) => esc(t(k, ...a));
+
+function packText(p) {
+  return p.packQty ? qtyText(p.packQty, p.packUnit) : '';
+}
+
+async function startScan() {
+  const code = await scanBarcode($('#scanner'), tt);
+  if (!code) return;
+  const known = live('pantry').find((p) => p.barcode === code);
+  if (known) openScanKnown(known);
+  else openScanNew(code);
+}
+
+function earlier(a, b) { if (!a) return b || null; if (!b) return a; return a < b ? a : b; }
+
+function openScanKnown(p) {
+  const pack = p.packQty ? convert(p.packQty, p.packUnit || '', p.unit || '') : null;
+  const step = pack && pack > 0 ? pack : 1;
+  openModal(`
+    <h2>${esc(p.name)}</h2>
+    <p class="hint">${tt('alreadyInPantry', qtyText(num(p.qty) || 0, p.unit) || '0')}${p.packQty ? ` · ${tt('packSize')}: ${esc(packText(p))}` : ''}</p>
+    <label>${tt('expiresNewPack')}<input name="expires" type="date"></label>
+    <div class="button-row">
+      <button class="btn primary" value="ok">＋ ${tt('addPack')}</button>
+      <button class="btn" value="delete" formnovalidate>－ ${tt('usedPack')}</button>
+      <button class="btn ghost" value="cancel" formnovalidate>${tt('cancel')}</button>
+    </div>`, (form, action) => {
+    if (action === 'delete') {
+      upsert('pantry', { ...p, qty: Math.max(0, round((num(p.qty) || 0) - step)) }, { silent: true });
+    } else {
+      upsert('pantry', { ...p, qty: round((num(p.qty) || 0) + step), expires: earlier(p.expires, form.expires.value) }, { silent: true });
+    }
+    ensureLowItems();
+    changed();
+  });
+}
+
+function scanForm(code, info, state2) {
+  const note = state2 === 'loading' ? `<p class="hint"><span class="spinner"></span> ${tt('lookingUp')}</p>`
+    : state2 === 'notfound' ? `<p class="hint">${tt('notFoundOff')}</p>`
+    : state2 === 'offline' ? `<p class="hint">${tt('offlineLookup')}</p>` : '';
+  const u = info.unit || '';
+  return `
+    <h2>${tt('newProduct')}</h2>
+    <p class="hint barcode-no">${info.brand ? `<strong>${esc(info.brand)}</strong> · ` : ''}${tt('barcode')}: ${esc(code)}</p>
+    ${note}
+    <label>${tt('name')}<input name="name" ${state2 === 'offline' ? '' : 'required'} value="${esc(info.name || '')}" autocomplete="off"></label>
+    ${info.brand ? `<input type="hidden" name="brand" value="${esc(info.brand)}">` : '<input type="hidden" name="brand" value="">'}
+    <div class="two">
+      <label>${tt('packSize')}<input name="qty" inputmode="decimal" value="${esc(info.qty ?? 1)}"></label>
+      <label>${tt('unit')}<select name="unit">${UNITS.map((x) => `<option value="${x}" ${x === u ? 'selected' : ''}>${esc(unitOptionLabel(x))}</option>`).join('')}</select></label>
+    </div>
+    <div class="two">
+      <label>${tt('expires')}<input name="expires" type="date"></label>
+      <label>${tt('minQty')}<input name="min" inputmode="decimal" placeholder="—"></label>
+    </div>
+    ${info.found ? `<p class="attrib">${tt('offAttribution')} <a href="https://world.openfoodfacts.org/product/${esc(code)}" target="_blank" rel="noopener">Open Food Facts</a></p>` : ''}
+    <div class="button-row">
+      <button class="btn primary" value="ok" ${state2 === 'loading' ? 'disabled' : ''}>${tt('addToPantry')}</button>
+      <button class="btn" value="cancel" formnovalidate>${tt('cancel')}</button>
+    </div>`;
+}
+
+function openScanNew(code) {
+  let info = { qty: 1, unit: '' };
+  let status = 'loading';
+  openModal(scanForm(code, info, status), (form) => {
+    const nameTyped = form.name.value.trim();
+    const pending = status === 'offline' && !nameTyped;
+    const name = nameTyped || t('productCode', code);
+    const qty = num(form.qty.value) ?? 1;
+    const unit = form.unit.value;
+    const expires = form.expires.value || null;
+    // Same product already in the pantry under that name (added by hand)? Attach the barcode to it.
+    const twin = !pending && live('pantry').find((p) => !p.barcode && normalizeName(p.name) === normalizeName(name));
+    if (twin) {
+      const add = convert(qty, unit, twin.unit || '');
+      upsert('pantry', {
+        ...twin, barcode: code, packQty: qty, packUnit: unit,
+        qty: round((num(twin.qty) || 0) + (add ?? 0)), expires: earlier(twin.expires, expires),
+      }, { silent: true });
+      toast(t('mergedInto', twin.name));
+    } else {
+      upsert('pantry', {
+        id: uid(), name, brand: form.brand.value || '', qty, unit, packQty: qty, packUnit: unit, barcode: code,
+        expires, min: num(form.min.value), target: null, lookupPending: pending, nameFromCode: !nameTyped,
+      }, { silent: true });
+      toast(t('addedToPantry', name));
+    }
+    ensureLowItems();
+    changed();
+  });
+  if (!navigator.onLine) { status = 'offline'; modal.querySelector('form').innerHTML = scanForm(code, info, status); return; }
+  lookupProduct(code, getLang()).then((r) => {
+    if (r.found) { info = r; status = 'found'; } else status = 'notfound';
+  }).catch(() => { status = 'offline'; }).finally(() => {
+    const f = modal.open && modal.querySelector('form');
+    if (!f) return;
+    // keep anything the user already typed
+    const typed = { expires: f.expires?.value, min: f.min?.value };
+    f.innerHTML = scanForm(code, info, status);
+    if (typed.expires) f.expires.value = typed.expires;
+    if (typed.min) f.min.value = typed.min;
+    f.querySelector(status === 'found' ? 'input[name=expires]' : 'input[name=name]')?.focus();
+  });
+}
+
+// Products scanned offline get their name once we're back online.
+let resolving = false;
+async function resolvePendingProducts() {
+  if (resolving || !navigator.onLine) return;
+  resolving = true;
+  try {
+    for (const p of live('pantry').filter((x) => x.lookupPending && x.barcode)) {
+      let r;
+      try { r = await lookupProduct(p.barcode, getLang()); } catch { break; }
+      const cur = get('pantry', p.id);
+      if (!cur) continue;
+      if (r.found && cur.nameFromCode) {
+        const unitOk = !cur.unit && r.unit;
+        upsert('pantry', {
+          ...cur, name: r.name, brand: r.brand || cur.brand || '', lookupPending: false, nameFromCode: false,
+          ...(unitOk ? { qty: round((num(cur.qty) || 1) * r.qty), unit: r.unit, packQty: r.qty, packUnit: r.unit } : {}),
+        }, { silent: true });
+      } else {
+        upsert('pantry', { ...cur, lookupPending: false }, { silent: true });
+      }
+    }
+  } finally { resolving = false; }
+  ensureLowItems();
+  changed();
+}
+
+function openFolderEdit(folder, parentId = null) {
+  const isNew = !folder;
+  const f = folder || { id: uid(), name: '', parentId };
+  openModal(`
+    <h2>${esc(t(isNew ? 'newFolder' : 'editFolder'))}</h2>
+    <label>${esc(t('name'))}<input name="name" required value="${esc(f.name)}" autocomplete="off"></label>
+    <label>${esc(t('insideFolder'))}<select name="parentId">${folderOptions(f.parentId || '', isNew ? new Set() : descendantIds(f.id))}</select></label>
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('save'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+      ${isNew ? '' : `<button class="btn danger" value="delete" formnovalidate>${esc(t('delete'))}</button>`}
+    </div>`, (form, action) => {
+    if (action === 'delete') {
+      if (!confirm(t('confirmDeleteFolder', f.name))) return;
+      const parent = f.parentId && folderOf(f.parentId) ? f.parentId : null;
+      for (const r of live('recipes').filter((x) => x.folderId === f.id)) upsert('recipes', { ...r, folderId: parent }, { silent: true });
+      for (const c of live('folders').filter((x) => x.parentId === f.id)) upsert('folders', { ...c, parentId: parent }, { silent: true });
+      remove('folders', f.id);
+      location.hash = folderHref(parent);
+      changed();
+      return;
+    }
+    const name = form.name.value.trim();
+    if (!name) return;
+    upsert('folders', { ...f, name, parentId: form.parentId.value || null }, { silent: true });
+    changed();
+  });
+  setTimeout(() => modal.querySelector('input[name=name]')?.focus(), 50);
+}
+
 async function addPhotos(files) {
   const edit = ui.edit;
   edit.busy = true;
@@ -690,7 +1163,7 @@ async function addPhotos(files) {
 
 function queueImport(url) {
   if (!/^https?:\/\//i.test(url)) return;
-  upsert('queue', { id: uid(), url, status: 'pending', addedAt: Date.now() }, { silent: true });
+  upsert('queue', { id: uid(), url, status: 'pending', addedAt: Date.now(), folderId: currentFolderId() }, { silent: true });
   changed();
 }
 
@@ -708,6 +1181,7 @@ function saveRecipe(form) {
     ingredients: lines(form.ingredients.value).map(parseIngredient),
     steps: lines(form.steps.value),
     notes: form.notes.value.trim(),
+    folderId: form.folderId.value || null,
     photos: [...(ui.edit?.photos || [])],
     parsed: true,
   }, { silent: true });
@@ -771,8 +1245,20 @@ function handleShareTarget() {
 
 // ---------- start ----------
 
+// Served from https://<user>.github.io/<repo>/ → the data lives in that same repo.
+async function autoConfigure() {
+  const s = state.settings;
+  if (s.owner && s.repo) return;
+  const host = location.hostname;
+  if (!host.endsWith('.github.io')) return;
+  const owner = host.slice(0, -'.github.io'.length);
+  const repo = location.pathname.split('/').filter(Boolean)[0] || `${owner}.github.io`;
+  await saveSettings({ owner: s.owner || owner, repo: s.repo || repo });
+}
+
 async function start() {
   await load();
+  await autoConfigure();
   applyLang(state.settings.lang);
   renderShell();
   render();
@@ -784,11 +1270,13 @@ async function start() {
     window.scrollTo(0, 0);
     render();
   });
-  window.addEventListener('online', runSync);
+  window.addEventListener('online', () => { runSync(); resolvePendingProducts(); });
   window.addEventListener('offline', () => updateSyncBadge());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runSync(); });
   $('#sync').addEventListener('click', runSync);
-  runSync();
+  runSync().then(localReminder);
+  resolvePendingProducts();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') localReminder(); });
   // Poll: every minute, every 15 s while imports are pending.
   setInterval(() => {
     if (document.visibilityState !== 'visible') return;

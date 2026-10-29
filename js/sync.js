@@ -8,7 +8,10 @@ export const PATHS = {
   pantry: 'data/pantry.json',
   shopping: 'data/shopping.json',
   queue: 'data/import-queue.json',
+  folders: 'data/folders.json',
+  devices: 'push/devices.json',
 };
+const VAPID_PATH = 'push/vapid.json';
 
 export function isConfigured() {
   const s = state.settings;
@@ -162,6 +165,35 @@ export function syncNow() {
     }
   })();
   return running;
+}
+
+// Keys that identify this app to browser push services. Created once by the
+// first device that turns on notifications, stored in the (private) repo.
+function b64url(bytes) {
+  let bin = '';
+  for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export async function getOrCreateVapidPublicKey() {
+  const ref = encodeURIComponent(branch());
+  const res = await api(`contents/${VAPID_PATH}?ref=${ref}`);
+  if (res.ok) {
+    const meta = await res.json();
+    return JSON.parse(b64decode(meta.content)).publicKey;
+  }
+  if (res.status !== 404) throw fail(res);
+  const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const publicKey = b64url(await crypto.subtle.exportKey('raw', pair.publicKey));
+  const privateKey = (await crypto.subtle.exportKey('jwk', pair.privateKey)).d;
+  const text = JSON.stringify({ publicKey, privateKey, subject: 'mailto:ricette@users.noreply.github.com' }, null, 1) + '\n';
+  const put = await api(`contents/${VAPID_PATH}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'app: create notification keys', content: b64encode(text), branch: branch() }),
+  });
+  if (put.status === 422 || put.status === 409) return getOrCreateVapidPublicKey(); // another device was faster
+  if (!put.ok) throw fail(put);
+  return publicKey;
 }
 
 export function isSyncing() { return Boolean(running); }

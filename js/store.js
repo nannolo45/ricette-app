@@ -1,7 +1,7 @@
 // Local storage (IndexedDB) and conflict-free merging of collections.
 // Every record: {id, updatedAt, deleted?}. Merge = newest updatedAt wins per id.
 
-export const COLLECTIONS = ['recipes', 'pantry', 'shopping', 'queue'];
+export const COLLECTIONS = ['recipes', 'pantry', 'shopping', 'queue', 'folders', 'devices'];
 const TOMBSTONE_TTL = 90 * 24 * 3600 * 1000;
 
 const DB_NAME = 'ricette';
@@ -53,8 +53,8 @@ export async function kvDel(key) {
 }
 
 export const state = {
-  recipes: [], pantry: [], shopping: [], queue: [],
-  settings: { lang: '', owner: '', repo: '', branch: 'main', token: '' },
+  recipes: [], pantry: [], shopping: [], queue: [], folders: [], devices: [],
+  settings: { lang: '', owner: '', repo: '', branch: 'main', token: '', remindDays: 3, deviceId: '' },
   meta: { dirty: false, lastSync: null, lastError: null },
 };
 
