@@ -13,7 +13,8 @@ import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
 import { parseRecipeText, detectLang as textLang } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
-import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isBasic as isBasicName } from './recipe-tools.js';
+import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
+import { originOf, flagOf, CONTINENTS, CONTINENT_ICON } from './geo.js';
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
@@ -424,7 +425,16 @@ function filterCount() { const f = filters(); return f.tags.length + (f.source ?
 
 function tagDefs() { return live('tagdefs'); }
 function tagDef(id) { return tagDefs().find((d) => d.id === id); }
-function autoLabel(id) { const d = tagDef(id); return (d && (d.label || d.name)) || t(`tag_${id}`); }
+function autoLabel(id) { const d = tagDef(id); return (d && (d.label || d.name)) || originLabel(id) || t(`tag_${id}`); }
+// 🇮🇹 Italia / 🌍 Europa — country names come from the browser, in the app language
+function countryName(code) {
+  try { return new Intl.DisplayNames([getLang()], { type: 'region' }).of(code.toUpperCase()) || code.toUpperCase(); } catch { return code.toUpperCase(); }
+}
+function originLabel(id) {
+  if (id.startsWith('geo_')) return `${flagOf(id.slice(4))} ${countryName(id.slice(4))}`;
+  if (id.startsWith('cont_')) return `${CONTINENT_ICON[id.slice(5)] || '🌐'} ${t(`cont_${id.slice(5)}`)}`;
+  return '';
+}
 function tagLabel(tag) { return tag.startsWith('auto:') ? autoLabel(tag.slice(5)) : tag; }
 
 function allTags() {
@@ -469,6 +479,7 @@ function filterPanel() {
     const id = tg.startsWith('auto:') ? tg.slice(5) : null;
     if (id && COURSE_TAGS.includes(id)) return 'course';
     if (id && DIET_TAGS.includes(id)) return 'diet';
+    if (id && isOriginTag(id)) return 'origin';
     return 'other';
   };
   const byKind = (k) => rest.filter(([tg]) => kind(tg) === k);
@@ -488,6 +499,7 @@ function filterPanel() {
       ${!editing && pinned.length ? `<div class="f-group pinned"><div class="f-sub">📌 ${esc(t('pinnedTags'))}</div><div class="f-chips">${pinned.map(tagChip).join('')}</div></div>` : ''}
       ${group(t('tagGroupCourse'), byKind('course'))}
       ${group(t('tagGroupDiet'), byKind('diet'))}
+      ${group(t('tagGroupOrigin'), [...byKind('origin')].sort(([a], [b]) => (b.includes('cont_') - a.includes('cont_'))))}
       ${group(t('tagGroupOther'), otherShown, other.length > otherShown.length
         ? `<button type="button" class="chip more" data-action="tags-more">+ ${esc(t('moreN', other.length - otherShown.length))}</button>`
         : ui.allTags && other.length > TAGS_SHOWN ? `<button type="button" class="chip more" data-action="tags-more">${esc(t('showLess'))}</button>` : '')}
@@ -932,6 +944,7 @@ function viewEdit(id) {
     <p class="nutri-preview" id="nutri-preview" aria-live="polite">${nutritionPreview(r.servings || 4, ingText)}</p>
     <label>${esc(t('steps'))}<textarea name="steps" rows="8" placeholder="${esc(t('stepsHelp'))}">${esc((r.steps || []).join('\n'))}</textarea></label>
     <label>${esc(t('notes'))}<textarea name="notes" rows="3">${esc(r.notes || '')}</textarea></label>
+    ${(() => { const o = originOf({ ...r, cuisine: '' }); const guess = o ? (o.country ? countryName(o.country) : t(`cont_${o.continent}`)) : t('originUnknown'); return `<label>🌍 ${esc(t('originLabel'))}<input name="cuisine" value="${esc([].concat(r.cuisine || []).join(', '))}" placeholder="${esc(t('originPh', guess))}" autocomplete="off"><small>${esc(t('originHint'))}</small></label>`; })()}
     <label>${esc(t('image'))}<input name="image" type="url" value="${esc(r.image || '')}"></label>
     <button class="btn primary">${esc(t('save'))}</button>
   </form>`;
@@ -1532,7 +1545,7 @@ function saveOnlineRecipe(key) {
     id, title: r.title, servings: r.servings || 4, time: r.time || '', url: r.url,
     image: r.image || '', photos: [], imageCredit: credit ? { ...credit, photo: r.image } : null,
     ingredients: (r.ingredients || []).map((raw) => parseIngredient(typeof raw === 'string' ? raw : raw.raw || '')),
-    steps: r.steps || [], notes: '', source: null, folderId: folderOf(state.settings.importFolder) ? state.settings.importFolder : null,
+    steps: r.steps || [], notes: '', cuisine: r.area && !/unknown/i.test(r.area) ? r.area : (r.cuisine || ''), source: null, folderId: folderOf(state.settings.importFolder) ? state.settings.importFolder : null,
     parsed: true, review: false, createdAt: Date.now(), photoTried: Date.now(),
   }, { silent: true });
   if (r.image && isConfigured()) {
@@ -1608,6 +1621,12 @@ function listSettings() {
 function autoTagIds() {
   return [...AUTO_TAGS, ...tagDefs().filter((d) => d.custom).map((d) => d.id)];
 }
+// origin tags: every continent, then the countries found in the recipes (or given keywords/switched off)
+function originTagIds(auto) {
+  const countries = new Set([...auto.keys(), ...tagDefs().filter((d) => !d.deleted).map((d) => d.id)].filter((id) => id.startsWith('geo_')));
+  return [...CONTINENTS.map((c) => `cont_${c}`),
+    ...[...countries].sort((a, b) => (auto.get(b) || 0) - (auto.get(a) || 0) || autoLabel(a).localeCompare(autoLabel(b), getLang()))];
+}
 
 function tagCounts() {
   // count as if every tag were switched on, so a disabled tag still shows how many it would cover
@@ -1644,6 +1663,9 @@ function tagSettings() {
   <h3>${esc(t('autoTagsTitle'))}</h3>
   <ul class="tagdefs" id="tagdefs">${autoTagIds().map(row).join('')}</ul>
   <button type="button" class="btn" data-action="tagdef-new">+ ${esc(t('newAutoTag'))}</button>
+  <h3>${esc(t('originTagsTitle'))}</h3>
+  <p class="hint small">${esc(t('originTagsHint'))}</p>
+  <ul class="tagdefs" id="origintags">${originTagIds(auto).map(row).join('')}</ul>
   <h3>${esc(t('ownTagsTitle'))}</h3>
   ${ownTags.length ? `<ul class="tagdefs" id="owntags">${ownTags.map(([name, n]) => `<li class="tagdef">
       <div class="tagdef-main"><span class="tagdef-name">${esc(name)}</span><small>${esc(t('nRecipes', n))}</small></div>
@@ -1674,7 +1696,7 @@ function openTagDefEdit(id) {
   const builtIn = !d.custom;
   openModal(`
     <h2>${esc(t(isNew ? 'newAutoTag' : 'editTag'))}</h2>
-    <label>${esc(t('tagName'))}<input name="label" id="tagdef-label" value="${esc(builtIn ? (d.label || '') : (d.name || ''))}" ${builtIn ? `placeholder="${esc(t(`tag_${d.id}`))}"` : 'required'} autocomplete="off"></label>
+    <label>${esc(t('tagName'))}<input name="label" id="tagdef-label" value="${esc(builtIn ? (d.label || '') : (d.name || ''))}" ${builtIn ? `placeholder="${esc(originLabel(d.id) || t(`tag_${d.id}`))}"` : 'required'} autocomplete="off"></label>
     <label>${esc(t('tagKeywords'))}<textarea name="keywords" rows="3" placeholder="${esc(t('tagKeywordsPh'))}">${esc((d.keywords || []).join(', '))}</textarea>
       <small>${esc(t(builtIn ? 'tagKeywordsHintAuto' : 'tagKeywordsHint'))}</small></label>
     <label class="check"><input type="checkbox" name="enabled" ${d.enabled !== false ? 'checked' : ''}> ${esc(t('tagOn'))}</label>
@@ -1782,7 +1804,8 @@ function render() {
 
 // Background changes shouldn't wipe a form the user is typing in.
 function renderIfSafe() {
-  if (isDragging()) { ui.renderLater = true; return; }
+  // never swap the page under a finger: the tap would be lost; redraw right after it instead
+  if (isDragging() || ui.pointerDown) { ui.renderLater = true; return; }
   const r = route();
   if (r.name === 'edit' || r.name === 'settings' || r.name === 'putaway' || modal.open) return;
   render();
@@ -1969,9 +1992,13 @@ view.addEventListener('submit', (e) => {
 });
 
 view.addEventListener('sorted', (e) => onSorted(e.detail));
-document.addEventListener('pointerup', () => setTimeout(() => {
+document.addEventListener('pointerdown', () => { ui.pointerDown = true; }, true);
+const pointerReleased = () => setTimeout(() => {
+  ui.pointerDown = false;
   if (ui.renderLater && !isDragging()) { ui.renderLater = false; renderIfSafe(); }
-}, 50));
+}, 50);
+document.addEventListener('pointerup', pointerReleased, true);
+document.addEventListener('pointercancel', pointerReleased, true);
 
 view.addEventListener('change', (e) => {
   const el = e.target;
@@ -2753,6 +2780,7 @@ function saveRecipe(form) {
     ingredients: lines(form.ingredients.value).map(parseIngredient),
     steps: lines(form.steps.value),
     notes: form.notes.value.trim(),
+    cuisine: form.cuisine ? form.cuisine.value.trim() : prev.cuisine,
     folderId: form.folderId.value || null,
     source: form.sourceType.value ? {
       type: form.sourceType.value,
@@ -2854,7 +2882,7 @@ async function start() {
   render();
   handleShareTarget();
   ensureLowItems();
-  onChange((kind) => { if (COLLECTIONS.includes(kind) || kind === 'meta') renderIfSafe(); });
+  onChange((kind) => { if (COLLECTIONS.includes(kind) || kind === 'meta') renderIfSafe(); else if (kind === 'meta-time') updateSyncBadge(); });
   window.addEventListener('hashchange', () => {
     if (route().name !== 'edit') ui.edit = null;
     window.scrollTo(0, 0);

@@ -103,8 +103,11 @@ function persist(collection, silent) {
   if (!silent) emit(collection);
 }
 
+// A sync merges every collection; only tell the app (and redraw the page) when something actually changed.
 export async function replaceCollection(collection, items) {
+  const same = JSON.stringify(items) === JSON.stringify(state[collection]);
   state[collection] = items;
+  if (same) return;
   await kvSet(collection, items);
   emit(collection);
 }
@@ -116,9 +119,11 @@ export async function saveSettings(patch) {
 }
 
 export async function saveMeta(patch) {
+  const before = `${state.meta.dirty}|${state.meta.lastError}`;
   Object.assign(state.meta, patch);
   await kvSet('meta', state.meta);
-  emit('meta');
+  // the time of the last sync alone changes nothing on screen but the badge
+  emit(before === `${state.meta.dirty}|${state.meta.lastError}` ? 'meta-time' : 'meta');
 }
 
 export function mergeLists(a = [], b = []) {

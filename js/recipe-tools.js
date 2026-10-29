@@ -2,6 +2,7 @@
 import { parseIngredient, namesMatch, convert, normalizeName } from './parse.js';
 import { foodKey } from './lang-food.js';
 import { recipeTimes } from './times.js';
+import { originOf, COUNTRY_CONTINENT } from './geo.js';
 
 const words = (list) => new RegExp(`(?:^|[^a-zà-öø-ÿ])(?:${list.join('|')})`, 'i');
 
@@ -125,8 +126,24 @@ export function autoTags(r, defs = []) {
   const kwCourse = COURSE_TAGS.find((c) => keywordHit(r, def.get(c)?.keywords));
   if (kwCourse) for (const c of COURSE_TAGS) if (c !== kwCourse) tags.delete(c);
   const out = AUTO_TAGS.filter((t) => tags.has(t) && def.get(t)?.enabled !== false);
+  for (const id of originTags(r, def)) if (def.get(id)?.enabled !== false) out.push(id);
   for (const d of def.values()) if (d.custom && d.enabled !== false && keywordHit(r, d.keywords)) out.push(d.id);
   return out;
+}
+
+export const isOriginTag = (id) => /^(?:geo|cont)_[a-z]{2}$/.test(id);
+
+// Where the dish comes from: "geo_<country>" and "cont_<continent>". Keywords set in Settings on an
+// origin tag also count; a country found that way brings its continent along.
+function originTags(r, def) {
+  const o = originOf(r);
+  let country = o?.country || null;
+  let cont = o?.continent || null;
+  for (const d of def.values()) {
+    if (!isOriginTag(d.id) || !keywordHit(r, d.keywords)) continue;
+    if (d.id.startsWith('geo_')) { country = d.id.slice(4); cont = COUNTRY_CONTINENT[country] || cont; } else cont = d.id.slice(5);
+  }
+  return [country && `geo_${country}`, cont && `cont_${cont}`].filter(Boolean);
 }
 
 // Manual tags plus automatic ones the user hasn't hidden. Auto tags are returned as "auto:<id>".
