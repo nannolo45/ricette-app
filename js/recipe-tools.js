@@ -1,5 +1,7 @@
 // Automatic tags, cooking time in minutes, and "what can I cook with my pantry?".
 import { parseIngredient, namesMatch, convert, normalizeName } from './parse.js';
+import { foodKey } from './lang-food.js';
+import { recipeTimes } from './times.js';
 
 const words = (list) => new RegExp(`(?:^|[^a-zà-öø-ÿ])(?:${list.join('|')})`, 'i');
 
@@ -111,7 +113,9 @@ export function autoTags(r, defs = []) {
     const course = courseOf(r, { meat, fish, sweet, pastaRice: tags.has('pasta') || tags.has('rice'), soup: tags.has('soup') });
     if (course) tags.add(course);
     if (course === 'drinks') { tags.delete('veg'); tags.delete('vegan'); }
-    const min = minutesOf(r.time);
+    // quick: a stated total, your own numbers, or an estimate that rests on durations in the steps
+    let min = minutesOf(r.time);
+    if (min == null) { const tm = recipeTimes(r, { minutesOfTotal: minutesOf }); if (!tm.estimated || tm.timed) min = tm.total; }
     if (min != null && min <= 30) tags.add('quick');
     if (OVEN.test(steps) || OVEN.test(title)) tags.add('oven');
   }
@@ -140,9 +144,13 @@ const TO_TASTE = /\b(?:q\.?\s?b\.?|quanto basta|to taste|nach belieben|nach gesc
 
 export function isBasic(name) { return BASICS.test(normalizeName(name).replace(/\s+/g, ' ')); }
 
-function findPantryItem(name, pantry) {
+export function findPantryItem(name, pantry) {
   const n = normalizeName(name);
-  return pantry.find((p) => normalizeName(p.name) === n) || pantry.find((p) => namesMatch(p.name, name));
+  const direct = pantry.find((p) => normalizeName(p.name) === n) || pantry.find((p) => namesMatch(p.name, name));
+  if (direct) return direct;
+  // the same food in another language: "Eier" / "eggs" ↔ "uova"
+  const k = foodKey(name);
+  return k >= 0 ? pantry.find((p) => foodKey(p.name) === k) : undefined;
 }
 
 /**

@@ -69,3 +69,53 @@ export async function findDishImage(title, lang = 'it', { http = fetch, headers 
   }
   return null;
 }
+
+// Several candidate pictures for the "search online" picker: the dish's article first,
+// then other food articles that came up. Credits are fetched only for the one picked (wikiCredit).
+export async function findDishImages(title, lang = 'it', { http = fetch, headers = {}, limit = 8 } = {}) {
+  const out = [];
+  const seen = new Set();
+  for (const wiki of [...new Set([lang, 'en'])]) {
+    for (const query of searchQueries(title)) {
+      let data;
+      try {
+        const res = await http(api(wiki, {
+          generator: 'search', gsrsearch: query, gsrlimit: '10', gsrnamespace: '0', redirects: '1',
+          prop: 'pageimages|description', piprop: 'thumbnail|name', pithumbsize: '1200',
+        }), { headers: { Accept: 'application/json', ...headers } });
+        if (!res.ok) continue;
+        data = await res.json();
+      } catch { continue; }
+      const pages = Object.values(data?.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+      const good = pages.filter((p) => relevant(p, title));
+      const loose = pages.filter((p) => !good.includes(p) && p.thumbnail && p.pageimage && !/\.(svg|gif)$/i.test(p.pageimage) && FOOD.test(p.description || ''));
+      for (const p of [...good, ...loose]) {
+        if (seen.has(p.pageimage)) continue;
+        seen.add(p.pageimage);
+        out.push({
+          source: 'wikipedia', url: p.thumbnail.source, thumb: p.thumbnail.source.replace(/\/\d+px-/, '/400px-'),
+          title: p.title, file: p.pageimage, wiki, strong: good.includes(p),
+        });
+      }
+      if (out.filter((c) => c.strong).length >= 2 || out.length >= limit) break;
+    }
+  }
+  return out.sort((a, b) => b.strong - a.strong).slice(0, limit);
+}
+
+export async function wikiCredit(c, { http = fetch } = {}) {
+  const credit = { title: c.title, creator: '', license: '', url: `https://${c.wiki}.wikipedia.org/wiki/${encodeURIComponent(String(c.title).replace(/ /g, '_'))}` };
+  try {
+    const res = await http(`https://commons.wikimedia.org/w/api.php?${new URLSearchParams({
+      action: 'query', format: 'json', origin: '*', titles: `File:${c.file}`, prop: 'imageinfo', iiprop: 'extmetadata|url',
+    })}`);
+    const ii = Object.values((await res.json())?.query?.pages || {})[0]?.imageinfo?.[0];
+    const strip = (v) => String(v || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    if (ii) {
+      credit.creator = strip(ii.extmetadata?.Artist?.value).slice(0, 80);
+      credit.license = strip(ii.extmetadata?.LicenseShortName?.value);
+      credit.url = ii.descriptionurl || credit.url;
+    }
+  } catch { /* the article link is enough */ }
+  return credit;
+}

@@ -2,6 +2,7 @@
 // ingredients, steps and notes. Italian, German and English.
 // Input: lines as {text, h?, brk?}: h = text height (bigger = title), brk = a new paragraph starts here.
 import { parseIngredient } from './parse.js';
+import { extractTimes, hasTimes, formatMinutes } from './times.js';
 
 const HEAD = {
   ing: /^(ingredienti|ingredienti per\b.*|occorrente|cosa (?:ti )?serve|zutaten|zutaten für\b.*|ingredients|you(?:'| wi)ll need)\s*:?$/i,
@@ -45,6 +46,8 @@ export function detectLang(text) {
 
 function clean(s) {
   return String(s || '')
+    .replace(/<\?xml[^>]*\?>|\?xml version=[^>]*\?>/gi, ' ')
+    .replace(/(\d)\s?[oº]\s?([CF])\b/g, '$1 °$2')
     .replace(/[|_]{1,}/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -83,7 +86,7 @@ function niceTitle(t) {
 }
 
 function isMeta(t) {
-  return t.length <= 90 && (servingsOf(t) != null || TIME.test(t)) && !isIngredientLike(t.replace(/^.*?:\s*/, 'x'));
+  return t.length <= 120 && (servingsOf(t) != null || TIME.test(t) || hasTimes(extractTimes(t))) && !isIngredientLike(t.replace(/^.*?:\s*/, 'x'));
 }
 
 export function textToLines(text) {
@@ -124,6 +127,7 @@ export function parseRecipeText(input) {
 
   let servings = null;
   let time = '';
+  const times = {};
   const ingredients = [];
   const steps = [];
   const notes = [];
@@ -134,7 +138,15 @@ export function parseRecipeText(input) {
   let stepBuf = '';
   let stepNumbered = false;
 
-  const flushStep = () => { if (stepBuf.trim()) steps.push(stepBuf.trim()); stepBuf = ''; };
+  const flushStep = () => {
+    const st = stepBuf.trim();
+    stepBuf = '';
+    if (!st) return;
+    // "…stir the syrup. To prepare the dough:" → the sub-heading becomes its own line
+    const m = st.match(/^(.*[.!?)])\s+([^.!?:]{3,60}:)$/);
+    if (m && m[2].split(/\s+/).length <= 8) { steps.push(m[1].trim(), m[2].trim()); return; }
+    steps.push(st);
+  };
   const appendText = (buf, t) => {
     if (!buf) return t;
     if (/[-‐]$/.test(buf) && /^[a-zà-öø-ÿ]/.test(t)) return buf.replace(/[-‐]$/, '') + t; // hyphenated word
@@ -156,6 +168,7 @@ export function parseRecipeText(input) {
       servings = servings || servingsOf(t);
       const tm = t.match(TIME);
       if (tm) time = time || tm[1].trim();
+      Object.assign(times, Object.fromEntries(Object.entries(extractTimes(t)).filter(([k]) => times[k] == null)));
       return;
     }
     const bulleted = BULLET.test(t);
@@ -220,6 +233,10 @@ export function parseRecipeText(input) {
     for (const t of intro.splice(0)) (isIngredientLike(t) ? ingredients.push({ raw: t }) : steps.push(t));
   }
   if (servings == null) servings = servingsOf(all.slice(0, 400));
+  // labelled times anywhere (also in the intro or the notes)
+  for (const [k, v] of Object.entries(extractTimes(all))) if (times[k] == null) times[k] = v;
+  if (times.total != null) time = formatMinutes(times.total);
+  else if (!time && (times.prep != null || times.cook != null)) time = formatMinutes((times.prep || 0) + (times.cook || 0) + (times.rest || 0));
   if (!time) { const tm = all.match(TIME); if (tm) time = tm[1].trim(); }
 
   const noteText = [intro.join(' '), notes.join(' ')].filter(Boolean).join('\n\n');
@@ -230,6 +247,7 @@ export function parseRecipeText(input) {
     time,
     ingredients: ingredients.map((x) => ({ raw: x.raw.replace(/\s+([,.;:])/g, '$1').trim() })).filter((x) => x.raw.length > 1),
     steps: steps.map((s) => s.replace(/\s+([,.;:!?])/g, '$1')),
+    times,
     notes: noteText,
     lang: detectLang(all),
   };

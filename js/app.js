@@ -11,13 +11,15 @@ import { addPhoto, addScan, addUpload, hydrate, prefetchAll, coverOf, isRepoPhot
 import { daysUntil, expiryState, todayStr } from './expiry.js';
 import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
-import { parseRecipeText } from './recipe-text.js';
+import { parseRecipeText, detectLang as textLang } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
-import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS } from './recipe-tools.js';
+import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isBasic as isBasicName } from './recipe-tools.js';
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
 import { nutritionOf, estimateNutrition } from './nutrition.js';
+import { recipeTimes, formatMinutes } from './times.js';
+import { photoCandidates, creditFor, testKey, mealdbSearch, rankOnline, searchTerms } from './online.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -290,7 +292,14 @@ function postSync() {
     }
   }
   for (const q of live('queue')) {
-    if (q.status === 'done' && q.type !== 'book' && Date.now() - (q.updatedAt || 0) > 60_000) remove('queue', q.id);
+    if (q.status === 'done' && q.type !== 'book' && q.type !== 'search' && Date.now() - (q.updatedAt || 0) > 60_000) remove('queue', q.id);
+    if (q.type === 'image' && q.status === 'error' && Date.now() - (q.updatedAt || 0) > 86_400_000) remove('queue', q.id);
+  }
+  // pictures for recipes that have none: the GitHub job looks for them, a batch at a time
+  if (pref('autoPhotos', true) !== false && isConfigured()
+    && live('recipes').some((r) => !(r.photos || []).length && !r.image && !r.photoTried)
+    && !live('queue').some((q) => q.type === 'autophoto' && q.status === 'pending')) {
+    upsert('queue', { id: `ap${uid().slice(0, 8)}`, type: 'autophoto', status: 'pending', addedAt: Date.now() }, { silent: true });
   }
   ensureLowItems();
   if (imported) toast(t('importedN', imported));
@@ -334,8 +343,11 @@ function updateSyncBadge(syncing = isSyncing()) {
 
 // ---------- views ----------
 
+// queue entries the user put there (links, photos, books) — not the app's own jobs
+const USER_QUEUE = (q) => !['search', 'image', 'autophoto'].includes(q.type);
+
 function viewImport() {
-  const queue = live('queue').filter((q) => q.status !== 'done' || q.type === 'book').sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  const queue = live('queue').filter((q) => USER_QUEUE(q) && (q.status !== 'done' || q.type === 'book')).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   const recent = live('recipes').filter((r) => r.createdAt).sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
   const folder = folderOf(state.settings.importFolder) ? state.settings.importFolder : '';
   return `
@@ -369,7 +381,7 @@ function pinnedBar() {
 function viewRecipes() {
   const folderId = currentFolderId();
   const path = folderPath(folderId);
-  const queueN = live('queue').filter((q) => q.status !== 'done').length;
+  const queueN = live('queue').filter((q) => USER_QUEUE(q) && q.status !== 'done').length;
   const booksDone = live('queue').filter((q) => q.type === 'book' && q.status === 'done').length;
   return `
   ${queueN ? `<a class="queue-note" href="#/import">⏳ ${esc(t('importsWaiting', queueN))}</a>` : booksDone ? `<a class="queue-note done" href="#/import">📚 ${esc(t('booksImported', booksDone))}</a>` : ''}
@@ -404,11 +416,11 @@ function viewRecipes() {
 
 // ---------- sorting, filters, tags ----------
 
-const SORTS = ['new', 'old', 'az', 'za', 'quick', 'fewest', 'kcal', 'protein', 'cooked', 'recent', 'pantry'];
+const SORTS = ['new', 'old', 'az', 'za', 'quick', 'active', 'fewest', 'kcal', 'protein', 'cooked', 'recent', 'pantry'];
 function sortKey() { return SORTS.includes(state.settings.sort) ? state.settings.sort : 'new'; }
 
-function filters() { return (ui.filters ||= { tags: [], source: '', maxTime: 0, ready: '', maxKcal: 0, minProt: 0 }); }
-function filterCount() { const f = filters(); return f.tags.length + (f.source ? 1 : 0) + (f.maxTime ? 1 : 0) + (f.ready ? 1 : 0) + (f.maxKcal ? 1 : 0) + (f.minProt ? 1 : 0); }
+function filters() { return (ui.filters ||= { tags: [], source: '', maxTime: 0, maxActive: 0, ready: '', maxKcal: 0, minProt: 0 }); }
+function filterCount() { const f = filters(); return f.tags.length + (f.source ? 1 : 0) + (f.maxTime ? 1 : 0) + (f.maxActive ? 1 : 0) + (f.ready ? 1 : 0) + (f.maxKcal ? 1 : 0) + (f.minProt ? 1 : 0); }
 
 function tagDefs() { return live('tagdefs'); }
 function tagDef(id) { return tagDefs().find((d) => d.id === id); }
@@ -482,7 +494,8 @@ function filterPanel() {
     </section>
     ${editing ? '' : `
     ${sec(t('sourceLabel'), [['web', `🌐 ${t('srcWeb')}`], ['book', `📖 ${t('srcBook')}`], ['note', `✍️ ${t('srcNote')}`]].map(([v, l]) => chip(l, 'f-source', v, f.source === v)).join(''))}
-    ${sec(t('time'), [15, 30, 60].map((m) => chip(`≤ ${m} min`, 'f-time', m, f.maxTime === m)).join(''))}
+    ${sec(t('time'), `<div class="f-group"><div class="f-sub">⏱ ${esc(t('totalTimeLabel'))}</div><div class="f-chips">${[15, 30, 60].map((m) => chip(`≤ ${m} min`, 'f-time', m, f.maxTime === m)).join('')}</div></div>
+      <div class="f-group"><div class="f-sub">🔪 ${esc(t('activeTimeLabel'))}</div><div class="f-chips">${[10, 20, 30].map((m) => chip(`≤ ${m} min`, 'f-active', m, f.maxActive === m)).join('')}</div></div>`)}
     ${sec(`${t('nutrition')} · ${t('perPerson')}`, `<div class="f-group"><div class="f-sub">🔥 ${esc(t('calories'))}</div><div class="f-chips">${[400, 600, 800].map((k) => chip(`≤ ${k} kcal`, 'f-kcal', k, f.maxKcal === k)).join('')}</div></div>
       <div class="f-group"><div class="f-sub">💪 ${esc(t('protein'))}</div><div class="f-chips">${[15, 25, 35].map((g) => chip(`≥ ${g} g`, 'f-prot', g, f.minProt === g)).join('')}</div></div>`)}
     ${sec(t('tabPantry'), chip(t('readyNow'), 'f-ready', 'all', f.ready === 'all') + chip(t('missingAtMost2'), 'f-ready', 'two', f.ready === 'two'))}
@@ -517,7 +530,8 @@ function recipeList() {
       || ingredientsOf(r).some((i) => normalizeName(i.name).includes(q)))) return false;
     if (f.tags.length) { const tg = tagsOf(r, tagDefs()); if (!f.tags.every((x) => tg.includes(x))) return false; }
     if (f.source && (r.source?.type || 'web') !== f.source) return false;
-    if (f.maxTime) { const m = minutesOf(r.time); if (m == null || m > f.maxTime) return false; }
+    if (f.maxTime && timesOf(r).total > f.maxTime) return false;
+    if (f.maxActive && timesOf(r).active > f.maxActive) return false;
     if (f.maxKcal || f.minProt) {
       const nu = nutritionOf(r);
       if (!nu) return false;
@@ -533,7 +547,8 @@ function recipeList() {
     old: (a, b) => (a.createdAt || 0) - (b.createdAt || 0),
     az: (a, b) => title(a).localeCompare(title(b), getLang()),
     za: (a, b) => title(b).localeCompare(title(a), getLang()),
-    quick: (a, b) => (minutesOf(a.time) ?? 1e9) - (minutesOf(b.time) ?? 1e9),
+    quick: (a, b) => (timesOf(a).total || 1e9) - (timesOf(b).total || 1e9),
+    active: (a, b) => (timesOf(a).active || 1e9) - (timesOf(b).active || 1e9) || (timesOf(a).total - timesOf(b).total),
     fewest: (a, b) => (a.ingredients || []).length - (b.ingredients || []).length,
     kcal: (a, b) => (nutritionOf(a)?.perServing.kcal ?? Infinity) - (nutritionOf(b)?.perServing.kcal ?? Infinity) || title(a).localeCompare(title(b)),
     protein: (a, b) => (nutritionOf(b)?.perServing.protein ?? -1) - (nutritionOf(a)?.perServing.protein ?? -1) || title(a).localeCompare(title(b)),
@@ -572,7 +587,7 @@ function recipeCards(list, coverage, filtering) {
       <div class="thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></div>
       <div class="card-body">
         <div class="card-title">${esc(r.title)}</div>
-        <div class="card-meta">${sourceIcon(r)}${esc(t('people', servingsFor(r)))}${r.time ? ` · ${esc(r.time)}` : ''}</div>
+        <div class="card-meta">${sourceIcon(r)}${esc(t('people', servingsFor(r)))}${timesOf(r).total ? ` · ⏱ ${timesOf(r).estimated ? '≈' : ''}${esc(fmtMin(timesOf(r).total))}` : ''}</div>
         ${cardNutrition(r)}
         ${coverage.has(r.id) ? `<div class="card-meta">${coverageBadge(coverage.get(r.id))}</div>` : ''}
         ${tags.length ? `<div class="card-tags">${tags.map((tg) => `<span class="tag ${tg.startsWith('auto:') ? 'auto' : ''}">${esc(tagLabel(tg))}</span>`).join('')}</div>` : ''}
@@ -582,6 +597,24 @@ function recipeCards(list, coverage, filtering) {
   }).join('')}</div>`;
 }
 
+
+// ---------- times: active work and waiting ----------
+
+const timesCache = new Map();
+function timesOf(r) {
+  const key = `${r.id}|${r.updatedAt || ''}`;
+  if (!timesCache.has(key)) { if (timesCache.size > 3000) timesCache.clear(); timesCache.set(key, recipeTimes(r)); }
+  return timesCache.get(key);
+}
+const fmtMin = (m) => formatMinutes(m, { day: t('dayShort') });
+
+function timesLine(r) {
+  const tm = timesOf(r);
+  if (!tm.total) return '';
+  const est = tm.estimated ? '≈ ' : '';
+  return `<span class="times" title="${esc(tm.estimated ? t('timesEstimated') : t('timesFromRecipe'))}">⏱ ${est}${esc(fmtMin(tm.total))}
+    <small>🔪 ${esc(fmtMin(tm.active))} ${esc(t('activeTime'))}${tm.waiting ? ` · ⏳ ${esc(fmtMin(tm.waiting))} ${esc(t('waitTime'))}` : ''}${tm.estimated ? ` · ${esc(t('estimateShort'))}` : ''}</small></span>`;
+}
 
 // ---------- calories and protein ----------
 
@@ -677,6 +710,8 @@ function viewSuggest() {
   </div>
   <p class="hint">${esc(t(`suggestHint_${by}`))}${globalPeople() ? ` ${esc(t('suggestForPeople', globalPeople()))}` : ''}</p>
   <label class="check"><input type="checkbox" id="basics" ${state.settings.basics !== false ? 'checked' : ''}> ${esc(t('basicsAlways'))}</label>
+  ${onlineSection()}
+  <h2>📒 ${esc(t('fromYourRecipes'))}</h2>
   ${noDates ? `<p class="hint warn">${esc(t('noExpiryDates'))}</p>` : ''}
   ${pantryEmpty ? `<p class="empty">${esc(t('pantryEmptyForSuggest'))}<br><a class="btn" href="#/pantry">${esc(t('tabPantry'))}</a></p>` : ''}
   ${!pantryEmpty && !ranked.length ? `<p class="empty">${esc(t('noRecipes'))}</p>` : ''}
@@ -793,7 +828,7 @@ function viewRecipe(id) {
   <h1>${esc(r.title)}</h1>
   <div class="meta-line">
     ${sourceLabel(r.source) ? `<span class="src">${esc(sourceLabel(r.source))}</span>` : ''}
-    ${r.time ? `<span>⏱ ${esc(r.time)}</span>` : ''}
+    ${timesLine(r)}
     ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(t('source'))} ↗</a>` : ''}
   </div>
   ${r.review ? `<div class="review"><span>${esc(t('reviewBanner'))}</span><a class="btn small primary" href="#/edit/${encodeURIComponent(id)}">${esc(t('reviewCheck'))}</a></div>` : ''}
@@ -821,7 +856,7 @@ function viewRecipe(id) {
     <button class="btn primary" data-action="to-list" data-id="${esc(id)}">🛒 ${esc(t('addToList'))}</button>
     <button class="btn" data-action="cooked" data-id="${esc(id)}">✓ ${esc(t('cooked'))}</button>
   </div>
-  ${(r.steps || []).length ? `<h2>${esc(t('steps'))}</h2><ol class="steps">${r.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
+  ${(r.steps || []).length ? `<h2>${esc(t('steps'))}</h2><ol class="steps">${r.steps.map((s) => (/^[^.!?:]{3,60}:$/.test(s.trim()) ? `<li class="step-head">${esc(s)}</li>` : `<li>${esc(s)}</li>`)).join('')}</ol>` : ''}
   ${r.notes ? `<h2>${esc(t('notes'))}</h2><p class="notes">${esc(r.notes)}</p>` : ''}
   ${(r.sourcePhotos || []).length ? `<h2>${esc(t(r.source?.type === 'book' ? 'originalPage' : 'originalNote'))}</h2>
     <div class="gallery">${r.sourcePhotos.map((p) => `<button class="shot page" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
@@ -867,7 +902,7 @@ function viewEdit(id) {
   ${(r.sourcePhotos || ui.prefillSource?.sourcePhotos || []).length ? `<div class="field-label">${esc(t('originalForCheck'))}</div>
     <div class="gallery">${(r.sourcePhotos || ui.prefillSource.sourcePhotos).map((p) => `<button type="button" class="shot page" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
   <form id="edit-form" class="form" data-id="${esc(id)}">
-    <div class="field-label">${esc(t('photos'))}</div>
+    <div class="field-label">${esc(t('photos'))} <button type="button" class="link-btn" data-action="photo-search">🔍 ${esc(t('searchPhotoOnline'))}</button></div>
     <div class="photo-strip" id="photo-strip">${photoStrip()}</div>
     <label>${esc(t('title'))}<input name="title" required value="${esc(r.title)}"></label>
     <label>${esc(t('folder'))}<select name="folderId">${folderOptions(recipeFolderId(r))}</select></label>
@@ -886,8 +921,13 @@ function viewEdit(id) {
     ${booksDatalist()}
     <div class="two">
       <label>${esc(t('servingsLabel'))}<input name="servings" type="number" min="1" step="1" value="${esc(r.servings || 4)}"></label>
-      <label>${esc(t('time'))}<input name="time" value="${esc(r.time || '')}"></label>
+      <label>${esc(t('totalTimeLabel'))}<input name="time" value="${esc(r.time || '')}" placeholder="${esc(t('timePh'))}"></label>
     </div>
+    ${(() => { const est = recipeTimes({ ...r, prepMin: undefined, waitMin: undefined }); return `<div class="two times-edit">
+      <label>🔪 ${esc(t('activeTimeLabel'))} <small>(min)</small><input name="prepMin" id="prep-min" type="number" min="0" step="1" inputmode="numeric" value="${Number.isFinite(r.prepMin) ? r.prepMin : ''}" placeholder="${est.active}"></label>
+      <label>⏳ ${esc(t('waitTimeLabel'))} <small>(min)</small><input name="waitMin" id="wait-min" type="number" min="0" step="1" inputmode="numeric" value="${Number.isFinite(r.waitMin) ? r.waitMin : ''}" placeholder="${est.waiting}"></label>
+    </div>
+    <p class="hint small">${esc(t('timesEditHint'))}</p>`; })()}
     <label>${esc(t('ingredients'))}<textarea name="ingredients" rows="10" placeholder="${esc(t('ingredientsHelp'))}">${esc(ingText)}</textarea></label>
     <p class="nutri-preview" id="nutri-preview" aria-live="polite">${nutritionPreview(r.servings || 4, ingText)}</p>
     <label>${esc(t('steps'))}<textarea name="steps" rows="8" placeholder="${esc(t('stepsHelp'))}">${esc((r.steps || []).join('\n'))}</textarea></label>
@@ -1274,6 +1314,7 @@ function viewSettings() {
     <p class="hint">${esc(t('setupHelp'))}</p>
   </form>`}
   ${listSettings()}
+  ${onlineSettings()}
   ${tagSettings()}
   <h2>${esc(t('reminders'))}</h2>
   <form class="form" id="remind-form">
@@ -1283,6 +1324,266 @@ function viewSettings() {
   <h2>${esc(t('backup'))}</h2>
   <button class="btn" data-action="export">${esc(t('exportData'))}</button>
   <p class="hint">${esc(t('installHint'))}</p>`;
+}
+
+
+// ---------- photos from the web ----------
+
+const PHOTO_KEYS = { pixabay: 'pixabayKey', pexels: 'pexelsKey' };
+function photoKey(svc) { return String(pref(PHOTO_KEYS[svc], '') || ''); }
+function photoKeys() { return { pixabay: photoKey('pixabay'), pexels: photoKey('pexels') }; }
+const SRC_LABEL = { wikipedia: 'Wikipedia', pixabay: 'Pixabay', pexels: 'Pexels', openverse: 'Openverse' };
+
+async function usePickedPhoto(edit, c, credit) {
+  try {
+    const res = await fetch(c.url);
+    if (!res.ok) throw new Error('img');
+    const blob = await res.blob();
+    if (!/^image\//.test(blob.type)) throw new Error('img');
+    const path = await addPhoto(edit.id, blob);
+    edit.photos.unshift(path);
+    edit.imageCredit = credit ? { ...credit, photo: path } : null;
+    edit.pendingImage = null;
+    return true;
+  } catch {
+    // the picture's server doesn't let apps download it: show it from its address, GitHub saves a copy
+    const inp = document.querySelector('#edit-form input[name=image]');
+    if (inp) inp.value = c.url;
+    edit.imageCredit = credit ? { ...credit, photo: c.url } : null;
+    edit.pendingImage = { url: c.url, credit, referer: credit?.url || '' };
+    return false;
+  }
+}
+
+function openPhotoSearch() {
+  const edit = ui.edit;
+  if (!edit) return;
+  const form = $('#edit-form');
+  const title = form?.title.value.trim() || '';
+  let found = [];
+  const lang = textLang(`${title} ${form?.ingredients.value || ''}`) || getLang();
+  const grid = () => found.length
+    ? found.map((c, i) => `<button type="button" class="pick" data-i="${i}" title="${esc(c.title || '')}"><img src="${esc(c.thumb || c.url)}" alt="" loading="lazy" referrerpolicy="no-referrer"><span class="pick-src">${SRC_LABEL[c.source] || c.source}</span></button>`).join('')
+    : '';
+  const draw = (state, note = '') => {
+    const el = modal.querySelector('#pick-grid');
+    if (!el) return;
+    el.innerHTML = state === 'busy' ? `<p class="hint"><span class="spinner"></span> ${esc(t('searching'))}</p>` : (grid() || `<p class="hint">${esc(t('noPhotosFound'))}</p>`);
+    modal.querySelector('#pick-note').innerHTML = note;
+  };
+  const search = async (q) => {
+    draw('busy');
+    const keys = photoKeys();
+    const r = await photoCandidates(q, { lang, keys });
+    found = r.list;
+    const note = r.errors.includes('pixabay_key') ? `<span class="warn">${esc(t('photoKeyBad', 'Pixabay'))}</span>`
+      : r.errors.includes('pexels_key') ? `<span class="warn">${esc(t('photoKeyBad', 'Pexels'))}</span>`
+        : !keys.pixabay && !keys.pexels ? esc(t('pixabayHintNoKey')) : '';
+    draw('ok', note);
+  };
+  openModal(`
+    <h2>🔍 ${esc(t('searchPhotoOnline'))}</h2>
+    <div class="row"><input id="pick-q" value="${esc(title)}" autocomplete="off" placeholder="${esc(t('title'))}"><button type="button" class="btn" id="pick-go">🔍 ${esc(t('searchBtn'))}</button></div>
+    <div class="pick-grid" id="pick-grid"></div>
+    <p class="hint small" id="pick-note"></p>
+    <div class="button-row"><button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button></div>`, () => {});
+  modal.onclick = async (e) => {
+    if (e.target.closest('#pick-go')) { search(modal.querySelector('#pick-q').value.trim() || title); return; }
+    const b = e.target.closest('.pick');
+    if (!b) return;
+    const c = found[+b.dataset.i];
+    b.classList.add('busy');
+    const credit = await creditFor(c);
+    const stored = await usePickedPhoto(edit, c, credit);
+    if (modal.open) modal.close();
+    refreshPhotoStrip();
+    toast(t(stored ? 'photoAdded' : 'photoLinked'));
+  };
+  modal.querySelector('#pick-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); search(e.target.value.trim() || title); } });
+  if (navigator.onLine) search(title || '');
+  else draw('ok', esc(t('offline')));
+}
+
+// ---------- recipe ideas from the web ----------
+
+const SITE_NAMES = { mealdb: 'TheMealDB', giallozafferano: 'GialloZafferano', cucchiaio: "Il Cucchiaio d'Argento", chefkoch: 'Chefkoch', bbcgoodfood: 'BBC Good Food' };
+const ALL_SITES = ['giallozafferano', 'cucchiaio', 'chefkoch', 'bbcgoodfood'];
+function onlineSources() {
+  const v = pref('onlineSources', null) || {};
+  return { mealdb: v.mealdb !== false, github: v.github !== false, sites: Array.isArray(v.sites) ? v.sites.filter((x) => ALL_SITES.includes(x)) : [...ALL_SITES] };
+}
+function maxMissing() { const n = Number(pref('maxMissing', 3)); return Number.isFinite(n) && n >= 0 ? Math.round(n) : 3; }
+function lastSearch() { return live('queue').filter((q) => q.type === 'search').sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))[0] || null; }
+
+function onlineState() {
+  if (!ui.online) {
+    const last = lastSearch();
+    const exp = expiringItems().map((x) => x.p.name);
+    ui.online = { selected: last?.ingredients ? [...last.ingredients] : exp.slice(0, 3), extra: [], mealdb: null, mealdbStatus: '', showHidden: false };
+  }
+  return ui.online;
+}
+
+function onlineIngredientChoices() {
+  const o = onlineState();
+  const exp = new Set(expiringItems().map((x) => x.p.id));
+  const items = live('pantry').filter((p) => (num(p.qty) || 0) > 0 && !isBasicName(p.name))
+    .sort((a, b) => (exp.has(b.id) - exp.has(a.id)) || normalizeName(a.name).localeCompare(normalizeName(b.name)));
+  const names = [...new Set([...items.map((p) => p.name), ...o.extra])];
+  return { names, expiring: new Set(items.filter((p) => exp.has(p.id)).map((p) => p.name)) };
+}
+
+function onlineResults() {
+  const o = onlineState();
+  const src = onlineSources();
+  const last = lastSearch();
+  const site = last && last.status === 'done' && src.github ? (last.results || []).filter((r) => src.sites.includes(r.source)) : [];
+  const all = [...(src.mealdb ? o.mealdb || [] : []), ...site];
+  return rankOnline(all, { pantry: live('pantry'), selected: o.selected, maxMissing: maxMissing(), basics: state.settings.basics !== false });
+}
+
+function onlineCard(r) {
+  const saved = live('recipes').find((x) => x.url && x.url === r.url);
+  const key = esc(r.url || r.id);
+  return `<li class="online-item">
+    <a class="s-main" href="${esc(r.url)}" target="_blank" rel="noopener">
+      <span class="s-thumb">${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span>${esc((r.title || '?').charAt(0))}</span></span>
+      <span class="s-text">
+        <strong>${esc(r.title)}</strong>
+        <span class="src-badge">${esc(SITE_NAMES[r.source] || r.source)}${r.lang ? ` · ${esc(r.lang.toUpperCase())}` : ''}</span>
+        ${r.usesSelected.length ? `<span class="uses">✓ ${esc(t('usesYours'))}: ${esc(r.usesSelected.join(', '))}</span>` : ''}
+        ${r.c.missing.length ? `<span class="missing">${esc(t('missingN', r.c.missing.length))}: ${esc(r.c.missing.map((m) => m.name).join(', '))}</span>` : `<span class="have-all">✓ ${esc(t('haveAll'))}</span>`}
+      </span>
+    </a>
+    ${saved ? `<a class="btn small" href="#/recipe/${encodeURIComponent(saved.id)}">✓ ${esc(t('alreadySaved'))}</a>` : `<button class="btn small primary" data-action="online-import" data-value="${key}">＋ ${esc(t('saveRecipe'))}</button>`}
+  </li>`;
+}
+
+function onlineSection() {
+  const o = onlineState();
+  const src = onlineSources();
+  const { names, expiring } = onlineIngredientChoices();
+  const last = lastSearch();
+  const waiting = last && last.status === 'pending';
+  const anySource = src.mealdb || (src.github && src.sites.length);
+  const ranked = (o.mealdb || last) ? onlineResults() : null;
+  const statusLine = () => {
+    const parts = [];
+    if (src.mealdb && o.mealdbStatus) parts.push(`${SITE_NAMES.mealdb}: ${o.mealdbStatus === 'busy' ? '<span class="spinner"></span>' : esc(t(`os_${o.mealdbStatus}`, (o.mealdb || []).length))}`);
+    if (src.github && last) {
+      if (waiting) parts.push(`<span class="spinner"></span> ${esc(t(isConfigured() ? 'searchingSites' : 'searchNeedsGithub', (last.sites || []).map((k) => SITE_NAMES[k]).join(', ')))}`);
+      else for (const [k, st] of Object.entries(last.siteStatus || {})) parts.push(`${esc(SITE_NAMES[k] || k)}: ${esc(t(`os_${st}`, (last.results || []).filter((r) => r.source === k).length))}`);
+    }
+    return parts.length ? `<p class="online-status">${parts.join(' · ')}</p>` : '';
+  };
+  return `<section class="online-box" id="online">
+    <h2>🌐 ${esc(t('onlineIdeas'))}</h2>
+    ${!anySource ? `<p class="hint">${esc(t('onlineOff'))} <a href="#/settings">${esc(t('tabSettings'))}</a></p>` : `
+    <p class="hint small">${esc(t('onlinePick'))}</p>
+    <div class="f-chips online-chips">${names.map((n) => `<button type="button" class="chip ${o.selected.includes(n) ? 'on' : ''}" data-action="online-toggle" data-value="${esc(n)}">${expiring.has(n) ? '⏳ ' : ''}${esc(n)}</button>`).join('')}
+      <form id="online-add-form" class="chip-add"><input id="online-add" placeholder="+ ${esc(t('otherIngredient'))}" autocomplete="off"></form></div>
+    <div class="button-row">
+      <button type="button" class="btn primary" data-action="online-search" ${o.selected.length && navigator.onLine ? '' : 'disabled'}>✨ ${esc(t('suggestRecipes'))}</button>
+      ${o.selected.length ? `<button type="button" class="btn ghost small" data-action="online-clear">${esc(t('clearSelection'))}</button>` : ''}
+    </div>
+    <p class="hint small">${esc(t('onlineMax', maxMissing()))} · <a href="#/settings">${esc(t('change'))}</a></p>
+    ${statusLine()}
+    ${ranked ? `<ul class="suggest online-list">${ranked.shown.map(onlineCard).join('')}</ul>
+      ${!ranked.shown.length && !waiting && o.mealdbStatus !== 'busy' ? `<p class="empty">${esc(t('noOnlineMatch'))}</p>` : ''}
+      ${ranked.hidden.length ? `<button type="button" class="btn ghost small" data-action="online-hidden">${esc(t(o.showHidden ? 'hideMoreMissing' : 'showMoreMissing', ranked.hidden.length, maxMissing()))}</button>
+        ${o.showHidden ? `<ul class="suggest online-list more">${ranked.hidden.map(onlineCard).join('')}</ul>` : ''}` : ''}` : ''}`}
+  </section>`;
+}
+
+async function runOnlineSearch() {
+  const o = onlineState();
+  const src = onlineSources();
+  if (!o.selected.length) return;
+  // the sites, via the GitHub job (about a minute)
+  if (src.github && src.sites.length) {
+    for (const q of live('queue').filter((x) => x.type === 'search')) remove('queue', q.id);
+    upsert('queue', {
+      id: `s${uid().slice(0, 10)}`, type: 'search', ingredients: [...o.selected], terms: searchTerms(o.selected),
+      sites: src.sites, status: 'pending', addedAt: Date.now(),
+    }, { silent: true });
+    changed();
+  }
+  // TheMealDB, straight from here (a few seconds)
+  if (src.mealdb) {
+    o.mealdb = [];
+    o.mealdbStatus = 'busy';
+    render();
+    try {
+      o.mealdb = await mealdbSearch(o.selected);
+      o.mealdbStatus = o.mealdb.length ? 'ok' : 'none';
+    } catch {
+      o.mealdbStatus = 'unreachable';
+    }
+  }
+  render();
+}
+
+function saveOnlineRecipe(key) {
+  const r = [...onlineResults().shown, ...onlineResults().hidden].find((x) => (x.url || x.id) === key);
+  if (!r) return;
+  const id = uid();
+  const credit = r.image ? { title: SITE_NAMES[r.source] || r.source, creator: '', license: '', url: r.url } : null;
+  upsert('recipes', {
+    id, title: r.title, servings: r.servings || 4, time: r.time || '', url: r.url,
+    image: r.image || '', photos: [], imageCredit: credit ? { ...credit, photo: r.image } : null,
+    ingredients: (r.ingredients || []).map((raw) => parseIngredient(typeof raw === 'string' ? raw : raw.raw || '')),
+    steps: r.steps || [], notes: '', source: null, folderId: folderOf(state.settings.importFolder) ? state.settings.importFolder : null,
+    parsed: true, review: false, createdAt: Date.now(), photoTried: Date.now(),
+  }, { silent: true });
+  if (r.image && isConfigured()) {
+    upsert('queue', { id: `im${uid().slice(0, 8)}`, type: 'image', recipeId: id, url: r.image, referer: r.url, credit, status: 'pending', addedAt: Date.now() }, { silent: true });
+  }
+  changed();
+  toast(t('recipeSaved'));
+}
+
+// ---------- settings: online ----------
+
+function keyBlock(svc) {
+  const key = photoKey(svc);
+  const name = SRC_LABEL[svc];
+  const msg = ui.keyMsg && ui.keyMsg.svc === svc ? ui.keyMsg.r : '';
+  const msgText = msg ? t(`key_${msg}`, name) : '';
+  if (key && ui.keyEdit !== svc) {
+    return `<div class="gh-card key-card" data-svc="${svc}">
+      <p class="conn good">✓ ${esc(t('keySaved', name))} <code>${esc(maskToken(key))}</code></p>
+      ${msg ? `<p class="conn ${msg === 'ok' ? 'good' : 'bad'}">${esc(msgText)}</p>` : ''}
+      <div class="button-row">
+        <button type="button" class="btn small" data-action="key-test" data-value="${svc}">${esc(t('test'))}</button>
+        <button type="button" class="btn small ghost" data-action="key-edit" data-value="${svc}">${esc(t('change'))}</button>
+        <button type="button" class="btn small ghost danger" data-action="key-remove" data-value="${svc}">${esc(t('remove'))}</button>
+      </div></div>`;
+  }
+  return `<form class="form key-form" id="${svc}-form" data-svc="${svc}">
+      <label>${esc(t(`${svc}Key`))}<input name="key" id="${svc}-key" type="password" autocomplete="off" spellcheck="false" placeholder="${esc(t('keyPh'))}"></label>
+      ${msg && msg !== 'ok' ? `<p class="conn bad">${esc(msgText)}</p>` : ''}
+      <div class="button-row"><button class="btn primary">${esc(t('saveTest'))}</button>${key ? `<button type="button" class="btn" data-action="key-cancel" data-value="${svc}">${esc(t('cancel'))}</button>` : ''}</div>
+      ${svc === 'pixabay' ? `<details class="howto"><summary>${esc(t('pixabayHow'))}</summary><ol>
+        <li>${t('pixabayStep1')}</li><li>${t('pixabayStep2')}</li><li>${esc(t('pixabayStep3', t('saveTest')))}</li>
+      </ol><p class="hint small">${esc(t('keyWhere'))}</p></details>` : ''}
+    </form>`;
+}
+
+function onlineSettings() {
+  const src = onlineSources();
+  return `
+  <h2 id="online-settings">🌐 ${esc(t('onlineTitle'))}</h2>
+  <div class="field-label">${esc(t('photosOnline'))}</div>
+  <label class="check"><input type="checkbox" data-pref="autoPhotos" ${pref('autoPhotos', true) !== false ? 'checked' : ''}> <span>${esc(t('autoPhotos'))}<small>${esc(t('autoPhotosHint'))}</small></span></label>
+  ${keyBlock('pixabay')}
+  <p class="hint small">${esc(t('photoSourcesFree'))}</p>
+  ${photoKey('pexels') || ui.keyEdit === 'pexels' ? keyBlock('pexels') : `<details class="howto"><summary>${esc(t('pexelsHaveKey'))}</summary>${keyBlock('pexels')}</details>`}
+  <div class="field-label">${esc(t('onlineRecipes'))}</div>
+  <label class="check"><input type="checkbox" data-src="mealdb" ${src.mealdb ? 'checked' : ''}> <span>TheMealDB<small>${esc(t('srcMealdbHint'))}</small></span></label>
+  <label class="check"><input type="checkbox" data-src="github" ${src.github ? 'checked' : ''}> <span>${esc(t('srcSites'))}<small>${esc(t('srcSitesHint'))}</small></span></label>
+  ${src.github ? `<div class="site-list">${ALL_SITES.map((k) => `<label class="check"><input type="checkbox" data-site="${k}" ${src.sites.includes(k) ? 'checked' : ''}> <span>${esc(SITE_NAMES[k])}</span></label>`).join('')}</div>` : ''}
+  <label class="inline-num">${esc(t('maxMissingLabel'))} <input type="number" id="max-missing" min="0" max="20" step="1" inputmode="numeric" value="${maxMissing()}"></label>
+  <p class="hint small">${esc(t('maxMissingHint'))}</p>`;
 }
 
 // ---------- shopping list settings ----------
@@ -1507,7 +1808,8 @@ function openModal(html, onSubmit) {
 modal.addEventListener('close', () => {
   // a new dialog may already have been opened before this event arrived
   if (!modal.open) { modal.innerHTML = ''; modal.onchange = null; modal.onclick = null; }
-  render();
+  // the edit form holds unsaved typing: only refresh its photos
+  if (route().name === 'edit') refreshPhotoStrip(); else render();
 });
 
 function openAddToList(r) {
@@ -1645,6 +1947,20 @@ view.addEventListener('submit', (e) => {
       changed();
       $('#tag-input')?.focus();
     }
+  } else if (form.id === 'online-add-form') {
+    const v = $('#online-add').value.trim();
+    if (v) { const o = onlineState(); if (!o.extra.includes(v)) o.extra.push(v); if (!o.selected.includes(v)) o.selected.push(v); }
+    render();
+    $('#online-add')?.focus();
+  } else if (form.classList.contains('key-form')) {
+    const svc = form.dataset.svc;
+    const key = form.key.value.trim();
+    if (!key) return;
+    ui.keyMsg = null;
+    testKey(svc, key).then((r) => {
+      if (r === 'ok' || r === 'limit') { setPref(PHOTO_KEYS[svc], key); ui.keyEdit = ''; ui.keyMsg = { svc, r: 'ok' }; changed(); }
+      else { ui.keyMsg = { svc, r }; render(); }
+    });
   } else if (form.id === 'edit-form') {
     saveRecipe(form);
   } else if (form.id === 'gh-form') {
@@ -1667,6 +1983,16 @@ view.addEventListener('change', (e) => {
     if (el.dataset.pa === 'name') { row.pantryId = null; row.cat = null; }
     render();
   }
+  if (el.dataset.pref === 'autoPhotos') { setPref('autoPhotos', el.checked); changed(); }
+  if (el.dataset.src || el.dataset.site) {
+    const cur = onlineSources();
+    if (el.dataset.src) cur[el.dataset.src] = el.checked;
+    if (el.dataset.site) cur.sites = el.checked ? [...new Set([...cur.sites, el.dataset.site])] : cur.sites.filter((x) => x !== el.dataset.site);
+    setPref('onlineSources', cur);
+    changed();
+    render();
+  }
+  if (el.id === 'max-missing') { setPref('maxMissing', Math.max(0, Math.min(20, parseInt(el.value, 10) || 0))); changed(); }
   if (el.id === 'people') { setPref('people', +el.value || 0); ui.servings = {}; changed(); }
   if (el.id === 'import-folder') saveSettings({ importFolder: el.value || '' });
   if (el.id === 'sort') { saveSettings({ sort: el.value }); $('#cards').innerHTML = cardsHtml(); hydrate($('#cards')); }
@@ -1762,6 +2088,16 @@ view.addEventListener('click', (e) => {
     case 'scan': startScan(); break;
     case 'photo-import': openPhotoCapture(); break;
     case 'book-import': openBookImport(); break;
+    case 'photo-search': openPhotoSearch(); break;
+    case 'online-toggle': { const o = onlineState(); const v = btn.dataset.value; o.selected = o.selected.includes(v) ? o.selected.filter((x) => x !== v) : [...o.selected, v]; render(); break; }
+    case 'online-clear': onlineState().selected = []; render(); break;
+    case 'online-search': runOnlineSearch(); break;
+    case 'online-hidden': { const o = onlineState(); o.showHidden = !o.showHidden; render(); break; }
+    case 'online-import': saveOnlineRecipe(btn.dataset.value); break;
+    case 'key-edit': ui.keyEdit = btn.dataset.value; ui.keyMsg = null; render(); break;
+    case 'key-cancel': ui.keyEdit = ''; ui.keyMsg = null; render(); break;
+    case 'key-remove': if (confirm(t('keyRemoveConfirm', SRC_LABEL[btn.dataset.value]))) { setPref(PHOTO_KEYS[btn.dataset.value], ''); ui.keyMsg = null; changed(); } break;
+    case 'key-test': { const svc = btn.dataset.value; testKey(svc, photoKey(svc)).then((r) => { ui.keyMsg = { svc, r }; render(); }); break; }
     case 'open-book': ui.search = ''; ui.filters = null; ui.showFilters = false; location.hash = folderHref(id); break;
     case 'put-away': startPutAway(); break;
     case 'pa-scan': putAwayScan(); break;
@@ -1770,6 +2106,7 @@ view.addEventListener('click', (e) => {
     case 'f-tag': { const f = filters(); const v = btn.dataset.value; f.tags = f.tags.includes(v) ? f.tags.filter((x) => x !== v) : [...f.tags, v]; render(); break; }
     case 'f-source': { const f = filters(); f.source = f.source === btn.dataset.value ? '' : btn.dataset.value; render(); break; }
     case 'f-time': { const f = filters(); const v = +btn.dataset.value; f.maxTime = f.maxTime === v ? 0 : v; render(); break; }
+    case 'f-active': { const f = filters(); const v = +btn.dataset.value; f.maxActive = f.maxActive === v ? 0 : v; render(); break; }
     case 'f-kcal': { const f = filters(); const v = +btn.dataset.value; f.maxKcal = f.maxKcal === v ? 0 : v; render(); break; }
     case 'f-prot': { const f = filters(); const v = +btn.dataset.value; f.minProt = f.minProt === v ? 0 : v; render(); break; }
     case 'srv-reset': delete ui.servings[id]; render(); break;
@@ -2410,6 +2747,8 @@ function saveRecipe(form) {
     url: form.url.value.trim(),
     servings: Math.max(1, parseInt(form.servings.value, 10) || 4),
     time: form.time.value.trim(),
+    prepMin: form.prepMin.value.trim() === '' ? undefined : Math.max(0, Math.round(+form.prepMin.value)),
+    waitMin: form.waitMin.value.trim() === '' ? undefined : Math.max(0, Math.round(+form.waitMin.value)),
     image: form.image.value.trim(),
     ingredients: lines(form.ingredients.value).map(parseIngredient),
     steps: lines(form.steps.value),
@@ -2422,10 +2761,16 @@ function saveRecipe(form) {
     } : null,
     sourcePhotos: prev.sourcePhotos || ui.prefillSource?.sourcePhotos || [],
     imageCredit: ui.edit?.imageCredit || null,
+    photoTried: prev.photoTried || (ui.edit?.photos?.length ? Date.now() : undefined),
     review: false,
     photos: [...(ui.edit?.photos || [])],
     parsed: true,
   }, { silent: true });
+  // a picture from the web the phone couldn't download: the GitHub job keeps a copy
+  const pend = ui.edit?.pendingImage;
+  if (pend && form.image.value.trim() === pend.url && isConfigured()) {
+    upsert('queue', { id: `im${uid().slice(0, 8)}`, type: 'image', recipeId: id, url: pend.url, referer: pend.referer || '', credit: pend.credit || null, status: 'pending', addedAt: Date.now() }, { silent: true });
+  }
   ui.prefillUrl = '';
   ui.prefillSource = null;
   ui.edit = null;
