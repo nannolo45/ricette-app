@@ -13,9 +13,10 @@ import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
 import { parseRecipeText } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
-import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags } from './recipe-tools.js';
+import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS } from './recipe-tools.js';
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
+import { isDragging, reorderSubset, byOrder } from './sortable.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -25,6 +26,10 @@ const num = (v) => { if (v === '' || v == null) return null; const n = parseFloa
 const view = $('#view');
 const modal = $('#modal');
 const ui = { servings: {}, search: '', prefillUrl: '', connMsg: '', edit: null };
+
+// Preferences shared by all devices (data/prefs.json): one record per setting.
+function pref(id, fallback) { const p = get('prefs', id); return p && p.value !== undefined ? p.value : fallback; }
+function setPref(id, value) { upsert('prefs', { id, value }, { silent: true }); }
 
 // <img> for a cover: repo photos are loaded from IndexedDB/GitHub, web images directly.
 function photoTag(src, { fallback = '', cls = '' } = {}) {
@@ -70,7 +75,7 @@ function route() {
   return { name, id: id && decodeURIComponent(id) };
 }
 
-const TAB_OF = { putaway: 'list', recipes: 'recipes', folder: 'recipes', suggest: 'recipes', recipe: 'recipes', edit: 'recipes', list: 'list', pantry: 'pantry', settings: 'settings' };
+const TAB_OF = { import: 'import', putaway: 'list', recipes: 'recipes', folder: 'recipes', suggest: 'recipes', recipe: 'recipes', edit: 'recipes', list: 'list', pantry: 'pantry', settings: 'settings' };
 
 // ---------- folders ----------
 
@@ -81,6 +86,12 @@ function folderOf(id) { return id ? get('folders', id) : null; }
 function currentFolderId() {
   const r = route();
   return r.name === 'folder' && folderOf(r.id) ? r.id : null;
+}
+
+// Where new recipes go: the Import tab has its own folder choice, elsewhere the folder being viewed.
+function targetFolderId() {
+  if (route().name === 'import') return folderOf(state.settings.importFolder) ? state.settings.importFolder : null;
+  return currentFolderId();
 }
 
 function childFolders(parentId) {
@@ -318,23 +329,47 @@ function updateSyncBadge(syncing = isSyncing()) {
 
 // ---------- views ----------
 
-function viewRecipes() {
-  const queue = live('queue').filter((q) => q.status !== 'done');
-  const folderId = currentFolderId();
-  const path = folderPath(folderId);
+function viewImport() {
+  const queue = live('queue').filter((q) => q.status !== 'done').sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  const recent = live('recipes').filter((r) => r.createdAt).sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
+  const folder = folderOf(state.settings.importFolder) ? state.settings.importFolder : '';
   return `
+  <h1>${esc(t('tabImport'))}</h1>
   <form class="import" id="import-form">
     <input type="url" name="url" id="import-url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off">
     <button class="btn primary">${esc(t('import'))}</button>
   </form>
-  <button class="btn photo-import" data-action="photo-import">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
-    ${esc(t('fromPhoto'))}</button>
+  <div class="import-tools">
+    <button class="btn photo-import" data-action="photo-import">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+      ${esc(t('fromPhoto'))}</button>
+    <button class="btn" data-action="new-recipe">✍️ ${esc(t('manualLong'))}</button>
+  </div>
+  <label class="import-folder">📁 ${esc(t('saveIn'))}
+    <select id="import-folder">${folderOptions(folder)}</select></label>
+  <p class="hint">${esc(t('importHint'))}</p>
   ${!isConfigured() && queue.length ? `<p class="hint">${esc(t('importNeedsGithub'))}</p>` : ''}
-  ${queue.map(queueItem).join('')}
+  ${queue.length ? `<h2>${esc(t('importQueue'))}</h2>${queue.map(queueItem).join('')}` : ''}
+  ${recent.length ? `<h2>${esc(t('recentlyAdded'))}</h2>${recipeCards(recent, new Map(), true)}` : ''}`;
+}
+
+function pinnedBar() {
+  const pins = pinnedTags().filter((tg) => tagCount().has(tg));
+  if (!pins.length) return '';
+  const f = filters();
+  return `<div class="pin-bar" role="toolbar" aria-label="${esc(t('pinnedTags'))}">${pins.map((tg) => chip(tagLabel(tg), 'f-tag', tg, f.tags.includes(tg))).join('')}</div>`;
+}
+
+function viewRecipes() {
+  const folderId = currentFolderId();
+  const path = folderPath(folderId);
+  const queueN = live('queue').filter((q) => q.status !== 'done').length;
+  return `
+  ${queueN ? `<a class="queue-note" href="#/import">⏳ ${esc(t('importsWaiting', queueN))}</a>` : ''}
   <div class="row">
     <input type="search" id="search" placeholder="${esc(t('search'))}" value="${esc(ui.search)}">
   </div>
+  ${pinnedBar()}
   <div class="toolbar">
     <label class="sort">⇅ <select id="sort" aria-label="${esc(t('sortBy'))}">${SORTS.map((k) => `<option value="${k}" ${k === sortKey() ? 'selected' : ''}>${esc(t(`sort_${k}`))}</option>`).join('')}</select></label>
     <button class="btn small ${ui.showFilters || filterCount() ? 'on' : ''}" data-action="toggle-filters">⚲ ${esc(t('filters'))}${filterCount() ? ` (${filterCount()})` : ''}</button>
@@ -347,7 +382,8 @@ function viewRecipes() {
       ${path.map((f) => `<span>›</span><a href="${folderHref(f.id)}">${esc(f.name)}</a>`).join('')}
     </div>
     <div class="folder-actions">
-      ${folderId ? `<button class="btn small ghost" data-action="folder-edit" data-id="${esc(folderId)}">${esc(t('edit'))}</button>` : ''}
+      ${folderId ? `<button class="btn small ghost" data-action="folder-edit" data-id="${esc(folderId)}">✎ ${esc(t('edit'))}</button>
+      <button class="btn small ghost danger" data-action="folder-delete" data-id="${esc(folderId)}">🗑 ${esc(t('delete'))}</button>` : ''}
       <button class="btn small" data-action="folder-new">+ ${esc(t('folder'))}</button>
       <button class="btn small" data-action="new-recipe">+ ${esc(t('manual'))}</button>
     </div>
@@ -363,26 +399,81 @@ function sortKey() { return SORTS.includes(state.settings.sort) ? state.settings
 function filters() { return (ui.filters ||= { tags: [], source: '', maxTime: 0, ready: '' }); }
 function filterCount() { const f = filters(); return f.tags.length + (f.source ? 1 : 0) + (f.maxTime ? 1 : 0) + (f.ready ? 1 : 0); }
 
-function tagLabel(tag) { return tag.startsWith('auto:') ? t(`tag_${tag.slice(5)}`) : tag; }
+function tagDefs() { return live('tagdefs'); }
+function tagDef(id) { return tagDefs().find((d) => d.id === id); }
+function autoLabel(id) { const d = tagDef(id); return (d && (d.label || d.name)) || t(`tag_${id}`); }
+function tagLabel(tag) { return tag.startsWith('auto:') ? autoLabel(tag.slice(5)) : tag; }
 
 function allTags() {
   const count = new Map();
-  for (const r of live('recipes')) for (const tg of tagsOf(r)) count.set(tg, (count.get(tg) || 0) + 1);
+  for (const r of live('recipes')) for (const tg of tagsOf(r, tagDefs())) count.set(tg, (count.get(tg) || 0) + 1);
   return [...count.entries()].sort((a, b) => b[1] - a[1] || tagLabel(a[0]).localeCompare(tagLabel(b[0])));
 }
+function tagCount() { return new Map(allTags()); }
+
+// Pinned tags (shared by all devices): shown first in the filters and as quick chips above the recipes.
+function pinnedTags() { const v = pref('pinnedTags', []); return Array.isArray(v) ? v : []; }
+function isPinned(tg) { return pinnedTags().includes(tg); }
+function togglePin(tg) {
+  const pins = pinnedTags();
+  setPref('pinnedTags', pins.includes(tg) ? pins.filter((x) => x !== tg) : [...pins, tg]);
+  changed();
+}
+function renamePin(from, to) {
+  const pins = pinnedTags();
+  if (pins.includes(from)) setPref('pinnedTags', [...new Set(pins.map((x) => (x === from ? to : x)))]);
+}
+function unpin(tg) { if (isPinned(tg)) setPref('pinnedTags', pinnedTags().filter((x) => x !== tg)); }
 
 function chip(label, action, value, on, extra = '') {
   return `<button type="button" class="chip ${on ? 'on' : ''}" data-action="${action}" data-value="${esc(value)}">${esc(label)}${extra}</button>`;
 }
 
+const DIET_TAGS = ['veg', 'vegan', 'meat', 'fish'];
+const TAGS_SHOWN = 8;
+
 function filterPanel() {
   const f = filters();
-  return `<div class="filter-panel">
-    <div class="f-row"><span class="f-label">${esc(t('tags'))}</span>${allTags().map(([tg, n]) => chip(tagLabel(tg), 'f-tag', tg, f.tags.includes(tg), ` <small>${n}</small>`)).join('') || `<small>${esc(t('noTagsYet'))}</small>`}</div>
-    <div class="f-row"><span class="f-label">${esc(t('sourceLabel'))}</span>${[['web', t('srcWeb')], ['book', `📖 ${t('srcBook')}`], ['note', `✍️ ${t('srcNote')}`]].map(([v, l]) => chip(l, 'f-source', v, f.source === v)).join('')}</div>
-    <div class="f-row"><span class="f-label">${esc(t('time'))}</span>${[15, 30, 60].map((m) => chip(`≤ ${m} min`, 'f-time', m, f.maxTime === m)).join('')}</div>
-    <div class="f-row"><span class="f-label">${esc(t('tabPantry'))}</span>${chip(t('readyNow'), 'f-ready', 'all', f.ready === 'all')}${chip(t('missingAtMost2'), 'f-ready', 'two', f.ready === 'two')}</div>
-    ${filterCount() ? `<button type="button" class="btn small ghost" data-action="f-clear">${esc(t('clearFilters'))}</button>` : ''}
+  const tags = allTags();
+  const editing = ui.pinEdit;
+  const pins = pinnedTags();
+  const tagChip = ([tg, n]) => editing
+    ? `<button type="button" class="chip pin-chip ${pins.includes(tg) ? 'on' : ''}" data-action="pin-toggle" data-value="${esc(tg)}" aria-pressed="${pins.includes(tg)}">${pins.includes(tg) ? '📌 ' : ''}${esc(tagLabel(tg))}</button>`
+    : chip(tagLabel(tg), 'f-tag', tg, f.tags.includes(tg), ` <small>${n}</small>`);
+  const pinned = pins.map((tg) => tags.find((x) => x[0] === tg)).filter(Boolean);
+  const rest = editing ? tags : tags.filter(([tg]) => !pins.includes(tg));
+  const kind = (tg) => {
+    const id = tg.startsWith('auto:') ? tg.slice(5) : null;
+    if (id && COURSE_TAGS.includes(id)) return 'course';
+    if (id && DIET_TAGS.includes(id)) return 'diet';
+    return 'other';
+  };
+  const byKind = (k) => rest.filter(([tg]) => kind(tg) === k);
+  const other = byKind('other');
+  // keep selected tags visible even when the list is collapsed
+  const otherShown = ui.allTags ? other : other.filter(([tg], i) => i < TAGS_SHOWN || f.tags.includes(tg));
+  const group = (label, list, extra = '') => (list.length ? `<div class="f-group"><div class="f-sub">${esc(label)}</div><div class="f-chips">${list.map(tagChip).join('')}${extra}</div></div>` : '');
+  const sec = (label, chips) => `<section class="f-sec"><h4 class="f-head">${esc(label)}</h4><div class="f-chips">${chips}</div></section>`;
+  return `<div class="filter-panel ${editing ? 'pin-editing' : ''}">
+    <section class="f-sec">
+      <div class="f-head-row">
+        <h4 class="f-head">${esc(t('tags'))}</h4>
+        ${tags.length ? `<button type="button" class="link-btn" data-action="pin-edit" aria-pressed="${Boolean(editing)}">${editing ? `✓ ${esc(t('done'))}` : `📌 ${esc(t('pinTags'))}`}</button>` : ''}
+      </div>
+      ${editing ? `<p class="hint small">${esc(t('pinHint'))}</p>` : ''}
+      ${!tags.length ? `<small class="hint">${esc(t('noTagsYet'))}</small>` : ''}
+      ${!editing && pinned.length ? `<div class="f-group pinned"><div class="f-sub">📌 ${esc(t('pinnedTags'))}</div><div class="f-chips">${pinned.map(tagChip).join('')}</div></div>` : ''}
+      ${group(t('tagGroupCourse'), byKind('course'))}
+      ${group(t('tagGroupDiet'), byKind('diet'))}
+      ${group(t('tagGroupOther'), otherShown, other.length > otherShown.length
+        ? `<button type="button" class="chip more" data-action="tags-more">+ ${esc(t('moreN', other.length - otherShown.length))}</button>`
+        : ui.allTags && other.length > TAGS_SHOWN ? `<button type="button" class="chip more" data-action="tags-more">${esc(t('showLess'))}</button>` : '')}
+    </section>
+    ${editing ? '' : `
+    ${sec(t('sourceLabel'), [['web', `🌐 ${t('srcWeb')}`], ['book', `📖 ${t('srcBook')}`], ['note', `✍️ ${t('srcNote')}`]].map(([v, l]) => chip(l, 'f-source', v, f.source === v)).join(''))}
+    ${sec(t('time'), [15, 30, 60].map((m) => chip(`≤ ${m} min`, 'f-time', m, f.maxTime === m)).join(''))}
+    ${sec(t('tabPantry'), chip(t('readyNow'), 'f-ready', 'all', f.ready === 'all') + chip(t('missingAtMost2'), 'f-ready', 'two', f.ready === 'two'))}
+    ${filterCount() ? `<div class="f-foot"><button type="button" class="btn small ghost" data-action="f-clear">✕ ${esc(t('clearFilters'))}</button></div>` : ''}`}
   </div>`;
 }
 
@@ -409,9 +500,9 @@ function recipeList() {
   let list = live('recipes').filter((r) => {
     if (!filtering) return recipeFolderId(r) === folderId;
     if (q && !(normalizeName(r.title).includes(q) || normalizeName(r.source?.book).includes(q)
-      || tagsOf(r).some((tg) => normalizeName(tagLabel(tg)).includes(q))
+      || tagsOf(r, tagDefs()).some((tg) => normalizeName(tagLabel(tg)).includes(q))
       || ingredientsOf(r).some((i) => normalizeName(i.name).includes(q)))) return false;
-    if (f.tags.length) { const tg = tagsOf(r); if (!f.tags.every((x) => tg.includes(x))) return false; }
+    if (f.tags.length) { const tg = tagsOf(r, tagDefs()); if (!f.tags.every((x) => tg.includes(x))) return false; }
     if (f.source && (r.source?.type || 'web') !== f.source) return false;
     if (f.maxTime) { const m = minutesOf(r.time); if (m == null || m > f.maxTime) return false; }
     if (f.ready) { const c = cov(r); if (!c.total || c.missing.length > (f.ready === 'all' ? 0 : 2)) return false; }
@@ -454,7 +545,7 @@ function recipeCards(list, coverage, filtering) {
     return live('recipes').length || childFolders(null).length ? '' : `<p class="empty">${esc(t('noRecipes'))}</p>`;
   }
   return `<div class="cards">${list.map((r) => {
-    const tags = tagsOf(r).slice(0, 3);
+    const tags = tagsOf(r, tagDefs()).slice(0, 3);
     return `
     <a class="card" href="#/recipe/${encodeURIComponent(r.id)}">
       <div class="thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></div>
@@ -471,8 +562,18 @@ function recipeCards(list, coverage, filtering) {
 
 // ---------- what can I cook? ----------
 
-function suggestions() {
-  return rankByPantry(live('recipes'), live('pantry'), { basics: state.settings.basics !== false, expiringIds: expiringIds() });
+const SUGGEST_SORTS = ['have', 'expiring'];
+function suggestSort() { return SUGGEST_SORTS.includes(state.settings.suggestSort) ? state.settings.suggestSort : 'have'; }
+
+function suggestions(by = suggestSort()) {
+  return rankByPantry(live('recipes'), live('pantry'), {
+    basics: state.settings.basics !== false, expiringIds: expiringIds(), by, daysLeft: (p) => daysUntil(p.expires),
+  });
+}
+
+// pantry items with a date that this recipe would use, soonest first
+function datedUses(c) {
+  return c.matched.map((p) => ({ p, d: daysUntil(p.expires) })).filter((x) => x.d != null).sort((a, b) => a.d - b.d);
 }
 
 function missingText(m) {
@@ -482,28 +583,43 @@ function missingText(m) {
 
 function viewSuggest() {
   const pantryEmpty = !live('pantry').some((p) => (num(p.qty) || 0) > 0);
-  const ranked = pantryEmpty ? [] : suggestions().slice(0, 40);
+  const by = suggestSort();
+  const ranked = pantryEmpty ? [] : suggestions(by).slice(0, 40);
   const expSoon = new Map(expiringItems().map((x) => [x.p.id, x.d]));
-  return `
-  <a class="back" href="#/recipes">← ${esc(t('allRecipes'))}</a>
-  <h1>🍳 ${esc(t('whatToCook'))}</h1>
-  <p class="hint">${esc(t('suggestHint'))}</p>
-  <label class="check"><input type="checkbox" id="basics" ${state.settings.basics !== false ? 'checked' : ''}> ${esc(t('basicsAlways'))}</label>
-  ${pantryEmpty ? `<p class="empty">${esc(t('pantryEmptyForSuggest'))}<br><a class="btn" href="#/pantry">${esc(t('tabPantry'))}</a></p>` : ''}
-  ${!pantryEmpty && !ranked.length ? `<p class="empty">${esc(t('noRecipes'))}</p>` : ''}
-  <ul class="suggest">${ranked.map(({ r, c }) => `
+  const noDates = by === 'expiring' && !pantryEmpty && !live('pantry').some((p) => p.expires && (num(p.qty) || 0) > 0);
+  let divider = false;
+  const item = ({ r, c }) => {
+    let head = '';
+    if (by === 'expiring' && c.soonest == null && !divider) { divider = true; head = `<li class="s-divider">${esc(t('noDatedIngredients'))}</li>`; }
+    const dated = by === 'expiring' ? datedUses(c).slice(0, 4) : [];
+    return `${head}
     <li>
       <a class="s-main" href="#/recipe/${encodeURIComponent(r.id)}">
         <span class="s-thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></span>
         <span class="s-text">
           <strong>${esc(r.title)}</strong>
+          <span class="s-meter" title="${esc(t('haveShare', c.have.length, c.total))}"><span style="width:${Math.round(c.ratio * 100)}%"></span></span>
           ${c.missing.length ? `<span class="missing">${esc(t('missingN', c.missing.length))}: ${esc(c.missing.map(missingText).join(', '))}</span>`
             : `<span class="have-all">✓ ${esc(t('haveAll'))}</span>`}
-          ${c.uses.length ? `<span class="uses">♻️ ${esc(t('usesExpiring'))}: ${esc(c.uses.map((p) => `${p.name} (${expiryText(expSoon.get(p.id) ?? 0)})`).join(', '))}</span>` : ''}
+          ${dated.length ? `<span class="uses">⏳ ${esc(dated.map((x) => `${x.p.name} (${expiryText(x.d)})`).join(', '))}</span>`
+            : c.uses.length ? `<span class="uses">♻️ ${esc(t('usesExpiring'))}: ${esc(c.uses.map((p) => `${p.name} (${expiryText(expSoon.get(p.id) ?? 0)})`).join(', '))}</span>` : ''}
         </span>
       </a>
       ${c.missing.length ? `<button class="btn small" data-action="add-missing" data-id="${esc(r.id)}">🛒 ${esc(t('addMissing'))}</button>` : ''}
-    </li>`).join('')}</ul>`;
+    </li>`;
+  };
+  return `
+  <a class="back" href="#/recipes">← ${esc(t('allRecipes'))}</a>
+  <h1>🍳 ${esc(t('whatToCook'))}</h1>
+  <div class="seg" role="radiogroup" aria-label="${esc(t('sortBy'))}">
+    ${SUGGEST_SORTS.map((k) => `<button type="button" role="radio" aria-checked="${k === by}" class="${k === by ? 'on' : ''}" data-action="suggest-sort" data-value="${k}">${esc(t(`suggest_${k}`))}</button>`).join('')}
+  </div>
+  <p class="hint">${esc(t(`suggestHint_${by}`))}</p>
+  <label class="check"><input type="checkbox" id="basics" ${state.settings.basics !== false ? 'checked' : ''}> ${esc(t('basicsAlways'))}</label>
+  ${noDates ? `<p class="hint warn">${esc(t('noExpiryDates'))}</p>` : ''}
+  ${pantryEmpty ? `<p class="empty">${esc(t('pantryEmptyForSuggest'))}<br><a class="btn" href="#/pantry">${esc(t('tabPantry'))}</a></p>` : ''}
+  ${!pantryEmpty && !ranked.length ? `<p class="empty">${esc(t('noRecipes'))}</p>` : ''}
+  <ul class="suggest">${ranked.map(item).join('')}</ul>`;
 }
 
 function addMissingToList(id) {
@@ -532,6 +648,7 @@ function folderTiles(folders) {
       <div class="f-thumb">${cover ? photoTag(cover) : ''}
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
       <div class="f-body"><span class="folder-name">${esc(f.name)}</span><small>${esc(t('nRecipes', countIn(f.id)))}</small></div>
+      <button type="button" class="f-menu" data-action="folder-edit" data-id="${esc(f.id)}" aria-label="${esc(t('editFolder'))}">⋯</button>
     </a>`;
   }).join('')}</div>`;
 }
@@ -592,7 +709,7 @@ function viewRecipe(id) {
   </div>
   ${r.review ? `<div class="review"><span>${esc(t('reviewBanner'))}</span><a class="btn small primary" href="#/edit/${encodeURIComponent(id)}">${esc(t('reviewCheck'))}</a></div>` : ''}
   <div class="tag-row">
-    ${tagsOf(r).map((tg) => `<span class="tag ${tg.startsWith('auto:') ? 'auto' : ''}">${esc(tagLabel(tg))}<button type="button" class="tag-x" data-action="tag-remove" data-id="${esc(id)}" data-value="${esc(tg)}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}
+    ${tagsOf(r, tagDefs()).map((tg) => `<span class="tag ${tg.startsWith('auto:') ? 'auto' : ''}">${esc(tagLabel(tg))}<button type="button" class="tag-x" data-action="tag-remove" data-id="${esc(id)}" data-value="${esc(tg)}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}
     <form class="tag-form" id="tag-form" data-id="${esc(id)}"><input name="tag" id="tag-input" list="all-tags" placeholder="+ ${esc(t('addTag'))}" autocomplete="off" maxlength="30"></form>
     <datalist id="all-tags">${[...new Set(live('recipes').flatMap((x) => x.tags || []))].sort().map((tg) => `<option value="${esc(tg)}">`).join('')}</datalist>
   </div>
@@ -688,35 +805,111 @@ function viewEdit(id) {
   </form>`;
 }
 
-function itemRow(i) {
+const LIST_MODES = ['dept', 'recipe', 'plain'];
+function listMode() { const m = pref('listMode', 'dept'); return LIST_MODES.includes(m) ? m : 'dept'; }
+
+const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
+function grip(id, label) {
+  return `<button type="button" class="drag-handle" id="${esc(id)}" aria-label="${esc(t('dragToMove', label))}" title="${esc(t('dragHint'))}">${GRIP}</button>`;
+}
+
+function itemRow(i, { drag = false, showSource = true } = {}) {
   const src = i.auto ? `<span class="badge">${esc(t('fromPantry'))}</span>`
-    : (i.sources || []).length ? `<small>${esc(i.sources.join(', '))}</small>` : '';
-  return `<li class="${i.checked ? 'checked' : ''}">
+    : showSource && (i.sources || []).length ? `<small>${esc(i.sources.join(', '))}</small>`
+      : (i.sources || []).length > 1 ? `<small>+ ${esc(i.sources.slice(1).join(', '))}</small>` : '';
+  return `<li class="${i.checked ? 'checked' : ''}" ${drag ? `data-sort-key="${esc(i.id)}"` : ''}>
+    ${drag ? grip(`h-${i.id}`, i.name) : ''}
     <label><input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" ${i.checked ? 'checked' : ''}>
       <span class="item-text"><span class="q">${esc(qtyText(i.qty, i.unit))}</span> ${esc(i.name)} ${src}</span></label>
     <button class="icon" data-action="del-item" data-id="${esc(i.id)}" aria-label="${esc(t('remove'))}">×</button>
   </li>`;
 }
 
+// manual order first (drag and drop), then items nobody has placed yet, by name
+function byItemOrder(a, b) {
+  const oa = Number.isFinite(a.order) ? a.order : Infinity;
+  const ob = Number.isFinite(b.order) ? b.order : Infinity;
+  if (oa !== ob) return oa - ob;
+  return normalizeName(a.name).localeCompare(normalizeName(b.name));
+}
+
+function recipeGroupOf(i) { return i.auto ? '__pantry' : (i.sources || [])[0] || '__other'; }
+function recipeGroupLabel(k) { return k === '__pantry' ? `🔁 ${t('restock')}` : k === '__other' ? `🧺 ${t('otherItems')}` : `🍽 ${k}`; }
+
+function deptOrder() { return byOrder(CATEGORY_IDS, pref('deptOrder', [])); }
+
+/** Open items grouped as the list shows them: [[groupKey, label, items]] (one unnamed group for the plain list). */
+function listGroups(open, mode = listMode()) {
+  const items = [...open].sort(byItemOrder);
+  if (mode === 'plain') return [['all', '', items]];
+  if (mode === 'recipe') {
+    const groups = new Map();
+    const firstAdded = new Map();
+    for (const i of items) {
+      const k = recipeGroupOf(i);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(i);
+      firstAdded.set(k, Math.min(firstAdded.get(k) ?? Infinity, i.addedAt || 0));
+    }
+    const natural = [...groups.keys()].sort((a, b) => (a === '__pantry') - (b === '__pantry') || firstAdded.get(a) - firstAdded.get(b));
+    return byOrder(natural, pref('recipeOrder', [])).map((k) => [k, recipeGroupLabel(k), groups.get(k)]);
+  }
+  const groups = new Map(groupByDept(items, shopCat));
+  return deptOrder().filter((c) => groups.has(c)).map((c) => [c, `${categoryIcon(c)} ${t(`cat_${c}`)}`, groups.get(c)]);
+}
+
 function viewList() {
   const items = live('shopping');
-  const byName = (a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name));
-  const open = items.filter((i) => !i.checked).sort(byName);
-  const done = items.filter((i) => i.checked).sort(byName);
+  const mode = listMode();
+  const open = items.filter((i) => !i.checked);
+  const done = items.filter((i) => i.checked).sort(byItemOrder);
+  const groups = listGroups(open, mode);
+  const grouped = mode !== 'plain';
+  const body = grouped
+    ? `<div class="groups" data-sortable="groups" data-group="${mode}">${groups.map(([k, label, list]) => `
+      <section class="grp" data-sort-key="${esc(k)}">
+        <h3 class="dept-h" ${mode === 'dept' ? `id="dept-${esc(k)}"` : ''}>${grip(`g-${mode}-${k}`, label)}<span>${esc(label)}</span><small>${list.length}</small></h3>
+        <ul class="list" data-sortable="items" data-group="${esc(k)}">${list.map((i) => itemRow(i, { drag: true, showSource: mode !== 'recipe' })).join('')}</ul>
+      </section>`).join('')}</div>`
+    : `<ul class="list" data-sortable="items" data-group="all">${groups[0][2].map((i) => itemRow(i, { drag: true })).join('')}</ul>`;
   return `
   <form id="add-item" class="row">
     <input name="item" id="add-item-input" required placeholder="${esc(t('addItemPh'))}" autocomplete="off">
     <button class="btn primary" aria-label="+">+</button>
   </form>
-  ${open.length ? `${groupByDept(open, shopCat).map(([cat, items]) => `<h3 class="dept-h">${categoryIcon(cat)} ${esc(t(`cat_${cat}`))}</h3>
-    <ul class="list">${items.map(itemRow).join('')}</ul>`).join('')}
+  <div class="seg" role="radiogroup" aria-label="${esc(t('listView'))}">
+    ${LIST_MODES.map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
+  </div>
+  ${open.length ? `${body}
+    <p class="hint small">${esc(t(grouped ? 'dragHintGroups' : 'dragHintItems'))}</p>
     <button class="btn" data-action="share-list">${esc(t('share'))}</button>` : `<p class="empty">${esc(t('listEmpty'))}</p>`}
-  ${done.length ? `<h2>${esc(t('inCart'))} (${done.length})</h2><ul class="list done">${done.map(itemRow).join('')}</ul>
+  ${done.length ? `<h2>${esc(t('inCart'))} (${done.length})</h2><ul class="list done">${done.map((i) => itemRow(i)).join('')}</ul>
     <div class="button-row">
       <button class="btn primary" data-action="put-away">📦 ${esc(t('putAway'))}</button>
       <button class="btn" data-action="clear-checked">${esc(t('clearChecked'))}</button>
     </div>
     <p class="hint small">${esc(t('putAwayExplain'))}</p>` : ''}`;
+}
+
+// After a drag: save the new order of the items, or of the groups.
+function onSorted({ kind, group, keys }) {
+  if (kind === 'items') {
+    const open = live('shopping').filter((i) => !i.checked);
+    const flat = listGroups(open).flatMap(([k, , list]) => (k === group ? keys.map((id) => list.find((i) => i.id === id)).filter(Boolean) : list));
+    flat.forEach((i, n) => { if (i.order !== n) upsert('shopping', { ...i, order: n }, { silent: true }); });
+    changed();
+  } else if (kind === 'groups') {
+    if (group === 'dept') setPref('deptOrder', reorderSubset(deptOrder(), keys));
+    else if (group === 'recipe') {
+      const saved = pref('recipeOrder', []);
+      setPref('recipeOrder', reorderSubset(saved, keys).slice(-200));
+    }
+    changed();
+  } else if (kind === 'dept-settings') {
+    setPref('deptOrder', keys);
+    changed();
+    render();
+  }
 }
 
 function bestRowFor(productName, rows) {
@@ -822,7 +1015,7 @@ function shopCat(i) {
 }
 
 function groupByDept(items, catOf) {
-  const groups = new Map(CATEGORY_IDS.map((c) => [c, []]));
+  const groups = new Map(deptOrder().map((c) => [c, []]));
   for (const i of items) groups.get(catOf(i)).push(i);
   return [...groups.entries()].filter(([, list]) => list.length);
 }
@@ -988,6 +1181,8 @@ function viewSettings() {
     </div>
     <p class="hint">${esc(t('setupHelp'))}</p>
   </form>`}
+  ${listSettings()}
+  ${tagSettings()}
   <h2>${esc(t('reminders'))}</h2>
   <form class="form" id="remind-form">
     <label>${esc(t('remindDefault'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(remindDefault())}"></label>
@@ -996,6 +1191,152 @@ function viewSettings() {
   <h2>${esc(t('backup'))}</h2>
   <button class="btn" data-action="export">${esc(t('exportData'))}</button>
   <p class="hint">${esc(t('installHint'))}</p>`;
+}
+
+// ---------- shopping list settings ----------
+
+function listSettings() {
+  const mode = listMode();
+  const custom = pref('deptOrder', []).length > 0;
+  return `
+  <h2>${esc(t('tabList'))}</h2>
+  <div class="field-label">${esc(t('listView'))}</div>
+  <div class="seg" role="radiogroup" aria-label="${esc(t('listView'))}">
+    ${LIST_MODES.map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
+  </div>
+  <div class="field-label">${esc(t('deptOrderTitle'))}</div>
+  <p class="hint small">${esc(t('deptOrderHint'))}</p>
+  <ul class="dept-order" data-sortable="dept-settings">${deptOrder().map((c) => `<li data-sort-key="${esc(c)}">${grip(`d-${c}`, t(`cat_${c}`))}<span>${categoryIcon(c)} ${esc(t(`cat_${c}`))}</span></li>`).join('')}</ul>
+  ${custom ? `<button type="button" class="btn small ghost" data-action="dept-reset">↺ ${esc(t('resetOrder'))}</button>` : ''}`;
+}
+
+// ---------- tag settings ----------
+
+function autoTagIds() {
+  return [...AUTO_TAGS, ...tagDefs().filter((d) => d.custom).map((d) => d.id)];
+}
+
+function tagCounts() {
+  // count as if every tag were switched on, so a disabled tag still shows how many it would cover
+  const defs = tagDefs().map((d) => ({ ...d, enabled: true }));
+  const auto = new Map();
+  const own = new Map();
+  for (const r of live('recipes')) {
+    for (const a of autoTags(r, defs)) auto.set(a, (auto.get(a) || 0) + 1);
+    for (const m of r.tags || []) if (m) own.set(m, (own.get(m) || 0) + 1);
+  }
+  return { auto, own };
+}
+
+function tagSettings() {
+  const { auto, own } = tagCounts();
+  const row = (id) => {
+    const d = tagDef(id) || {};
+    const on = d.enabled !== false;
+    const kw = (d.keywords || []).join(', ');
+    return `<li class="tagdef ${on ? '' : 'off'}">
+      <label class="switch" title="${esc(t(on ? 'tagOn' : 'tagOff'))}"><input type="checkbox" id="tagdef-${esc(id)}" data-tagdef="${esc(id)}" ${on ? 'checked' : ''}><span></span></label>
+      <div class="tagdef-main">
+        <span class="tagdef-name">${esc(autoLabel(id))}</span>${d.custom ? '' : ''}
+        <small>${esc(t('nRecipes', auto.get(id) || 0))}${kw ? ` · ${esc(t('tagKeywordsShort'))}: ${esc(kw)}` : ''}</small>
+      </div>
+      ${pinBtn(`auto:${id}`, autoLabel(id))}
+      <button type="button" class="btn small ghost" data-action="tagdef-edit" data-value="${esc(id)}" aria-label="${esc(t('editTag'))}">✎</button>
+    </li>`;
+  };
+  const ownTags = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0], getLang()));
+  return `
+  <h2>${esc(t('tagsTitle'))}</h2>
+  <p class="hint">${esc(t('tagsHint'))}</p>
+  <h3>${esc(t('autoTagsTitle'))}</h3>
+  <ul class="tagdefs" id="tagdefs">${autoTagIds().map(row).join('')}</ul>
+  <button type="button" class="btn" data-action="tagdef-new">+ ${esc(t('newAutoTag'))}</button>
+  <h3>${esc(t('ownTagsTitle'))}</h3>
+  ${ownTags.length ? `<ul class="tagdefs" id="owntags">${ownTags.map(([name, n]) => `<li class="tagdef">
+      <div class="tagdef-main"><span class="tagdef-name">${esc(name)}</span><small>${esc(t('nRecipes', n))}</small></div>
+      ${pinBtn(name, name)}
+      <button type="button" class="btn small ghost" data-action="owntag-rename" data-value="${esc(name)}" aria-label="${esc(t('renameTag'))}">✎</button>
+      <button type="button" class="btn small ghost danger" data-action="owntag-delete" data-value="${esc(name)}" aria-label="${esc(t('delete'))}">×</button>
+    </li>`).join('')}</ul>` : `<p class="hint">${esc(t('noOwnTags'))}</p>`}`;
+}
+
+function pinBtn(tg, label) {
+  const on = isPinned(tg);
+  return `<button type="button" class="btn small ghost pin ${on ? 'on' : ''}" data-action="pin-toggle" data-value="${esc(tg)}" aria-pressed="${on}" aria-label="${esc(t(on ? 'unpinTag' : 'pinTag', label))}" title="${esc(t(on ? 'unpinTag' : 'pinTag', label))}">📌</button>`;
+}
+
+function splitKeywords(text) {
+  return [...new Set(String(text || '').split(/[,;\n]/).map((x) => x.trim()).filter(Boolean))];
+}
+
+function saveTagDef(id, patch) {
+  const d = tagDef(id) || { id };
+  upsert('tagdefs', { ...d, ...patch, id }, { silent: true });
+  changed();
+}
+
+function openTagDefEdit(id) {
+  const isNew = !id;
+  const d = isNew ? { id: `c_${uid()}`, custom: true, enabled: true, keywords: [] } : (tagDef(id) || { id });
+  const builtIn = !d.custom;
+  openModal(`
+    <h2>${esc(t(isNew ? 'newAutoTag' : 'editTag'))}</h2>
+    <label>${esc(t('tagName'))}<input name="label" id="tagdef-label" value="${esc(builtIn ? (d.label || '') : (d.name || ''))}" ${builtIn ? `placeholder="${esc(t(`tag_${d.id}`))}"` : 'required'} autocomplete="off"></label>
+    <label>${esc(t('tagKeywords'))}<textarea name="keywords" rows="3" placeholder="${esc(t('tagKeywordsPh'))}">${esc((d.keywords || []).join(', '))}</textarea>
+      <small>${esc(t(builtIn ? 'tagKeywordsHintAuto' : 'tagKeywordsHint'))}</small></label>
+    <label class="check"><input type="checkbox" name="enabled" ${d.enabled !== false ? 'checked' : ''}> ${esc(t('tagOn'))}</label>
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('save'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+      ${builtIn && (d.label || (d.keywords || []).length || d.enabled === false) ? `<button class="btn ghost" value="delete" formnovalidate>${esc(t('tagReset'))}</button>` : ''}
+      ${!builtIn && !isNew ? `<button class="btn danger" value="delete" formnovalidate>${esc(t('delete'))}</button>` : ''}
+    </div>`, (form, action) => {
+    if (action === 'delete') {
+      if (!builtIn && !confirm(t('confirmDeleteTag', d.name))) return;
+      if (!builtIn) unpin(`auto:${d.id}`);
+      remove('tagdefs', d.id);
+      for (const r of live('recipes').filter((x) => (x.hiddenTags || []).includes(d.id))) {
+        upsert('recipes', { ...r, hiddenTags: r.hiddenTags.filter((x) => x !== d.id) }, { silent: true });
+      }
+      changed();
+      return;
+    }
+    const label = form.label.value.trim();
+    const keywords = splitKeywords(form.keywords.value);
+    const enabled = form.enabled.checked;
+    if (builtIn) saveTagDef(d.id, { label, keywords, enabled });
+    else {
+      if (!label) return;
+      saveTagDef(d.id, { custom: true, name: label, keywords, enabled });
+    }
+  });
+}
+
+function sameTag(a, b) { return String(a).toLocaleLowerCase() === String(b).toLocaleLowerCase(); }
+
+function renameOwnTag(from, to) {
+  renamePin(from, to);
+  for (const r of live('recipes')) {
+    if (!(r.tags || []).includes(from)) continue;
+    const tags = [];
+    for (const x of r.tags.map((x) => (x === from ? to : x))) if (x && !tags.some((y) => sameTag(x, y))) tags.push(x);
+    upsert('recipes', { ...r, tags }, { silent: true });
+  }
+  changed();
+}
+
+function openOwnTagRename(name) {
+  openModal(`
+    <h2>${esc(t('renameTag'))}</h2>
+    <label>${esc(t('tagName'))}<input name="name" id="owntag-name" required value="${esc(name)}" autocomplete="off"></label>
+    <p class="hint">${esc(t('renameTagHint'))}</p>
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('save'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+    </div>`, (form) => {
+    const to = form.name.value.trim().replace(/\s+/g, ' ');
+    if (to && to !== name) renameOwnTag(name, to);
+  });
 }
 
 // ---------- rendering ----------
@@ -1019,6 +1360,7 @@ function render() {
   for (const a of document.querySelectorAll('nav.tabs a')) a.classList.toggle('active', a.dataset.tab === TAB_OF[r.name]);
   let html;
   switch (r.name) {
+    case 'import': html = viewImport(); break;
     case 'recipe': html = viewRecipe(r.id); break;
     case 'folder': html = viewRecipes(); break;
     case 'suggest': html = viewSuggest(); break;
@@ -1041,6 +1383,7 @@ function render() {
 
 // Background changes shouldn't wipe a form the user is typing in.
 function renderIfSafe() {
+  if (isDragging()) { ui.renderLater = true; return; }
   const r = route();
   if (r.name === 'edit' || r.name === 'settings' || r.name === 'putaway' || modal.open) return;
   render();
@@ -1198,7 +1541,7 @@ view.addEventListener('submit', (e) => {
     const r = get('recipes', form.dataset.id);
     const tag = form.tag.value.trim().replace(/\s+/g, ' ');
     if (r && tag) {
-      const auto = autoTags(r).find((a) => t(`tag_${a}`).toLowerCase() === tag.toLowerCase());
+      const auto = autoTags({ ...r, hiddenTags: [] }, tagDefs()).find((a) => autoLabel(a).toLowerCase() === tag.toLowerCase());
       if (auto) upsert('recipes', { ...r, hiddenTags: (r.hiddenTags || []).filter((x) => x !== auto) }, { silent: true });
       else if (!(r.tags || []).some((x) => x.toLowerCase() === tag.toLowerCase())) upsert('recipes', { ...r, tags: [...(r.tags || []), tag] }, { silent: true });
       changed();
@@ -1211,15 +1554,22 @@ view.addEventListener('submit', (e) => {
   }
 });
 
+view.addEventListener('sorted', (e) => onSorted(e.detail));
+document.addEventListener('pointerup', () => setTimeout(() => {
+  if (ui.renderLater && !isDragging()) { ui.renderLater = false; renderIfSafe(); }
+}, 50));
+
 view.addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.action === 'toggle') setChecked(el.dataset.id, el.checked);
+  if (el.dataset.tagdef) saveTagDef(el.dataset.tagdef, { enabled: el.checked });
   if (el.dataset.pa && ui.putaway) {
     const row = ui.putaway.rows[+el.dataset.i];
     row[el.dataset.pa] = el.type === 'checkbox' ? el.checked : el.value;
     if (el.dataset.pa === 'name') { row.pantryId = null; row.cat = null; }
     render();
   }
+  if (el.id === 'import-folder') saveSettings({ importFolder: el.value || '' });
   if (el.id === 'sort') { saveSettings({ sort: el.value }); $('#cards').innerHTML = cardsHtml(); hydrate($('#cards')); }
   if (el.id === 'basics') { saveSettings({ basics: el.checked }).then(render); }
   if (el.name === 'sourceType') el.closest('.source-fields')?.classList.toggle('is-book', el.value === 'book');
@@ -1332,9 +1682,16 @@ view.addEventListener('click', (e) => {
       showLocal(t('notifyTitle'), items.length ? reminderBody(items) : t('notifyTestBody')).catch(() => {});
       break;
     }
-    case 'folder-edit': openFolderEdit(get('folders', id)); break;
+    case 'folder-edit': e.preventDefault(); openFolderEdit(get('folders', id)); break;
+    case 'pin-edit': ui.pinEdit = !ui.pinEdit; render(); break;
+    case 'pin-toggle': togglePin(btn.dataset.value); break;
+    case 'tags-more': ui.allTags = !ui.allTags; render(); break;
+    case 'list-mode': setPref('listMode', btn.dataset.value); changed(); render(); break;
+    case 'dept-reset': setPref('deptOrder', []); changed(); render(); break;
+    case 'suggest-sort': saveSettings({ suggestSort: btn.dataset.value }).then(render); break;
+    case 'folder-delete': openFolderDelete(get('folders', id)); break;
     case 'new-recipe':
-      ui.newFolder = currentFolderId();
+      ui.newFolder = targetFolderId();
       ui.prefillSource = null;
       ui.prefillUrl = '';
       ui.edit = null;
@@ -1353,6 +1710,17 @@ view.addEventListener('click', (e) => {
     case 'view-photo': {
       const img = btn.querySelector('img');
       if (img?.src) openModal(`<img class="full" src="${esc(img.src)}" alt=""><div class="button-row"><button class="btn" value="cancel">${esc(t('back'))}</button></div>`, () => {});
+      break;
+    }
+    case 'tagdef-edit': openTagDefEdit(btn.dataset.value); break;
+    case 'tagdef-new': openTagDefEdit(null); break;
+    case 'owntag-rename': openOwnTagRename(btn.dataset.value); break;
+    case 'owntag-delete': {
+      const name = btn.dataset.value;
+      if (!confirm(t('confirmDeleteTag', name))) break;
+      unpin(name);
+      for (const r of live('recipes').filter((x) => (x.tags || []).includes(name))) upsert('recipes', { ...r, tags: r.tags.filter((x) => x !== name) }, { silent: true });
+      changed();
       break;
     }
     case 'gh-edit': ui.ghEdit = true; ui.connMsg = ''; render(); break;
@@ -1516,7 +1884,7 @@ function refreshCapture() {
 function openParsedText(text, kind, form, c) {
   const r = parseRecipeText(text);
   ui.prefillUrl = '';
-  ui.newFolder = currentFolderId();
+  ui.newFolder = targetFolderId();
   ui.prefillSource = {
     title: r.title, servings: r.servings, time: r.time, notes: r.notes, steps: r.steps,
     ingredients: r.ingredients.map((i) => parseIngredient(i.raw)),
@@ -1586,7 +1954,7 @@ function openPhotoCapture() {
     if (pasted) { openParsedText(pasted, kind, form, c); return; }
     if (!c.scans.length) return;
     upsert('queue', {
-      id: c.id, type: 'photo', kind, scans: [...c.scans], status: 'pending', addedAt: Date.now(), folderId: currentFolderId(),
+      id: c.id, type: 'photo', kind, scans: [...c.scans], status: 'pending', addedAt: Date.now(), folderId: targetFolderId(),
       book: kind === 'book' ? form.book.value.trim() : '', page: kind === 'book' ? form.page.value.trim() : '',
     }, { silent: true });
     ui.capture = null;
@@ -1806,16 +2174,7 @@ function openFolderEdit(folder, parentId = null) {
       <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
       ${isNew ? '' : `<button class="btn danger" value="delete" formnovalidate>${esc(t('delete'))}</button>`}
     </div>`, (form, action) => {
-    if (action === 'delete') {
-      if (!confirm(t('confirmDeleteFolder', f.name))) return;
-      const parent = f.parentId && folderOf(f.parentId) ? f.parentId : null;
-      for (const r of live('recipes').filter((x) => x.folderId === f.id)) upsert('recipes', { ...r, folderId: parent }, { silent: true });
-      for (const c of live('folders').filter((x) => x.parentId === f.id)) upsert('folders', { ...c, parentId: parent }, { silent: true });
-      remove('folders', f.id);
-      location.hash = folderHref(parent);
-      changed();
-      return;
-    }
+    if (action === 'delete') { setTimeout(() => openFolderDelete(f), 0); return; }
     const name = form.name.value.trim();
     if (!name) return;
     upsert('folders', { ...f, name, parentId: form.parentId.value || null, cover }, { silent: true });
@@ -1831,6 +2190,40 @@ function openFolderEdit(folder, parentId = null) {
   setTimeout(() => modal.querySelector('input[name=name]')?.focus(), 50);
 }
 
+function openFolderDelete(f) {
+  const ids = descendantIds(f.id);
+  const recipes = live('recipes').filter((r) => ids.has(recipeFolderId(r)));
+  const subs = live('folders').filter((x) => x.id !== f.id && ids.has(x.id));
+  const parent = f.parentId && folderOf(f.parentId) ? f.parentId : null;
+  const parentName = parent ? folderOf(parent).name : t('allRecipes');
+  openModal(`
+    <h2>${esc(t('deleteFolderTitle', f.name))}</h2>
+    <p>${esc(t('folderHolds', recipes.length, subs.length))}</p>
+    ${recipes.length || subs.length ? `
+    <label class="check"><input type="radio" name="mode" value="keep" checked> <span>${esc(t('deleteKeep', parentName))}</span></label>
+    <label class="check"><input type="radio" name="mode" value="all"> <span>${esc(t('deleteAll', recipes.length))}</span></label>` : ''}
+    <div class="button-row">
+      <button class="btn danger" value="ok">🗑 ${esc(t('delete'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+    </div>`, (form) => {
+    const all = form.mode?.value === 'all';
+    const inside = ids.has(currentFolderId());
+    if (all) {
+      if (recipes.length && !confirm(t('confirmDeleteRecipes', recipes.length))) return;
+      for (const r of recipes) remove('recipes', r.id);
+      for (const x of subs) remove('folders', x.id);
+    } else {
+      for (const r of live('recipes').filter((x) => x.folderId === f.id)) upsert('recipes', { ...r, folderId: parent }, { silent: true });
+      for (const c of live('folders').filter((x) => x.parentId === f.id)) upsert('folders', { ...c, parentId: parent }, { silent: true });
+    }
+    if (state.settings.importFolder && (state.settings.importFolder === f.id || (all && ids.has(state.settings.importFolder)))) saveSettings({ importFolder: '' });
+    remove('folders', f.id);
+    if (inside) location.hash = folderHref(parent);
+    changed();
+    toast(t('folderDeleted'));
+  });
+}
+
 async function addPhotos(files) {
   const edit = ui.edit;
   edit.busy = true;
@@ -1844,7 +2237,7 @@ async function addPhotos(files) {
 
 function queueImport(url) {
   if (!/^https?:\/\//i.test(url)) return;
-  upsert('queue', { id: uid(), url, status: 'pending', addedAt: Date.now(), folderId: currentFolderId() }, { silent: true });
+  upsert('queue', { id: uid(), url, status: 'pending', addedAt: Date.now(), folderId: targetFolderId() }, { silent: true });
   changed();
 }
 
@@ -1900,8 +2293,9 @@ async function saveGithub(form) {
 }
 
 async function shareList() {
-  const text = live('shopping').filter((i) => !i.checked)
-    .map((i) => `• ${[qtyText(i.qty, i.unit), i.name].filter(Boolean).join(' ')}`).join('\n');
+  const line = (i) => `• ${[qtyText(i.qty, i.unit), i.name].filter(Boolean).join(' ')}`;
+  const text = listGroups(live('shopping').filter((i) => !i.checked))
+    .map(([, label, items]) => [label, ...items.map(line)].filter(Boolean).join('\n')).join('\n\n');
   if (navigator.share) {
     try { await navigator.share({ title: t('tabList'), text }); return; } catch { /* cancelled */ return; }
   }
@@ -1931,7 +2325,7 @@ function handleShareTarget() {
   const match = candidate.match(/https?:\/\/\S+/);
   if (match) {
     queueImport(match[0]);
-    history.replaceState(null, '', location.pathname + '#/recipes');
+    history.replaceState(null, '', location.pathname + '#/import');
   }
 }
 

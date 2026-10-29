@@ -10,6 +10,8 @@ export const PATHS = {
   queue: 'data/import-queue.json',
   folders: 'data/folders.json',
   devices: 'push/devices.json',
+  tagdefs: 'data/tags.json',
+  prefs: 'data/prefs.json',
 };
 const VAPID_PATH = 'push/vapid.json';
 
