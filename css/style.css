@@ -466,3 +466,34 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; -webkit-user-s
 .pin-bar .chip { flex: none; }
 .btn.pin { filter: grayscale(1); opacity: .45; }
 .btn.pin.on { filter: none; opacity: 1; }
+
+/* calories and protein */
+.nutri { margin: 6px 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.nutri-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.nutri-main strong { font-size: 1.25rem; }
+.nutri-kcal::before { content: '🔥 '; }
+.nutri-prot::before { content: '💪 '; }
+.nutri-main small { color: var(--muted); }
+.nutri-total { margin-top: 4px; font-size: .88rem; color: var(--muted); }
+.nutri-total strong { color: var(--ink); font-weight: 600; }
+.nutri-details { margin-top: 8px; font-size: .88rem; }
+.nutri-details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.nutri-details ul { list-style: none; margin: 8px 0 4px; padding: 0; }
+.nutri-details li { display: grid; grid-template-columns: 1fr auto 5.5em 4em; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.nutri-details li span:nth-child(n+3), .nutri-details li small { text-align: right; font-variant-numeric: tabular-nums; }
+.nutri-details li small { color: var(--muted); }
+.nutri-preview { margin: -4px 0 10px; font-size: .9rem; color: var(--muted); }
+.nutri-preview strong { color: var(--ink); }
+.card-nutri { font-size: .78rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.srv-note { text-align: center; margin: -4px 0 8px; }
+.people-pick { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 600; }
+.people-pick select { width: auto; padding: 6px 8px; font-size: .88rem; }
+.people-pick.on select { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.warn, small.warn { color: var(--warn); }
+.people-pick .pp-label { font-size: .82rem; font-weight: 600; }
+@media (max-width: 700px) {
+  .toolbar .sort { flex: 1 1 auto; }
+  .toolbar .sort select { flex: 1; min-width: 0; width: 100%; }
+  .people-pick { order: 5; flex: 1 1 100%; justify-content: space-between; }
+}
+@media (min-width: 701px) { .people-pick .pp-label { display: none; } }

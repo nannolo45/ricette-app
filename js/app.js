@@ -17,6 +17,7 @@ import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, C
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
+import { nutritionOf, estimateNutrition } from './nutrition.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -30,6 +31,10 @@ const ui = { servings: {}, search: '', prefillUrl: '', connMsg: '', edit: null }
 // Preferences shared by all devices (data/prefs.json): one record per setting.
 function pref(id, fallback) { const p = get('prefs', id); return p && p.value !== undefined ? p.value : fallback; }
 function setPref(id, value) { upsert('prefs', { id, value }, { silent: true }); }
+
+// "People" chosen for every recipe at once in the Recipes view (0 = as each recipe says).
+function globalPeople() { const n = Number(pref('people', 0)); return Number.isFinite(n) && n > 0 ? Math.round(n) : 0; }
+function servingsFor(r) { return ui.servings[r.id] || globalPeople() || r.servings || 4; }
 
 // <img> for a cover: repo photos are loaded from IndexedDB/GitHub, web images directly.
 function photoTag(src, { fallback = '', cls = '' } = {}) {
@@ -372,6 +377,10 @@ function viewRecipes() {
   ${pinnedBar()}
   <div class="toolbar">
     <label class="sort">⇅ <select id="sort" aria-label="${esc(t('sortBy'))}">${SORTS.map((k) => `<option value="${k}" ${k === sortKey() ? 'selected' : ''}>${esc(t(`sort_${k}`))}</option>`).join('')}</select></label>
+    <label class="people-pick ${globalPeople() ? 'on' : ''}" title="${esc(t('peopleAllHint'))}">👥 <span class="pp-label">${esc(t('peopleAll'))}</span> <select id="people" aria-label="${esc(t('peopleAll'))}">
+      <option value="0" ${globalPeople() ? '' : 'selected'}>${esc(t('peopleAsRecipe'))}</option>
+      ${[1, 2, 3, 4, 5, 6, 8, 10, 12].map((k) => `<option value="${k}" ${globalPeople() === k ? 'selected' : ''}>${esc(t('people', k))}</option>`).join('')}
+    </select></label>
     <button class="btn small ${ui.showFilters || filterCount() ? 'on' : ''}" data-action="toggle-filters">⚲ ${esc(t('filters'))}${filterCount() ? ` (${filterCount()})` : ''}</button>
     <a class="btn small primary" href="#/suggest">🍳 ${esc(t('whatToCook'))}</a>
   </div>
@@ -393,11 +402,11 @@ function viewRecipes() {
 
 // ---------- sorting, filters, tags ----------
 
-const SORTS = ['new', 'old', 'az', 'za', 'quick', 'fewest', 'cooked', 'recent', 'pantry'];
+const SORTS = ['new', 'old', 'az', 'za', 'quick', 'fewest', 'kcal', 'protein', 'cooked', 'recent', 'pantry'];
 function sortKey() { return SORTS.includes(state.settings.sort) ? state.settings.sort : 'new'; }
 
-function filters() { return (ui.filters ||= { tags: [], source: '', maxTime: 0, ready: '' }); }
-function filterCount() { const f = filters(); return f.tags.length + (f.source ? 1 : 0) + (f.maxTime ? 1 : 0) + (f.ready ? 1 : 0); }
+function filters() { return (ui.filters ||= { tags: [], source: '', maxTime: 0, ready: '', maxKcal: 0, minProt: 0 }); }
+function filterCount() { const f = filters(); return f.tags.length + (f.source ? 1 : 0) + (f.maxTime ? 1 : 0) + (f.ready ? 1 : 0) + (f.maxKcal ? 1 : 0) + (f.minProt ? 1 : 0); }
 
 function tagDefs() { return live('tagdefs'); }
 function tagDef(id) { return tagDefs().find((d) => d.id === id); }
@@ -472,6 +481,8 @@ function filterPanel() {
     ${editing ? '' : `
     ${sec(t('sourceLabel'), [['web', `🌐 ${t('srcWeb')}`], ['book', `📖 ${t('srcBook')}`], ['note', `✍️ ${t('srcNote')}`]].map(([v, l]) => chip(l, 'f-source', v, f.source === v)).join(''))}
     ${sec(t('time'), [15, 30, 60].map((m) => chip(`≤ ${m} min`, 'f-time', m, f.maxTime === m)).join(''))}
+    ${sec(`${t('nutrition')} · ${t('perPerson')}`, `<div class="f-group"><div class="f-sub">🔥 ${esc(t('calories'))}</div><div class="f-chips">${[400, 600, 800].map((k) => chip(`≤ ${k} kcal`, 'f-kcal', k, f.maxKcal === k)).join('')}</div></div>
+      <div class="f-group"><div class="f-sub">💪 ${esc(t('protein'))}</div><div class="f-chips">${[15, 25, 35].map((g) => chip(`≥ ${g} g`, 'f-prot', g, f.minProt === g)).join('')}</div></div>`)}
     ${sec(t('tabPantry'), chip(t('readyNow'), 'f-ready', 'all', f.ready === 'all') + chip(t('missingAtMost2'), 'f-ready', 'two', f.ready === 'two'))}
     ${filterCount() ? `<div class="f-foot"><button type="button" class="btn small ghost" data-action="f-clear">✕ ${esc(t('clearFilters'))}</button></div>` : ''}`}
   </div>`;
@@ -495,7 +506,7 @@ function recipeList() {
   const pantry = live('pantry');
   const exp = expiringIds();
   const coverage = new Map();
-  const cov = (r) => { if (!coverage.has(r.id)) coverage.set(r.id, pantryCoverage(r, pantry, { basics: state.settings.basics !== false, expiringIds: exp })); return coverage.get(r.id); };
+  const cov = (r) => { if (!coverage.has(r.id)) coverage.set(r.id, pantryCoverage(r, pantry, { basics: state.settings.basics !== false, expiringIds: exp, servings: globalPeople() || undefined })); return coverage.get(r.id); };
   // Searching or filtering looks through every folder; otherwise show this folder's recipes.
   let list = live('recipes').filter((r) => {
     if (!filtering) return recipeFolderId(r) === folderId;
@@ -505,6 +516,12 @@ function recipeList() {
     if (f.tags.length) { const tg = tagsOf(r, tagDefs()); if (!f.tags.every((x) => tg.includes(x))) return false; }
     if (f.source && (r.source?.type || 'web') !== f.source) return false;
     if (f.maxTime) { const m = minutesOf(r.time); if (m == null || m > f.maxTime) return false; }
+    if (f.maxKcal || f.minProt) {
+      const nu = nutritionOf(r);
+      if (!nu) return false;
+      if (f.maxKcal && nu.perServing.kcal > f.maxKcal) return false;
+      if (f.minProt && nu.perServing.protein < f.minProt) return false;
+    }
     if (f.ready) { const c = cov(r); if (!c.total || c.missing.length > (f.ready === 'all' ? 0 : 2)) return false; }
     return true;
   });
@@ -516,11 +533,13 @@ function recipeList() {
     za: (a, b) => title(b).localeCompare(title(a), getLang()),
     quick: (a, b) => (minutesOf(a.time) ?? 1e9) - (minutesOf(b.time) ?? 1e9),
     fewest: (a, b) => (a.ingredients || []).length - (b.ingredients || []).length,
+    kcal: (a, b) => (nutritionOf(a)?.perServing.kcal ?? Infinity) - (nutritionOf(b)?.perServing.kcal ?? Infinity) || title(a).localeCompare(title(b)),
+    protein: (a, b) => (nutritionOf(b)?.perServing.protein ?? -1) - (nutritionOf(a)?.perServing.protein ?? -1) || title(a).localeCompare(title(b)),
     cooked: (a, b) => (b.cookedCount || 0) - (a.cookedCount || 0) || title(a).localeCompare(title(b)),
     recent: (a, b) => (b.lastCooked || 0) - (a.lastCooked || 0) || title(a).localeCompare(title(b)),
   };
   if (sortKey() === 'pantry') {
-    const ranked = rankByPantry(list, pantry, { basics: state.settings.basics !== false, expiringIds: exp });
+    const ranked = rankByPantry(list, pantry, { basics: state.settings.basics !== false, expiringIds: exp, servings: globalPeople() || undefined });
     for (const x of ranked) coverage.set(x.r.id, x.c);
     const rankedIds = new Set(ranked.map((x) => x.r.id));
     list = [...ranked.map((x) => x.r), ...list.filter((r) => !rankedIds.has(r.id))];
@@ -551,13 +570,53 @@ function recipeCards(list, coverage, filtering) {
       <div class="thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></div>
       <div class="card-body">
         <div class="card-title">${esc(r.title)}</div>
-        <div class="card-meta">${sourceIcon(r)}${esc(t('people', r.servings || 4))}${r.time ? ` · ${esc(r.time)}` : ''}</div>
+        <div class="card-meta">${sourceIcon(r)}${esc(t('people', servingsFor(r)))}${r.time ? ` · ${esc(r.time)}` : ''}</div>
+        ${cardNutrition(r)}
         ${coverage.has(r.id) ? `<div class="card-meta">${coverageBadge(coverage.get(r.id))}</div>` : ''}
         ${tags.length ? `<div class="card-tags">${tags.map((tg) => `<span class="tag ${tg.startsWith('auto:') ? 'auto' : ''}">${esc(tagLabel(tg))}</span>`).join('')}</div>` : ''}
         ${filtering && recipeFolderId(r) ? `<div class="card-meta">📁 ${esc(folderPath(r.folderId).map((x) => x.name).join(' › '))}</div>` : ''}
       </div>
     </a>`;
   }).join('')}</div>`;
+}
+
+
+// ---------- calories and protein ----------
+
+const kcalText = (x) => `${Math.round(x).toLocaleString(getLang())}`;
+const protText = (x) => (x < 10 ? Math.round(x * 10) / 10 : Math.round(x)).toLocaleString(getLang());
+
+function nutritionBox(r, n) {
+  const nu = nutritionOf(r);
+  if (!nu) return `<p class="hint small nutri-none">🔥 ${esc(t('nutriNone'))}</p>`;
+  const base = nu.servings;
+  const f = n / base;
+  return `<section class="nutri" id="nutri" aria-label="${esc(t('nutrition'))}">
+    <div class="nutri-main">
+      <span class="nutri-kcal"><strong>${nu.partial ? '≈ ' : '≈ '}${kcalText(nu.perServing.kcal)}</strong> kcal</span>
+      <span class="nutri-prot"><strong>${protText(nu.perServing.protein)} g</strong> ${esc(t('protein'))}</span>
+      <small>${esc(t('perPerson'))}</small>
+    </div>
+    <div class="nutri-total">${esc(t('nutriTotal', n))}: <strong>${kcalText(nu.kcal * f)} kcal</strong> · <strong>${protText(nu.protein * f)} g</strong> ${esc(t('protein'))}</div>
+    ${nu.partial ? `<p class="hint small warn">${esc(t('nutriPartial', nu.unknown.join(', ')))}</p>` : ''}
+    <details class="nutri-details"><summary>${esc(t('nutriHow'))}</summary>
+      <ul>${nu.items.map((i) => `<li><span>${esc(i.name)}</span><small>${esc(qtyText(Math.round(i.grams * f), 'g'))}</small><span>${kcalText(i.kcal * f)} kcal</span><span>${protText(i.protein * f)} g</span></li>`).join('')}</ul>
+      <p class="hint small">${esc(t('nutriExplain'))}${nu.skipped ? ` ${esc(t('nutriSkipped', nu.skipped))}` : ''}</p>
+    </details>
+  </section>`;
+}
+
+function nutritionPreview(servings, text) {
+  const ingredients = String(text || '').split('\n').map((x) => x.trim()).filter(Boolean).map((raw) => parseIngredient(raw));
+  const nu = estimateNutrition({ servings: Math.max(1, Number(servings) || 4), ingredients });
+  if (!nu) return `🔥 ${esc(t('nutriNone'))}`;
+  return `🔥 ≈ <strong>${kcalText(nu.perServing.kcal)} kcal</strong> · <strong>${protText(nu.perServing.protein)} g</strong> ${esc(t('protein'))} ${esc(t('perPerson'))}${nu.partial ? ` <small class="warn">(${esc(t('nutriUnknownShort', nu.unknown.length))})</small>` : ''}`;
+}
+
+function cardNutrition(r) {
+  const nu = nutritionOf(r);
+  if (!nu) return '';
+  return `<div class="card-nutri" title="${esc(t('perPerson'))}">🔥 ${kcalText(nu.perServing.kcal)} kcal · 💪 ${protText(nu.perServing.protein)} g</div>`;
 }
 
 // ---------- what can I cook? ----------
@@ -567,7 +626,7 @@ function suggestSort() { return SUGGEST_SORTS.includes(state.settings.suggestSor
 
 function suggestions(by = suggestSort()) {
   return rankByPantry(live('recipes'), live('pantry'), {
-    basics: state.settings.basics !== false, expiringIds: expiringIds(), by, daysLeft: (p) => daysUntil(p.expires),
+    basics: state.settings.basics !== false, expiringIds: expiringIds(), by, daysLeft: (p) => daysUntil(p.expires), servings: globalPeople() || undefined,
   });
 }
 
@@ -614,7 +673,7 @@ function viewSuggest() {
   <div class="seg" role="radiogroup" aria-label="${esc(t('sortBy'))}">
     ${SUGGEST_SORTS.map((k) => `<button type="button" role="radio" aria-checked="${k === by}" class="${k === by ? 'on' : ''}" data-action="suggest-sort" data-value="${k}">${esc(t(`suggest_${k}`))}</button>`).join('')}
   </div>
-  <p class="hint">${esc(t(`suggestHint_${by}`))}</p>
+  <p class="hint">${esc(t(`suggestHint_${by}`))}${globalPeople() ? ` ${esc(t('suggestForPeople', globalPeople()))}` : ''}</p>
   <label class="check"><input type="checkbox" id="basics" ${state.settings.basics !== false ? 'checked' : ''}> ${esc(t('basicsAlways'))}</label>
   ${noDates ? `<p class="hint warn">${esc(t('noExpiryDates'))}</p>` : ''}
   ${pantryEmpty ? `<p class="empty">${esc(t('pantryEmptyForSuggest'))}<br><a class="btn" href="#/pantry">${esc(t('tabPantry'))}</a></p>` : ''}
@@ -625,7 +684,7 @@ function viewSuggest() {
 function addMissingToList(id) {
   const r = get('recipes', id);
   if (!r) return;
-  const c = pantryCoverage(r, live('pantry'), { basics: state.settings.basics !== false });
+  const c = pantryCoverage(r, live('pantry'), { basics: state.settings.basics !== false, servings: globalPeople() || undefined });
   for (const m of c.missing) addToShopping({ name: m.name, qty: m.short == null ? null : round(m.short), unit: m.unit }, r.title);
   changed();
   toast(t('addedToList', c.missing.length));
@@ -694,7 +753,7 @@ function viewRecipe(id) {
   const r = get('recipes', id);
   if (!r) return `<p class="empty">${esc(t('notFound'))}</p><a class="btn" href="#/recipes">${esc(t('back'))}</a>`;
   const base = r.servings || 4;
-  const n = ui.servings[id] || base;
+  const n = servingsFor(r);
   const ings = ingredientsOf(r);
   return `
   <a class="back" href="${folderHref(recipeFolderId(r))}">← ${esc(recipeFolderId(r) ? folderOf(r.folderId).name : t('allRecipes'))}</a>
@@ -719,6 +778,8 @@ function viewRecipe(id) {
     <span>${esc(t('people', n))}</span>
     <button class="round" data-action="srv-inc" data-id="${esc(id)}" aria-label="+">+</button>
   </div>
+  ${n !== base ? `<p class="hint small srv-note">${esc(t('scaledFrom', base))}${ui.servings[id] ? ` · <button type="button" class="link-btn" data-action="srv-reset" data-id="${esc(id)}">${esc(t('reset'))}</button>` : ''}</p>` : ''}
+  ${nutritionBox(r, n)}
   <h2>${esc(t('ingredients'))}</h2>
   <ul class="ingredients">
     ${ings.map((i) => {
@@ -798,6 +859,7 @@ function viewEdit(id) {
       <label>${esc(t('time'))}<input name="time" value="${esc(r.time || '')}"></label>
     </div>
     <label>${esc(t('ingredients'))}<textarea name="ingredients" rows="10" placeholder="${esc(t('ingredientsHelp'))}">${esc(ingText)}</textarea></label>
+    <p class="nutri-preview" id="nutri-preview" aria-live="polite">${nutritionPreview(r.servings || 4, ingText)}</p>
     <label>${esc(t('steps'))}<textarea name="steps" rows="8" placeholder="${esc(t('stepsHelp'))}">${esc((r.steps || []).join('\n'))}</textarea></label>
     <label>${esc(t('notes'))}<textarea name="notes" rows="3">${esc(r.notes || '')}</textarea></label>
     <label>${esc(t('image'))}<input name="image" type="url" value="${esc(r.image || '')}"></label>
@@ -1413,7 +1475,7 @@ modal.addEventListener('close', () => {
 });
 
 function openAddToList(r) {
-  const n = ui.servings[r.id] || r.servings || 4;
+  const n = servingsFor(r);
   const draw = (usePantry) => {
     const plan = planForRecipe(r, n, usePantry);
     return `<h2>${esc(t('addToListTitle', n))}</h2>
@@ -1569,6 +1631,7 @@ view.addEventListener('change', (e) => {
     if (el.dataset.pa === 'name') { row.pantryId = null; row.cat = null; }
     render();
   }
+  if (el.id === 'people') { setPref('people', +el.value || 0); ui.servings = {}; changed(); }
   if (el.id === 'import-folder') saveSettings({ importFolder: el.value || '' });
   if (el.id === 'sort') { saveSettings({ sort: el.value }); $('#cards').innerHTML = cardsHtml(); hydrate($('#cards')); }
   if (el.id === 'basics') { saveSettings({ basics: el.checked }).then(render); }
@@ -1594,6 +1657,11 @@ view.addEventListener('change', (e) => {
 
 view.addEventListener('input', (e) => {
   if (e.target.dataset.pa && ui.putaway && e.target.type !== 'checkbox') ui.putaway.rows[+e.target.dataset.i][e.target.dataset.pa] = e.target.value;
+  if (e.target.closest('#edit-form') && (e.target.name === 'ingredients' || e.target.name === 'servings')) {
+    const form = e.target.form;
+    const el = $('#nutri-preview');
+    if (el && form) el.innerHTML = nutritionPreview(form.servings.value, form.ingredients.value);
+  }
   if (e.target.id === 'search') {
     ui.search = e.target.value;
     $('#cards').innerHTML = cardsHtml();
@@ -1609,7 +1677,7 @@ view.addEventListener('click', (e) => {
     case 'srv-dec':
     case 'srv-inc': {
       const r = get('recipes', id);
-      const n = ui.servings[id] || r.servings || 4;
+      const n = servingsFor(r);
       ui.servings[id] = Math.max(1, n + (action === 'srv-inc' ? 1 : -1));
       render();
       break;
@@ -1617,7 +1685,7 @@ view.addEventListener('click', (e) => {
     case 'to-list': openAddToList(get('recipes', id)); break;
     case 'cooked': {
       const r = get('recipes', id);
-      const n = ui.servings[id] || r.servings || 4;
+      const n = servingsFor(r);
       if (confirm(t('cookedConfirm', n))) cook(r, n);
       break;
     }
@@ -1664,6 +1732,9 @@ view.addEventListener('click', (e) => {
     case 'f-tag': { const f = filters(); const v = btn.dataset.value; f.tags = f.tags.includes(v) ? f.tags.filter((x) => x !== v) : [...f.tags, v]; render(); break; }
     case 'f-source': { const f = filters(); f.source = f.source === btn.dataset.value ? '' : btn.dataset.value; render(); break; }
     case 'f-time': { const f = filters(); const v = +btn.dataset.value; f.maxTime = f.maxTime === v ? 0 : v; render(); break; }
+    case 'f-kcal': { const f = filters(); const v = +btn.dataset.value; f.maxKcal = f.maxKcal === v ? 0 : v; render(); break; }
+    case 'f-prot': { const f = filters(); const v = +btn.dataset.value; f.minProt = f.minProt === v ? 0 : v; render(); break; }
+    case 'srv-reset': delete ui.servings[id]; render(); break;
     case 'f-ready': { const f = filters(); f.ready = f.ready === btn.dataset.value ? '' : btn.dataset.value; render(); break; }
     case 'f-clear': ui.filters = null; render(); break;
     case 'tag-remove': {
