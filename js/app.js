@@ -7,7 +7,7 @@ import {
   UNITS, stepFor, setDecimalSeparator,
 } from './parse.js';
 import { t, setLang, getLang, LANGS, unitLabel, unitOptionLabel, detectLang } from './i18n.js';
-import { addPhoto, hydrate, prefetchAll, coverOf, isRepoPhoto } from './photos.js';
+import { addPhoto, addScan, hydrate, prefetchAll, coverOf, isRepoPhoto } from './photos.js';
 import { daysUntil, expiryState, todayStr } from './expiry.js';
 import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
@@ -325,6 +325,9 @@ function viewRecipes() {
     <input type="url" name="url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off">
     <button class="btn primary">${esc(t('import'))}</button>
   </form>
+  <button class="btn photo-import" data-action="photo-import">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+    ${esc(t('fromPhoto'))}</button>
   ${!isConfigured() && queue.length ? `<p class="hint">${esc(t('importNeedsGithub'))}</p>` : ''}
   ${queue.map(queueItem).join('')}
   <div class="row">
@@ -359,7 +362,7 @@ function recipeCards() {
   const folderId = currentFolderId();
   // Searching looks through every folder; otherwise show this folder's recipes.
   const list = live('recipes')
-    .filter((r) => (q ? (normalizeName(r.title).includes(q)
+    .filter((r) => (q ? (normalizeName(r.title).includes(q) || normalizeName(r.source?.book).includes(q)
       || ingredientsOf(r).some((i) => normalizeName(i.name).includes(q))) : recipeFolderId(r) === folderId))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   if (!list.length) {
@@ -372,27 +375,46 @@ function recipeCards() {
       <div class="thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></div>
       <div class="card-body">
         <div class="card-title">${esc(r.title)}</div>
-        <div class="card-meta">${esc(t('people', r.servings || 4))}${r.time ? ` · ${esc(r.time)}` : ''}</div>
+        <div class="card-meta">${sourceIcon(r)}${esc(t('people', r.servings || 4))}${r.time ? ` · ${esc(r.time)}` : ''}</div>
         ${q && recipeFolderId(r) ? `<div class="card-meta">📁 ${esc(folderPath(r.folderId).map((f) => f.name).join(' › '))}</div>` : ''}
       </div>
     </a>`).join('')}</div>`;
 }
 
+function sourceIcon(r) {
+  if (r.source?.type === 'book') return '<span class="src-ico" title="book">📖</span> ';
+  if (r.source?.type === 'note') return '<span class="src-ico" title="note">✍️</span> ';
+  return '';
+}
+
+function sourceLabel(src) {
+  if (!src) return '';
+  if (src.type === 'book') return `📖 ${src.book || t('fromBook')}${src.page ? `, ${t('pageShort')} ${src.page}` : ''}`;
+  if (src.type === 'note') return `✍️ ${t('fromNote')}`;
+  return '';
+}
+
+const PHOTO_ERRORS = { no_api_key: 'errNoKey', api_key_invalid: 'errKeyInvalid', api_no_credit: 'errNoCredit', not_a_recipe: 'errNotRecipe' };
+
 function queueItem(q) {
   let host = q.url;
   try { host = new URL(q.url).hostname.replace(/^www\./, ''); } catch { /* keep url */ }
+  const isPhoto = q.type === 'photo';
+  const thumb = isPhoto && q.scans?.[0] ? `<span class="q-thumb">${photoTag(q.scans[0])}</span>` : '';
+  if (isPhoto) host = sourceLabel({ type: q.kind, book: q.book, page: q.page });
   if (q.status === 'error') {
+    const why = isPhoto ? t(PHOTO_ERRORS[q.error] || 'photoFailed') : t('importFailed');
     return `<div class="queue error">
-      <div><strong>${esc(t('importFailed'))}</strong><br><small>${esc(host)}</small></div>
+      <div class="q-main">${thumb}<div><strong>${esc(why)}</strong><br><small>${esc(host)}</small></div></div>
       <div class="actions">
         <button class="btn small" data-action="q-retry" data-id="${esc(q.id)}">${esc(t('retry'))}</button>
         <button class="btn small" data-action="q-manual" data-id="${esc(q.id)}">${esc(t('addManually'))}</button>
         <button class="btn small ghost" data-action="q-remove" data-id="${esc(q.id)}">${esc(t('remove'))}</button>
       </div></div>`;
   }
-  const msg = isConfigured() && navigator.onLine && !state.meta.dirty ? t('importing') : t('importQueuedOffline');
+  const msg = isConfigured() && navigator.onLine && !state.meta.dirty ? t(isPhoto ? 'readingPhoto' : 'importing') : t('importQueuedOffline');
   return `<div class="queue pending">
-    <div><span class="spinner"></span> ${esc(msg)}<br><small>${esc(host)}</small></div>
+    <div class="q-main">${thumb}<div><span class="spinner"></span> ${esc(msg)}<br><small>${esc(host)}</small></div></div>
     <div class="actions"><button class="btn small ghost" data-action="q-remove" data-id="${esc(q.id)}">${esc(t('remove'))}</button></div></div>`;
 }
 
@@ -405,9 +427,11 @@ function viewRecipe(id) {
   return `
   <a class="back" href="${folderHref(recipeFolderId(r))}">← ${esc(recipeFolderId(r) ? folderOf(r.folderId).name : t('allRecipes'))}</a>
   ${coverOf(r) ? `<div class="hero">${photoTag(coverOf(r), { fallback: r.image })}</div>` : ''}
+  ${r.imageCredit && coverOf(r) === (r.photos || [])[0] ? `<p class="credit">${esc(t('photoBy'))} <a href="${esc(r.imageCredit.url)}" target="_blank" rel="noopener">${esc([r.imageCredit.creator, r.imageCredit.license].filter(Boolean).join(', ') || r.imageCredit.title || '↗')}</a></p>` : ''}
   ${(r.photos || []).length > 1 ? `<div class="gallery">${r.photos.slice(1).map((p) => `<button class="shot" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
   <h1>${esc(r.title)}</h1>
   <div class="meta-line">
+    ${sourceLabel(r.source) ? `<span class="src">${esc(sourceLabel(r.source))}</span>` : ''}
     ${r.time ? `<span>⏱ ${esc(r.time)}</span>` : ''}
     ${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(t('source'))} ↗</a>` : ''}
   </div>
@@ -430,6 +454,8 @@ function viewRecipe(id) {
   </div>
   ${(r.steps || []).length ? `<h2>${esc(t('steps'))}</h2><ol class="steps">${r.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
   ${r.notes ? `<h2>${esc(t('notes'))}</h2><p class="notes">${esc(r.notes)}</p>` : ''}
+  ${(r.sourcePhotos || []).length ? `<h2>${esc(t(r.source?.type === 'book' ? 'originalPage' : 'originalNote'))}</h2>
+    <div class="gallery">${r.sourcePhotos.map((p) => `<button class="shot page" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
   <div class="button-row subtle">
     <a class="btn" href="#/edit/${encodeURIComponent(id)}">${esc(t('edit'))}</a>
     <button class="btn danger" data-action="delete-recipe" data-id="${esc(id)}">${esc(t('delete'))}</button>
@@ -459,7 +485,7 @@ function refreshPhotoStrip() {
 
 function viewEdit(id) {
   const isNew = id === 'new';
-  const r = isNew ? { title: '', url: ui.prefillUrl, servings: 4, ingredients: [], steps: [], folderId: ui.newFolder || null } : get('recipes', id);
+  const r = isNew ? { title: '', url: ui.prefillUrl, servings: 4, ingredients: [], steps: [], folderId: ui.newFolder || null, ...(ui.prefillSource || {}) } : get('recipes', id);
   if (!r) return `<p class="empty">${esc(t('notFound'))}</p>`;
   if (!ui.edit || ui.edit.route !== id) {
     ui.edit = { route: id, id: isNew ? uid() : id, photos: [...(r.photos || [])], busy: false };
@@ -474,6 +500,18 @@ function viewEdit(id) {
     <label>${esc(t('title'))}<input name="title" required value="${esc(r.title)}"></label>
     <label>${esc(t('folder'))}<select name="folderId">${folderOptions(recipeFolderId(r))}</select></label>
     <label>${esc(t('url'))}<input name="url" type="url" value="${esc(r.url || '')}"></label>
+    <div class="source-fields ${r.source?.type === 'book' ? 'is-book' : ''}">
+      <label>${esc(t('sourceLabel'))}<select name="sourceType">
+        <option value="">${esc(t('srcWeb'))}</option>
+        <option value="book" ${r.source?.type === 'book' ? 'selected' : ''}>📖 ${esc(t('srcBook'))}</option>
+        <option value="note" ${r.source?.type === 'note' ? 'selected' : ''}>✍️ ${esc(t('srcNote'))}</option>
+      </select></label>
+      <div class="two book-only">
+        <label>${esc(t('bookTitle'))}<input name="book" value="${esc(r.source?.book || '')}" list="books"></label>
+        <label>${esc(t('page'))}<input name="page" value="${esc(r.source?.page || '')}" inputmode="numeric"></label>
+      </div>
+    </div>
+    ${booksDatalist()}
     <div class="two">
       <label>${esc(t('servingsLabel'))}<input name="servings" type="number" min="1" step="1" value="${esc(r.servings || 4)}"></label>
       <label>${esc(t('time'))}<input name="time" value="${esc(r.time || '')}"></label>
@@ -633,6 +671,7 @@ function renderIfSafe() {
 
 function openModal(html, onSubmit) {
   modal.onchange = null;
+  modal.onclick = null;
   modal.innerHTML = `<form method="dialog" class="form">${html}</form>`;
   const form = modal.querySelector('form');
   form.addEventListener('submit', (e) => {
@@ -644,7 +683,11 @@ function openModal(html, onSubmit) {
   modal.showModal();
 }
 
-modal.addEventListener('close', () => render());
+modal.addEventListener('close', () => {
+  // a new dialog may already have been opened before this event arrived
+  if (!modal.open) { modal.innerHTML = ''; modal.onchange = null; modal.onclick = null; }
+  render();
+});
 
 function openAddToList(r) {
   const n = ui.servings[r.id] || r.servings || 4;
@@ -752,6 +795,7 @@ view.addEventListener('submit', (e) => {
 view.addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.action === 'toggle') setChecked(el.dataset.id, el.checked);
+  if (el.name === 'sourceType') el.closest('.source-fields')?.classList.toggle('is-book', el.value === 'book');
   if (el.dataset.action === 'move-recipe') {
     const r = get('recipes', el.dataset.id);
     upsert('recipes', { ...r, folderId: el.value || null }, { silent: true });
@@ -807,7 +851,8 @@ view.addEventListener('click', (e) => {
     case 'q-remove': remove('queue', id); changed(); break;
     case 'q-manual': {
       const q = get('queue', id);
-      ui.prefillUrl = q.url;
+      ui.prefillUrl = q.url || '';
+      ui.prefillSource = q.type === 'photo' ? { source: { type: q.kind, book: q.book || '', page: q.page || '' }, sourcePhotos: q.scans || [] } : null;
       ui.newFolder = q.folderId || null;
       ui.edit = null;
       remove('queue', id);
@@ -834,6 +879,7 @@ view.addEventListener('click', (e) => {
     case 'p-edit': openPantryEdit(get('pantry', id)); break;
     case 'folder-new': openFolderEdit(null, currentFolderId()); break;
     case 'scan': startScan(); break;
+    case 'photo-import': openPhotoCapture(); break;
     case 'notify-on': enableNotifications(); break;
     case 'notify-off': disableNotifications(); break;
     case 'notify-test': {
@@ -982,6 +1028,84 @@ async function localReminder() {
   if (state.settings.lastLocalReminder === today) return;
   await saveSettings({ lastLocalReminder: today });
   try { await showLocal(t('notifyTitle'), reminderBody(items)); } catch { /* ignore */ }
+}
+
+// ---------- recipe from a photo (cookbook page or note) ----------
+
+function booksDatalist() {
+  const books = [...new Set(live('recipes').map((r) => r.source?.book).filter(Boolean))].sort();
+  return `<datalist id="books">${books.map((b) => `<option value="${esc(b)}">`).join('')}</datalist>`;
+}
+
+function captureStrip(c) {
+  return `${c.scans.map((p, i) => `<div class="shot page">${photoTag(p)}
+      <span class="badge cover">${i + 1}</span>
+      <button type="button" class="mini x" data-action="scan-remove" data-i="${i}" aria-label="${esc(t('remove'))}">×</button></div>`).join('')}
+    <label class="shot add page">
+      <input type="file" accept="image/*" multiple id="scan-input" hidden>
+      <span>＋<br>${esc(t(c.scans.length ? 'addPage' : 'takePhoto'))}</span>
+    </label>
+    ${c.busy ? '<div class="shot page busy"><span class="spinner"></span></div>' : ''}`;
+}
+
+function refreshCapture() {
+  const c = ui.capture;
+  const strip = modal.querySelector('#scan-strip');
+  if (!c || !strip) return;
+  strip.innerHTML = captureStrip(c);
+  hydrate(strip);
+  modal.querySelector('button[value=ok]').disabled = !c.scans.length || c.busy;
+}
+
+function openPhotoCapture() {
+  const c = ui.capture = { id: uid(), kind: 'book', scans: [], busy: false };
+  openModal(`
+    <h2>${esc(t('fromPhoto'))}</h2>
+    <div class="seg" role="radiogroup">
+      <label><input type="radio" name="kind" value="book" checked> 📖 ${esc(t('srcBook'))}</label>
+      <label><input type="radio" name="kind" value="note"> ✍️ ${esc(t('srcNote'))}</label>
+    </div>
+    <div class="photo-strip" id="scan-strip"></div>
+    <p class="hint">${esc(t('captureHint'))}</p>
+    <div class="two book-only">
+      <label>${esc(t('bookTitle'))}<input name="book" list="books" autocomplete="off" placeholder="${esc(t('optional'))}"></label>
+      <label>${esc(t('page'))}<input name="page" inputmode="numeric" autocomplete="off" placeholder="${esc(t('optional'))}"></label>
+    </div>
+    ${booksDatalist()}
+    ${isConfigured() ? `<p class="hint small">${esc(t('captureCost'))}</p>` : `<p class="hint small">${esc(t('importNeedsGithub'))}</p>`}
+    <div class="button-row">
+      <button class="btn primary" value="ok" disabled>${esc(t('readRecipe'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+    </div>`, (form) => {
+    if (!c.scans.length) return;
+    const kind = form.kind.value;
+    upsert('queue', {
+      id: c.id, type: 'photo', kind, scans: [...c.scans], status: 'pending', addedAt: Date.now(), folderId: currentFolderId(),
+      book: kind === 'book' ? form.book.value.trim() : '', page: kind === 'book' ? form.page.value.trim() : '',
+    }, { silent: true });
+    ui.capture = null;
+    changed();
+  });
+  modal.querySelector('form').classList.add('capture', 'is-book');
+  refreshCapture();
+  modal.onchange = async (e) => {
+    const el = e.target;
+    if (el.name === 'kind') modal.querySelector('form').classList.toggle('is-book', el.value === 'book');
+    if (el.id === 'scan-input' && el.files.length) {
+      const files = [...el.files];
+      c.busy = true; refreshCapture();
+      for (const f of files) {
+        try { c.scans.push(await addScan(c.id, f)); } catch { toast(t('photoError')); }
+      }
+      c.busy = false; refreshCapture();
+    }
+  };
+  modal.onclick = (e) => {
+    const b = e.target.closest('[data-action=scan-remove]');
+    if (!b) return;
+    c.scans.splice(+b.dataset.i, 1);
+    refreshCapture();
+  };
 }
 
 // ---------- barcode scanning ----------
@@ -1182,10 +1306,17 @@ function saveRecipe(form) {
     steps: lines(form.steps.value),
     notes: form.notes.value.trim(),
     folderId: form.folderId.value || null,
+    source: form.sourceType.value ? {
+      type: form.sourceType.value,
+      book: form.sourceType.value === 'book' ? form.book.value.trim() : '',
+      page: form.sourceType.value === 'book' ? form.page.value.trim() : '',
+    } : null,
+    sourcePhotos: prev.sourcePhotos || ui.prefillSource?.sourcePhotos || [],
     photos: [...(ui.edit?.photos || [])],
     parsed: true,
   }, { silent: true });
   ui.prefillUrl = '';
+  ui.prefillSource = null;
   ui.edit = null;
   delete ui.servings[id];
   location.hash = `#/recipe/${encodeURIComponent(id)}`;
@@ -1284,7 +1415,47 @@ async function start() {
     const now = Date.now();
     if (pending || now - (start.lastPoll || 0) > 60_000) { start.lastPoll = now; runSync(); }
   }, 15_000);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  setupUpdates();
+}
+
+// ---------- app updates ----------
+
+function showUpdateBar(worker) {
+  let bar = $('#update-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'update-bar';
+    bar.setAttribute('role', 'status');
+    document.body.append(bar);
+  }
+  bar.innerHTML = `<span>${esc(t('updateReady'))}</span><button class="btn small primary" type="button">${esc(t('updateNow'))}</button>`;
+  bar.querySelector('button').onclick = () => {
+    bar.querySelector('button').disabled = true;
+    ui.reloadOnUpdate = true;
+    worker.postMessage({ type: 'SKIP_WAITING' });
+  };
+}
+
+async function setupUpdates() {
+  if (!('serviceWorker' in navigator)) return;
+  let reg;
+  try { reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }); } catch { return; }
+  const watch = (w) => {
+    if (!w) return;
+    const ready = () => { if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBar(w); };
+    ready();
+    w.addEventListener('statechange', ready);
+  };
+  watch(reg.waiting);
+  watch(reg.installing);
+  reg.addEventListener('updatefound', () => watch(reg.installing));
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (ui.reloadOnUpdate) { ui.reloadOnUpdate = false; location.reload(); }
+  });
+  // An installed app can stay open for days: look for a new version now and then.
+  const check = () => { if (navigator.onLine) reg.update().catch(() => {}); };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+  setInterval(check, 30 * 60 * 1000);
 }
 
 start();

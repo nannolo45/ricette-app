@@ -1,5 +1,7 @@
-// Offline support: the app shell is cached; it updates itself in the background.
-const VERSION = 'ricette-v6';
+// Offline support. Each app version is cached as a whole; a new version is
+// downloaded in the background and takes over when the user taps "Update"
+// (or the next time the app is started from scratch).
+const VERSION = 'ricette-v8';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/app.js', 'js/store.js', 'js/sync.js', 'js/parse.js', 'js/i18n.js', 'js/photos.js', 'js/expiry.js', 'js/barcode.js', 'js/scanner.js', 'js/products.js',
@@ -7,7 +9,12 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's HTTP cache (GitHub Pages lets it keep files for 10 minutes)
+  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -27,12 +34,14 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(VERSION);
     const key = req.mode === 'navigate' ? 'index.html' : req;
     const cached = await cache.match(key, { ignoreSearch: req.mode === 'navigate' });
-    const network = fetch(req).then((res) => {
+    if (cached) return cached;
+    try {
+      const res = await fetch(req.mode === 'navigate' ? req : new Request(req, { cache: 'no-cache' }));
       if (res.ok && res.type === 'basic') cache.put(key, res.clone());
       return res;
-    }).catch(() => null);
-    if (cached) { event.waitUntil(network); return cached; }
-    return (await network) || new Response('Offline', { status: 503 });
+    } catch {
+      return new Response('Offline', { status: 503 });
+    }
   })());
 });
 

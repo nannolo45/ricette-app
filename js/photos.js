@@ -25,21 +25,28 @@ async function loadImage(file) {
 }
 
 // Shrink to max 1600 px and re-encode as JPEG (a phone photo goes from ~4 MB to ~250 KB).
-export async function resize(file) {
+export async function resize(file, maxSide = MAX_SIDE, quality = 0.82) {
   const img = await loadImage(file);
   const w = img.width, h = img.height;
-  const k = Math.min(1, MAX_SIDE / Math.max(w, h));
+  const k = Math.min(1, maxSide / Math.max(w, h));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(w * k);
   canvas.height = Math.round(h * k);
   canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode'))), 'image/jpeg', 0.82));
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('encode'))), 'image/jpeg', quality));
 }
 
 // Store locally now; it's uploaded with the next sync.
 export async function addPhoto(recipeId, file) {
-  const blob = await resize(file);
-  const path = `images/${recipeId}-${uid().slice(0, 8)}.jpg`;
+  return storePhoto(`images/${recipeId}-${uid().slice(0, 8)}.jpg`, await resize(file));
+}
+
+// Photos of cookbook pages / notes: a bit larger and sharper so small print stays readable.
+export async function addScan(captureId, file) {
+  return storePhoto(`images/scans/${captureId}-${uid().slice(0, 6)}.jpg`, await resize(file, 2000, 0.86));
+}
+
+async function storePhoto(path, blob) {
   await kvSet(`img:${path}`, blob);
   const pending = (await kvGet('pendingPhotos')) || [];
   pending.push(path);
@@ -84,7 +91,7 @@ export function hydrate(root) {
 // Download every photo once, so they're all available offline.
 export async function prefetchAll() {
   for (const r of live('recipes')) {
-    for (const path of r.photos || []) {
+    for (const path of [...(r.photos || []), ...(r.sourcePhotos || [])]) {
       if (urls.has(path)) continue;
       if (navigator.onLine === false) return;
       await photoUrl(path);
