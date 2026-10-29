@@ -324,7 +324,7 @@ function viewRecipes() {
   const path = folderPath(folderId);
   return `
   <form class="import" id="import-form">
-    <input type="url" name="url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off">
+    <input type="url" name="url" id="import-url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off">
     <button class="btn primary">${esc(t('import'))}</button>
   </form>
   <button class="btn photo-import" data-action="photo-import">
@@ -936,6 +936,20 @@ function viewPantry() {
   ${!depts.length ? `<p class="empty">${esc(t('pantryEmpty'))}</p>` : ''}`;
 }
 
+// Connected = a token that worked. The token itself is never put back on screen.
+function isConnected() {
+  const s = state.settings;
+  if (!isConfigured()) return false;
+  if (['auth', 'forbidden', 'notfound'].includes(state.meta.lastError)) return false;
+  return s.verified === true || Boolean(state.meta.lastSync);
+}
+
+function maskToken(tk) {
+  const v = String(tk || '');
+  if (!v) return '';
+  return `${v.slice(0, Math.min(v.indexOf('_', 7) > 0 ? v.indexOf('_', 7) + 1 : 4, 12))}••••••${v.slice(-4)}`;
+}
+
 function viewSettings() {
   const s = state.settings;
   const last = state.meta.lastSync ? new Date(state.meta.lastSync).toLocaleString(getLang()) : t('never');
@@ -947,21 +961,33 @@ function viewSettings() {
     </label>
   </form>
   <h2>${esc(t('sync'))}</h2>
+  ${isConnected() && !ui.ghEdit ? `
+  <div class="gh-card">
+    <p class="conn good">✓ ${esc(t('connectedTo'))} <strong>${esc(s.owner)}/${esc(s.repo)}</strong>${s.branch && s.branch !== 'main' ? ` (${esc(s.branch)})` : ''}</p>
+    <p class="hint">${esc(t('token'))}: <code>${esc(maskToken(s.token))}</code> · ${esc(t('tokenHint'))}</p>
+    ${ui.connMsg && ui.connMsg.startsWith('err') ? `<p class="conn bad">${esc(t(ui.connMsg))}</p>` : ''}
+    <div class="button-row">
+      <button type="button" class="btn" data-action="sync-now">${esc(t('syncNow'))}</button>
+      <button type="button" class="btn ghost" data-action="gh-edit">${esc(t('editConnection'))}</button>
+      <button type="button" class="btn ghost danger" data-action="gh-disconnect">${esc(t('disconnect'))}</button>
+    </div>
+    <p class="hint">${esc(t('lastSync'))}: ${esc(last)}</p>
+  </div>` : `
   <form class="form" id="gh-form">
     <div class="two">
       <label>${esc(t('owner'))}<input name="owner" value="${esc(s.owner)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
       <label>${esc(t('repo'))}<input name="repo" value="${esc(s.repo)}" placeholder="ricette" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
     </div>
-    <label>${esc(t('token'))}<input name="token" type="password" value="${esc(s.token)}" autocomplete="off" spellcheck="false">
+    <label>${esc(t('token'))}<input name="token" type="password" value="" autocomplete="off" spellcheck="false" placeholder="${esc(s.token ? t('tokenKeep', maskToken(s.token)) : 'github_pat_…')}">
       <small>${esc(t('tokenHint'))}</small></label>
     <label>${esc(t('branch'))}<input name="branch" value="${esc(s.branch || 'main')}" autocapitalize="off"></label>
     ${ui.connMsg ? `<p class="conn ${ui.connMsg.startsWith('err') ? 'bad' : 'good'}">${esc(t(ui.connMsg))}</p>` : ''}
     <div class="button-row">
       <button class="btn primary">${esc(t('saveTest'))}</button>
-      <button type="button" class="btn" data-action="sync-now">${esc(t('syncNow'))}</button>
+      ${isConnected() ? `<button type="button" class="btn" data-action="gh-cancel">${esc(t('cancel'))}</button>` : ''}
     </div>
-    <p class="hint">${esc(t('lastSync'))}: ${esc(last)}<br>${esc(t('setupHelp'))}</p>
-  </form>
+    <p class="hint">${esc(t('setupHelp'))}</p>
+  </form>`}
   <h2>${esc(t('reminders'))}</h2>
   <form class="form" id="remind-form">
     <label>${esc(t('remindDefault'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(remindDefault())}"></label>
@@ -1329,6 +1355,13 @@ view.addEventListener('click', (e) => {
       if (img?.src) openModal(`<img class="full" src="${esc(img.src)}" alt=""><div class="button-row"><button class="btn" value="cancel">${esc(t('back'))}</button></div>`, () => {});
       break;
     }
+    case 'gh-edit': ui.ghEdit = true; ui.connMsg = ''; render(); break;
+    case 'gh-cancel': ui.ghEdit = false; ui.connMsg = ''; render(); break;
+    case 'gh-disconnect':
+      if (confirm(t('confirmDisconnect'))) {
+        saveSettings({ token: '', verified: false }).then(() => { ui.ghEdit = false; ui.connMsg = ''; render(); updateSyncBadge(); });
+      }
+      break;
     case 'sync-now': runSync().then(() => { ui.connMsg = state.meta.lastError ? `err_${state.meta.lastError}` : ''; render(); }); break;
     case 'export': exportData(); break;
     default: break;
@@ -1850,12 +1883,14 @@ function saveRecipe(form) {
 }
 
 async function saveGithub(form) {
+  const typed = form.token.value.trim();
   await saveSettings({
     owner: form.owner.value.trim(), repo: form.repo.value.trim(),
-    token: form.token.value.trim(), branch: form.branch.value.trim() || 'main',
+    token: typed || state.settings.token, branch: form.branch.value.trim() || 'main', verified: false,
   });
   const res = await testConnection();
   ui.connMsg = res.ok ? 'connected' : `err_${res.error}`;
+  if (res.ok) { await saveSettings({ verified: true }); ui.ghEdit = false; }
   render();
   if (res.ok) {
     await runSync();

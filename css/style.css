@@ -379,3 +379,5 @@ details.paste textarea { margin-top: 6px; }
 .pa-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .pa-fields input, .pa-fields select { width: 100%; min-width: 0; }
 .pa-exp { grid-column: 1 / -1; }
+.gh-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 14px; }
+.gh-card code { font-size: .85rem; }

@@ -6,6 +6,9 @@ const plural = (n, one, many) => (n === 1 ? one : many);
 
 const dict = {
   it: {
+    connectedTo: 'Collegato a', editConnection: 'Modifica collegamento', disconnect: 'Scollega',
+    tokenKeep: (m) => `Lascia vuoto per tenere quello attuale (${m})`,
+    confirmDisconnect: 'Scollegare questo dispositivo da GitHub? Il token viene cancellato da qui; ricette e dispensa restano sul dispositivo.',
     putAway: 'Metti in dispensa', putAwayEmpty: 'Niente da mettere via: spunta prima i prodotti nella lista.',
     putAwayExplain: '«Metti in dispensa» aggiunge i prodotti spuntati alla dispensa (con quantità e scadenze); «Svuota» li toglie e basta.',
     putAwayHint: 'Controlla quantità e, se vuoi, la scadenza. Scansionando i prodotti li colleghi alla dispensa: la prossima volta basta il codice.',
@@ -113,6 +116,9 @@ const dict = {
     installHint: 'Suggerimento: aggiungi l\'app alla schermata Home per usarla come un\'app, anche offline.',
   },
   de: {
+    connectedTo: 'Verbunden mit', editConnection: 'Verbindung ändern', disconnect: 'Trennen',
+    tokenKeep: (m) => `Leer lassen, um den aktuellen zu behalten (${m})`,
+    confirmDisconnect: 'Dieses Gerät von GitHub trennen? Der Token wird hier gelöscht; Rezepte und Vorrat bleiben auf dem Gerät.',
     putAway: 'In den Vorrat', putAwayEmpty: 'Nichts einzuräumen: Hake zuerst Artikel auf der Liste ab.',
     putAwayExplain: '„In den Vorrat“ legt die abgehakten Artikel in den Vorrat (mit Menge und Haltbarkeit); „Entfernen“ löscht sie nur.',
     putAwayHint: 'Mengen prüfen und bei Bedarf das Haltbarkeitsdatum eintragen. Gescannte Produkte werden mit dem Vorrat verknüpft: nächstes Mal reicht der Code.',
@@ -220,6 +226,9 @@ const dict = {
     installHint: 'Tipp: Füge die App zum Home-Bildschirm hinzu, dann funktioniert sie wie eine App, auch offline.',
   },
   en: {
+    connectedTo: 'Connected to', editConnection: 'Change connection', disconnect: 'Disconnect',
+    tokenKeep: (m) => `Leave empty to keep the current one (${m})`,
+    confirmDisconnect: 'Disconnect this device from GitHub? The token is deleted from here; recipes and pantry stay on the device.',
     putAway: 'Put in pantry', putAwayEmpty: 'Nothing to put away: tick items on the list first.',
     putAwayExplain: '"Put in pantry" adds the ticked items to your pantry (with quantities and expiry dates); "Clear" just removes them.',
     putAwayHint: 'Check quantities and add expiry dates if you like. Scanning products links them to your pantry: next time the barcode is enough.',
