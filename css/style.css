@@ -632,3 +632,13 @@ dialog .row #pick-q { flex: 1; min-width: 0; }
 /* Ricette: the shop's opening status next to its group's name, the multi-select box */
 .dept-h .shop-status { flex: none; }
 .list.shop li > input.sel-box { margin: 0 4px 0 10px; }
+
+/* pantry, laid out like the shopping list */
+.pantry-actions { margin: 4px 0 8px; }
+.p-filters { margin: 0 0 10px; }
+.p-filters .chip.none { opacity: .55; }
+.pantry .p-dept { font-size: .95em; }
+.dept-h span.badge { flex: none; white-space: nowrap; overflow: visible; }
+.pantry-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pantry-actions { flex-wrap: nowrap; }
+.pantry-actions .btn { flex: 1 1 0; min-width: 0; width: auto; margin: 0; justify-content: center; white-space: normal; font-size: .92rem; line-height: 1.25; text-align: center; }

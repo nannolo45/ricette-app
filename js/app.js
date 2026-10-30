@@ -1241,7 +1241,7 @@ function commitPutAway() {
       }, { silent: true });
     } else {
       upsert('pantry', {
-        id: uid(), name: r.name.trim(), qty: qty ?? 1, unit, expires: r.expires || null, min: null, target: null,
+        id: uid(), name: r.name.trim(), qty: qty ?? 1, unit, expires: r.expires || null, min: null, target: null, addedAt: Date.now(),
         ...(r.barcode ? { barcode: r.barcode, barcodes: [r.barcode] } : {}), brand: r.brand || '', packQty: r.packQty || null, packUnit: r.packUnit || null,
         cat: r.cat || null, lookupPending: Boolean(r.lookupPending), nameFromCode: Boolean(r.nameFromCode),
       }, { silent: true });
@@ -1331,7 +1331,7 @@ function viewPutAway() {
   </form>`;
 }
 
-function pantryRow(p) {
+function pantryRow(p, { mode = 'dept' } = {}) {
   const low = lowInfo(p);
   const st = expiryState(p, remindDefault());
   const d = daysUntil(p.expires);
@@ -1340,7 +1340,7 @@ function pantryRow(p) {
   else if (st === 'ok') exp = ` <small class="exp">${esc(t('expiresOn', shortDate(p.expires)))}</small>`;
   const out = (num(p.qty) || 0) <= 0;
   return `<li class="${low || out ? 'low' : ''} ${st === 'expired' ? 'expired' : ''}">
-    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${out ? ` <span class="badge bad">${esc(t('outOfStock'))}</span>` : low ? ` <span class="badge warn">${esc(t('low'))}</span>` : ''}${exp}</button>
+    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${mode !== 'dept' ? `<span class="p-dept" title="${esc(t(`cat_${categoryOf(p)}`))}">${categoryIcon(categoryOf(p))}</span> ` : ''}${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${out ? ` <span class="badge bad">${esc(t('outOfStock'))}</span>` : low ? ` <span class="badge warn">${esc(t('low'))}</span>` : ''}${exp}${mode === 'newest' && pAddedOf(p) ? ` <small>＋ ${esc(addedDay(p))}</small>` : ''}</button>
     <div class="stepper">
       <button class="round" data-action="p-dec" data-id="${esc(p.id)}" aria-label="−">−</button>
       <span class="q">${esc(qtyText(num(p.qty) || 0, p.unit) || '0')}</span>
@@ -1348,35 +1348,101 @@ function pantryRow(p) {
     </div></li>`;
 }
 
+// ---------- pantry: laid out like the shopping list (search, ⇅ views, filters) ----------
+
+const PANTRY_MODES = ['dept', 'expiry', 'stock', 'alpha', 'newest'];
+const PANTRY_FILTERS = ['expiring', 'expired', 'low', 'out'];
+function pantryMode() { const m = state.settings.pantryMode; return PANTRY_MODES.includes(m) ? m : 'dept'; } // per device
+const pIsOut = (p) => (num(p.qty) || 0) <= 0;
+const pIsLow = (p) => !pIsOut(p) && Boolean(lowInfo(p));
+function pExpiry(p) { return expiryState(p, remindDefault()); }
+const PANTRY_TEST = {
+  expiring: (p) => ['soon', 'expired'].includes(pExpiry(p)),
+  expired: (p) => pExpiry(p) === 'expired',
+  low: (p) => pIsLow(p) || pIsOut(p),
+  out: pIsOut,
+};
+// out first, then running low, then the rest; by name inside
+const pStockRank = (p) => (pIsOut(p) ? 0 : pIsLow(p) ? 1 : 2);
+const pAddedOf = (p) => p.addedAt || p.createdAt || 0;
+const pByName = (a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name), getLang());
+
+/** [[key, label, items]]; key 'all' = one list without a header */
+function pantryGroups(items, mode) {
+  if (mode === 'alpha') return [['all', '', [...items].sort(pByName)]];
+  // older products have no date: last (not "last changed", which moves with every −/+)
+  if (mode === 'newest') return [['all', '', [...items].sort((a, b) => pAddedOf(b) - pAddedOf(a) || pByName(a, b))]];
+  if (mode === 'stock') {
+    const g = [['out', `🔴 ${t('pGroupOut')}`, items.filter(pIsOut)], ['low', `🟠 ${t('pGroupLow')}`, items.filter(pIsLow)], ['ok', `🟢 ${t('pGroupOk')}`, items.filter((p) => !pIsOut(p) && !pIsLow(p))]];
+    return g.filter(([, , l]) => l.length).map(([k, label, l]) => [k, label, l.sort(pByName)]);
+  }
+  if (mode === 'expiry') {
+    const byDate = (a, b) => daysUntil(a.expires) - daysUntil(b.expires) || pByName(a, b);
+    const g = [
+      ['expired', `⚠️ ${t('pGroupExpired')}`, items.filter((p) => pExpiry(p) === 'expired').sort(byDate)],
+      ['soon', `⏰ ${t('pGroupSoon')}`, items.filter((p) => pExpiry(p) === 'soon').sort(byDate)],
+      ['later', `📅 ${t('pGroupLater')}`, items.filter((p) => pExpiry(p) === 'ok').sort(byDate)],
+      ['none', `∞ ${t('pGroupNoDate')}`, items.filter((p) => !p.expires).sort(pByName)],
+    ];
+    return g.filter(([, , l]) => l.length);
+  }
+  return groupByDept(items, categoryOf).map(([c, l]) => [c, `${categoryIcon(c)} ${t(`cat_${c}`)}`, l.sort((a, b) => pStockRank(a) - pStockRank(b) || pByName(a, b))]);
+}
+
 function viewPantry() {
-  const expiring = expiringItems().map((x) => x.p);
-  const isOut = (p) => (num(p.qty) || 0) <= 0;
-  const rank = (p) => (isOut(p) ? 0 : lowInfo(p) ? 1 : 2);
-  const depts = groupByDept(live('pantry'), categoryOf).map(([c, items]) => [c, items.sort((a, b) => rank(a) - rank(b) || normalizeName(a.name).localeCompare(normalizeName(b.name)))]);
-  const counts = (items) => ({ out: items.filter(isOut).length, low: items.filter((p) => !isOut(p) && lowInfo(p)).length });
+  const all = live('pantry');
+  const mode = pantryMode();
+  const q = (ui.pantryQ || '').trim();
+  const filter = PANTRY_FILTERS.includes(ui.pantryFilter) ? ui.pantryFilter : '';
+  const matchQ = (p) => !q || itemMatches(p, q, [p.brand, t(`cat_${categoryOf(p)}`), ...(p.barcodes || [])].filter(Boolean));
+  const items = all.filter((p) => matchQ(p) && (!filter || PANTRY_TEST[filter](p)));
+  const groups = pantryGroups(items, mode);
+  const counts = (list) => ({ out: list.filter(pIsOut).length, low: list.filter(pIsLow).length });
+  // department shortcuts and the "expiring" box only on the plain departments view
+  const plain = mode === 'dept' && !q && !filter;
+  const expiring = plain ? expiringItems().map((x) => x.p) : [];
+  const chip = (f) => {
+    const n = all.filter(PANTRY_TEST[f]).length;
+    return `<button type="button" class="chip p-filter ${filter === f ? 'on' : ''} ${n ? '' : 'none'}" data-action="p-filter" data-value="${f}" aria-pressed="${filter === f}">${esc(t(`pFilter_${f}`))} <small>${n}</small></button>`;
+  };
+  const head = ([k, label, list]) => {
+    const n = mode === 'dept' ? counts(list) : { out: 0, low: 0 };
+    return `<h3 class="dept-h"><span>${esc(label)}</span>${n.out ? `<span class="badge bad">${esc(t('deptOut', n.out))}</span>` : ''}${n.low ? `<span class="badge warn">${esc(t('deptLow', n.low))}</span>` : ''}<small>${list.length}</small></h3>`;
+  };
+  const ul = (list) => `<ul class="list pantry">${list.map((p) => pantryRow(p, { mode })).join('')}</ul>`;
+  const body = groups.length === 1 && groups[0][0] === 'all'
+    ? ul(groups[0][2])
+    : groups.map((g) => `<section class="dept-sec" ${mode === 'dept' ? `id="dept-${esc(g[0])}"` : ''}>${head(g)}${ul(g[2])}</section>`).join('');
   return `
+  <h1>${esc(t('tabPantry'))}</h1>
+  <p class="hint">${esc(t('pantryHint'))}</p>
   <form id="add-pantry" class="row">
     <input name="item" id="add-pantry-input" required placeholder="${esc(t('addPantryPh'))}" autocomplete="off">
     <button class="btn primary" aria-label="+">+</button>
   </form>
-  <button class="btn scan-btn" data-action="scan">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8"/></svg>
-    ${esc(t('scan'))}</button>
-  <a class="btn suggest-link" href="#/suggest">🍳 ${esc(t('whatCanICook'))}</a>
-  <p class="hint">${esc(t('pantryHint'))}</p>
-  ${depts.length ? `<div class="dept-overview">${depts.map(([c, items]) => {
-    const n = counts(items);
-    return `<button type="button" class="dept-chip ${n.out ? 'bad' : n.low ? 'warn' : ''}" data-action="dept-jump" data-value="${c}">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${items.length}</small>${n.out + n.low ? ` <b>${n.out + n.low}</b>` : ''}</button>`;
+  <div class="button-row pantry-actions">
+    <button class="btn scan-btn" data-action="scan">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8"/></svg>
+      ${esc(t('scan'))}</button>
+    <a class="btn suggest-link" href="#/suggest">🍳 ${esc(t('whatCanICook'))}</a>
+  </div>
+  ${all.length ? `
+  <div class="task-tools">
+    <div class="search-box">${SEARCH_ICO}
+      <input type="search" id="pantry-q" value="${esc(ui.pantryQ || '')}" placeholder="${esc(t('searchPantryPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchPantryPh'))}">
+      <button type="button" class="search-clear" data-action="pantry-q-clear" aria-label="${esc(t('clearSearch'))}">${CLEAR_ICO}</button>
+    </div>
+    <label class="sort-pick">⇅ <select id="pantry-mode" aria-label="${esc(t('listView'))}">${PANTRY_MODES.map((m) => `<option value="${m}" ${m === mode ? 'selected' : ''}>${esc(t(`pMode_${m}`))}</option>`).join('')}</select></label>
+  </div>
+  <div class="f-chips p-filters" role="group" aria-label="${esc(t('filters'))}">${PANTRY_FILTERS.map(chip).join('')}</div>` : ''}
+  ${plain && groups.length > 1 ? `<div class="dept-overview">${groups.map(([c, , list]) => {
+    const n = counts(list);
+    return `<button type="button" class="dept-chip ${n.out ? 'bad' : n.low ? 'warn' : ''}" data-action="dept-jump" data-value="${c}">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${list.length}</small>${n.out + n.low ? ` <b>${n.out + n.low}</b>` : ''}</button>`;
   }).join('')}</div>` : ''}
-  ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map(pantryRow).join('')}</ul>` : ''}
-  ${depts.map(([c, items]) => {
-    const n = counts(items);
-    return `<section class="dept-sec" id="dept-${c}">
-      <h3 class="dept-h">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${items.length}</small>
-        ${n.out ? `<span class="badge bad">${esc(t('deptOut', n.out))}</span>` : ''}${n.low ? `<span class="badge warn">${esc(t('deptLow', n.low))}</span>` : ''}</h3>
-      <ul class="list pantry">${items.map(pantryRow).join('')}</ul></section>`;
-  }).join('')}
-  ${!depts.length ? `<p class="empty">${esc(t('pantryEmpty'))}</p>` : ''}`;
+  ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map((p) => pantryRow(p, { mode: 'expiry' })).join('')}</ul>` : ''}
+  ${!all.length ? `<p class="empty">${esc(t('pantryEmpty'))}</p>`
+    : !items.length ? `<p class="empty">${esc(t(q ? 'noPantryMatch' : 'noPantryFilter'))}${filter ? ` <button type="button" class="link-btn" data-action="p-filter" data-value="${filter}">${esc(t('showAll'))}</button>` : ''}</p>`
+      : body}`;
 }
 
 // Connected = a token that worked. The token itself is never put back on screen.
@@ -2342,7 +2408,7 @@ view.addEventListener('submit', (e) => {
       ensureLowItems();
       changed();
     } else {
-      const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null }, { silent: true });
+      const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now() }, { silent: true });
       changed();
       openPantryEdit(p);
     }
@@ -2392,6 +2458,7 @@ view.addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.action === 'toggle') setChecked(el.dataset.id, el.checked);
   if (el.id === 'list-mode' || el.id === 'settings-list-mode') { setListMode(el.value); changed(); render(); return; }
+  if (el.id === 'pantry-mode') { saveSettings({ pantryMode: el.value }).then(render); return; }
   if (el.dataset.action === 'sel' && ui.sel) { if (el.checked) ui.sel.add(el.dataset.id); else ui.sel.delete(el.dataset.id); render(); }
   if (el.dataset.tagdef) saveTagDef(el.dataset.tagdef, { enabled: el.checked });
   if (el.dataset.pa && ui.putaway) {
@@ -2443,6 +2510,7 @@ view.addEventListener('input', (e) => {
   }
   // searching the shopping list: not saved, lasts while the screen is open
   if (e.target.id === 'shop-q') { ui.listQ = e.target.value; render(); return; }
+  if (e.target.id === 'pantry-q') { ui.pantryQ = e.target.value; render(); return; }
   if (e.target.id === 'search') {
     ui.search = e.target.value;
     $('#cards').innerHTML = cardsHtml();
@@ -2453,12 +2521,12 @@ view.addEventListener('input', (e) => {
 // the ✕ in the list's search: keep the phone's keyboard open; Esc does the same as ✕
 view.addEventListener('pointerdown', (e) => { if (e.target.closest('.search-clear')) e.preventDefault(); });
 view.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && e.target.id === 'shop-q' && e.target.value) {
+  if (e.key === 'Escape' && (e.target.id === 'shop-q' || e.target.id === 'pantry-q') && e.target.value) {
     e.preventDefault();
-    ui.listQ = '';
+    if (e.target.id === 'shop-q') ui.listQ = ''; else ui.pantryQ = '';
     e.target.value = '';
     render();
-    document.getElementById('shop-q')?.focus({ preventScroll: true });
+    document.getElementById(e.target.id)?.focus({ preventScroll: true });
   }
 });
 
@@ -2591,6 +2659,15 @@ view.addEventListener('click', (e) => {
     case 'pin-toggle': togglePin(btn.dataset.value); break;
     case 'tags-more': ui.allTags = !ui.allTags; render(); break;
     case 'list-mode': setListMode(btn.dataset.value); changed(); render(); break;
+    case 'pantry-q-clear': {
+      ui.pantryQ = '';
+      const f = document.getElementById('pantry-q');
+      if (f) f.value = '';
+      render();
+      document.getElementById('pantry-q')?.focus({ preventScroll: true });
+      break;
+    }
+    case 'p-filter': ui.pantryFilter = ui.pantryFilter === btn.dataset.value ? '' : btn.dataset.value; render(); break;
     case 'shop-q-clear': {
       ui.listQ = '';
       const f = document.getElementById('shop-q');
@@ -3001,7 +3078,7 @@ function openScanNew(code) {
       toast(t('mergedInto', twin.name));
     } else {
       upsert('pantry', {
-        id: uid(), name, brand: form.brand.value || '', qty, unit, packQty: qty, packUnit: unit, barcode: code, barcodes: [code],
+        id: uid(), name, brand: form.brand.value || '', qty, unit, packQty: qty, packUnit: unit, barcode: code, barcodes: [code], addedAt: Date.now(),
         expires, min: num(form.min.value), target: null, lookupPending: pending, nameFromCode: !nameTyped, cat: info.cat || null,
       }, { silent: true });
       toast(t('addedToPantry', name));
@@ -3326,6 +3403,7 @@ async function start() {
   window.addEventListener('hashchange', () => {
     if (route().name !== 'edit') ui.edit = null;
     if (route().name !== 'list') { ui.sel = null; ui.listQ = ''; }
+    if (route().name !== 'pantry') ui.pantryQ = '';
     window.scrollTo(0, 0);
     render();
   });
