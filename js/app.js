@@ -16,7 +16,9 @@ import { findDishImage } from './dish-image.js';
 import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
 import { originOf, flagOf, CONTINENTS, CONTINENT_ICON } from './geo.js';
 import { planBookFix, booksOf } from './book-fix.js';
-import { assignItems } from './shops.js';
+// shared with Everyday, copied unchanged: the list's views, search and departments
+import { availableModes, currentMode, saveModeTarget, groupItems, itemMatches, addedOf, fold, DRAG_MODES, GROUPED_MODES, byItemOrder, recipeGroupOf } from './shoplist.js';
+import { DEPTS, DEPT_IDS, deptIcon, deptOf } from './depts.js';
 import { shopStatus } from './shop-status.js';
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
@@ -160,11 +162,11 @@ function addToShopping({ name, qty, unit, note, shops }, source) {
     const sources = [...new Set([...(existing.sources || []), source].filter(Boolean))];
     // merged: the union of both items' shops, the first item's order first
     const merged = [...new Set([...(existing.shops || []), ...(shops || [])])];
-    upsert('shopping', { ...existing, qty: sum.qty == null ? null : round(sum.qty), unit: sum.unit, sources, ...(merged.length ? { shops: merged } : {}) }, { silent: true });
+    upsert('shopping', { ...existing, qty: sum.qty == null ? null : round(sum.qty), unit: sum.unit, sources, ...(merged.length ? { shops: merged } : {}), addedAt: Math.min(addedOf(existing) || Date.now(), Date.now()) }, { silent: true });
   } else {
     upsert('shopping', {
       id: uid(), name, qty: qty == null ? null : round(qty), unit: unit || '', note: note || '',
-      checked: false, sources: source ? [source] : [], addedAt: Date.now(), ...(shops && shops.length ? { shops } : {}),
+      checked: false, sources: source ? [source] : [], addedAt: Date.now(), cat: newItemCat(name), ...(shops && shops.length ? { shops } : {}),
     }, { silent: true });
   }
 }
@@ -220,7 +222,7 @@ function ensureLowItems() {
     const low = p.deleted ? null : lowInfo(p);
     if (low) {
       if (!cur || cur.deleted) {
-        upsert('shopping', { id, name: p.name, qty: low.buy, unit: p.unit || '', checked: false, auto: true, pantryId: p.id, sources: [] }, { silent: true });
+        upsert('shopping', { id, name: p.name, qty: low.buy, unit: p.unit || '', checked: false, auto: true, pantryId: p.id, sources: [], addedAt: Date.now(), cat: categoryOf(p) }, { silent: true });
       } else if (!cur.checked && cur.qty !== low.buy || cur.name !== p.name || cur.unit !== (p.unit || '')) {
         upsert('shopping', { ...cur, name: p.name, qty: low.buy, unit: p.unit || '' }, { silent: true });
       }
@@ -1010,111 +1012,121 @@ function viewEdit(id) {
   </form>`;
 }
 
-const LIST_MODES = ['dept', 'recipe', 'plain', 'shop'];
-// "By shop" only once there are shops
-function listModes() { return live('shops').length ? LIST_MODES : LIST_MODES.filter((m) => m !== 'shop'); }
-function listMode() { const m = pref('listMode', 'dept'); return listModes().includes(m) ? m : 'dept'; }
+// ---------- shopping list: the same views, search and layout as Everyday (shoplist.js, depts.js) ----------
+
+// The view: the device's own choice (Shops, A–Z, Newest, Oldest) or the shared one in prefs (Departments, Recipes, My order)
+function hasShops() { return live('shops').length > 0; }
+function listMode() { return currentMode({ local: state.settings.listModeLocal, shared: pref('listMode', 'dept'), hasShops: hasShops() }); }
+function setListMode(mode) {
+  const to = saveModeTarget(mode);
+  saveSettings({ listModeLocal: to.local });
+  if (to.shared) setPref('listMode', to.shared); // never shop / alpha / newest / oldest in the shared prefs
+}
 
 const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
 function grip(id, label) {
   return `<button type="button" class="drag-handle" id="${esc(id)}" aria-label="${esc(t('dragToMove', label))}" title="${esc(t('dragHint'))}">${GRIP}</button>`;
 }
 
-function itemRow(i, { drag = false, showSource = true, showShops = true } = {}) {
-  // choosing several items (to give them shops at once): a selection box instead of the tick, no buttons
-  const selecting = ui.sel && !i.checked;
-  if (selecting) drag = false;
-  const src = i.auto ? `<span class="badge">${esc(t('fromPantry'))}</span>`
-    : showSource && (i.sources || []).length ? `<small>${esc(i.sources.join(', '))}</small>`
-      : (i.sources || []).length > 1 ? `<small>+ ${esc(i.sources.slice(1).join(', '))}</small>` : '';
-  return `<li class="${i.checked ? 'checked' : ''}" ${drag ? `data-sort-key="${esc(i.id)}"` : ''}>
+function shopNamesOf(i) { return itemShopIds(i).map((x) => shopById(x).name); }
+function addedDay(i) {
+  const ts = addedOf(i);
+  if (!ts) return '';
+  const d = new Date(ts); const today = new Date();
+  const days = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  return days === 0 ? t('addedToday') : days === 1 ? t('addedYesterday') : d.toLocaleDateString(getLang(), { day: 'numeric', month: 'short' });
+}
+
+/** A row: ⠿, the box (in the cart), the item (opens its dialog), ×. */
+function itemRow(i, { drag = false, mode = listMode() } = {}) {
+  const selecting = ui.sel && !i.checked; // choosing several items (shops for all of them at once)
+  const extra = i.auto ? ` <span class="badge">${esc(t('fromPantry'))}</span>`
+    : mode !== 'recipe' && (i.sources || []).length ? ` <small>${esc(i.sources.join(', '))}</small>` : '';
+  const shops = mode !== 'shop' ? shopNamesOf(i) : [];
+  const body = `${i.qty != null || i.unit ? `<span class="q">${esc(qtyText(i.qty, i.unit))}</span> ` : ''}${esc(i.name)}${i.note ? ` <small class="inline">(${esc(i.note)})</small>` : ''}${extra}${shops.length ? ` <span class="item-shops">🏪 ${esc(shops.join(', '))}</span>` : ''}${(mode === 'newest' || mode === 'oldest') && addedDay(i) ? ` <small>＋ ${esc(addedDay(i))}</small>` : ''}`;
+  if (i.checked) {
+    return `<li class="checked">
+    <input type="checkbox" id="tk-${esc(i.id)}" data-action="toggle" data-id="${esc(i.id)}" checked>
+    <label class="shop-main item-text" for="tk-${esc(i.id)}">${body}</label>
+    <button type="button" class="icon" data-action="del-item" data-id="${esc(i.id)}" aria-label="${esc(t('remove'))}">×</button>
+  </li>`;
+  }
+  if (selecting) {
+    return `<li>
+    <input type="checkbox" class="sel-box" data-action="sel" data-id="${esc(i.id)}" ${ui.sel.has(i.id) ? 'checked' : ''} aria-label="${esc(t('selectItem', i.name))}">
+    <button type="button" class="shop-main" data-action="sel-row" data-id="${esc(i.id)}">${body}</button>
+  </li>`;
+  }
+  return `<li ${drag ? `data-sort-key="${esc(i.id)}"` : ''}>
     ${drag ? grip(`h-${i.id}`, i.name) : ''}
-    ${(() => {
-      const text = `<span class="q">${esc(qtyText(i.qty, i.unit))}</span> ${esc(i.name)} ${src}${i.note ? ` <small class="item-note">${esc(i.note)}</small>` : ''}${showShops && itemShopIds(i).length ? ` <small class="item-shops">🏪 ${esc(itemShopIds(i).map((x) => shopById(x).name).join(' / '))}</small>` : ''}`;
-      if (selecting) return `<label><input type="checkbox" class="sel-box" data-action="sel" data-id="${esc(i.id)}" ${ui.sel.has(i.id) ? 'checked' : ''} aria-label="${esc(t('selectItem', i.name))}"><span class="item-text">${text}</span></label>`;
-      if (i.checked) return `<label><input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" checked><span class="item-text">${text}</span></label>`;
-      // the box ticks the item; the name opens it for editing (amount, shops)
-      return `<label class="tick"><input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" aria-label="${esc(t('tickItem', i.name))}"></label>
-    <button type="button" class="item-text item-open" data-action="item-edit" data-id="${esc(i.id)}" title="${esc(t('itemEdit'))}">${text}</button>`;
-    })()}
-    ${selecting ? '' : `<button class="icon" data-action="del-item" data-id="${esc(i.id)}" aria-label="${esc(t('remove'))}">×</button>`}
+    <input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" aria-label="${esc(t('tickItem', i.name))}">
+    <button type="button" class="shop-main" data-action="item-edit" data-id="${esc(i.id)}" title="${esc(t('itemEdit'))}">${body}</button>
+    <button type="button" class="icon" data-action="del-item" data-id="${esc(i.id)}" aria-label="${esc(t('remove'))}">×</button>
   </li>`;
 }
 
-// manual order first (drag and drop), then items nobody has placed yet, by name
-function byItemOrder(a, b) {
-  const oa = Number.isFinite(a.order) ? a.order : Infinity;
-  const ob = Number.isFinite(b.order) ? b.order : Infinity;
-  if (oa !== ob) return oa - ob;
-  return normalizeName(a.name).localeCompare(normalizeName(b.name));
-}
-
-function recipeGroupOf(i) { return i.auto ? '__pantry' : (i.sources || [])[0] || '__other'; }
 function recipeGroupLabel(k) { return k === '__pantry' ? `🔁 ${t('restock')}` : k === '__other' ? `🧺 ${t('otherItems')}` : `🍽 ${k}`; }
 
-function deptOrder() { return byOrder(CATEGORY_IDS, pref('deptOrder', [])); }
+function deptOrder() { return byOrder(DEPT_IDS, pref('deptOrder', [])); }
+function deptLabel(id) { return `${deptIcon(id)} ${t(`cat_${id}`)}`; }
 
-/** Open items grouped as the list shows them: [[groupKey, label, items]] (one unnamed group for the plain list). */
+/** Open items grouped as the list shows them: [[key, label, items, kind]] (kind 'all' = one unnamed group). */
 function listGroups(open, mode = listMode()) {
-  const items = [...open].sort(byItemOrder);
-  if (mode === 'plain') return [['all', '', items]];
-  if (mode === 'shop') {
-    // the fewest shops that sell everything (shops.js, the same rules as Everyday), shown in your order of shops
-    const shops = shopsSorted();
-    const plan = assignItems(items, shops) || new Map();
-    return shops.filter((sh) => plan.has(sh.id)).map((sh) => [sh.id, `🏪 ${sh.name}`, plan.get(sh.id).sort(byItemOrder)]);
-  }
-  if (mode === 'recipe') {
-    const groups = new Map();
-    const firstAdded = new Map();
-    for (const i of items) {
-      const k = recipeGroupOf(i);
-      if (!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(i);
-      firstAdded.set(k, Math.min(firstAdded.get(k) ?? Infinity, i.addedAt || 0));
-    }
-    const natural = [...groups.keys()].sort((a, b) => (a === '__pantry') - (b === '__pantry') || firstAdded.get(a) - firstAdded.get(b));
-    return byOrder(natural, pref('recipeOrder', [])).map((k) => [k, recipeGroupLabel(k), groups.get(k)]);
-  }
-  const groups = new Map(groupByDept(items, shopCat));
-  return deptOrder().filter((c) => groups.has(c)).map((c) => [c, `${categoryIcon(c)} ${t(`cat_${c}`)}`, groups.get(c)]);
+  const groups = groupItems(open, mode, { deptOf, deptOrder: deptOrder(), recipeOrder: pref('recipeOrder', []), shops: shopsSorted(), lang: getLang() });
+  return groups.map(({ key, kind, items }) => [key,
+    kind === 'dept' ? deptLabel(key) : kind === 'recipe' ? recipeGroupLabel(key) : kind === 'shop' ? `🏪 ${shopById(key)?.name || ''}` : kind === 'anyShop' ? `🛒 ${t('anyShop')}` : '',
+    items, kind]);
 }
+
+const SEARCH_ICO = '<svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
+const CLEAR_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 
 function viewList() {
   const items = live('shopping');
   const mode = listMode();
-  const open = items.filter((i) => !i.checked);
-  const done = items.filter((i) => i.checked).sort(byItemOrder);
+  const q = (ui.listQ || '').trim();
+  const match = (i) => !q || itemMatches(i, q, shopNamesOf(i));
+  const allOpen = items.filter((i) => !i.checked);
+  const open = allOpen.filter(match);
+  const done = items.filter((i) => i.checked && match(i)).sort(byItemOrder);
   const groups = listGroups(open, mode);
-  const grouped = mode !== 'plain';
+  const grouped = GROUPED_MODES.includes(mode);
+  const drag = DRAG_MODES.includes(mode) && !q && !ui.sel;
+  const groupHead = ([k, label, list, kind]) => `<h3 class="dept-h" ${kind === 'dept' ? `id="dept-${esc(k)}"` : ''}>${drag && kind !== 'anyShop' ? grip(`g-${mode}-${k}`, label) : ''}<span>${esc(label)}</span>${kind === 'shop' ? shopHead(k) : ''}${ui.sel ? `<button type="button" class="link-btn sel-group" data-action="sel-group" data-value="${esc(k)}">${esc(t(list.every((i) => ui.sel.has(i.id)) ? 'selectNone' : 'selectAll'))}</button>` : `<small>${list.length}</small>`}</h3>`;
+  const ul = (key, list) => `<ul class="list shop" ${drag ? `data-sortable="items" data-group="${esc(key)}"` : ''}>${list.map((i) => itemRow(i, { drag, mode })).join('')}</ul>`;
   const body = grouped
-    ? `<div class="groups" data-sortable="groups" data-group="${mode}">${groups.map(([k, label, list]) => `
-      <section class="grp" data-sort-key="${esc(k)}">
-        <h3 class="dept-h" ${mode === 'dept' ? `id="dept-${esc(k)}"` : ''}>${grip(`g-${mode}-${k}`, label)}<span>${esc(label)}</span>${mode === 'shop' ? shopHead(k) : ''}${ui.sel ? `<button type="button" class="link-btn sel-group" data-action="sel-group" data-value="${esc(k)}">${esc(t(list.every((i) => ui.sel.has(i.id)) ? 'selectNone' : 'selectAll'))}</button>` : `<small>${list.length}</small>`}</h3>
-        <ul class="list" data-sortable="items" data-group="${esc(k)}">${list.map((i) => itemRow(i, { drag: true, showSource: mode !== 'recipe', showShops: mode !== 'shop' })).join('')}</ul>
-      </section>`).join('')}</div>`
-    : `<ul class="list" data-sortable="items" data-group="all">${groups[0][2].map((i) => itemRow(i, { drag: true })).join('')}</ul>`;
+    ? `<div class="groups" ${drag ? `data-sortable="groups" data-group="${mode}"` : ''}>${groups.map((g) => `
+      <section class="grp" ${g[3] === 'anyShop' ? '' : `data-sort-key="${esc(g[0])}"`}>${groupHead(g)}${ul(g[0], g[2])}</section>`).join('')}</div>`
+    : ul('all', groups[0]?.[2] || []);
+  const nothing = q && !open.length && !done.length;
   return `
+  <h1>${esc(t('tabList'))}</h1>
+  <p class="hint">${esc(t('listIntro'))}</p>
   <form id="add-item" class="row">
     <input name="item" id="add-item-input" required placeholder="${esc(t('addItemPh'))}" autocomplete="off">
     <button class="btn primary" aria-label="+">+</button>
   </form>
-  <div class="seg" role="radiogroup" aria-label="${esc(t('listView'))}">
-    ${listModes().map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
+  <div class="task-tools">
+    <div class="search-box">${SEARCH_ICO}
+      <input type="search" id="shop-q" value="${esc(ui.listQ || '')}" placeholder="${esc(t('searchListPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchListPh'))}">
+      <button type="button" class="search-clear" data-action="shop-q-clear" aria-label="${esc(t('clearSearch'))}">${CLEAR_ICO}</button>
+    </div>
+    <label class="sort-pick">⇅ <select id="list-mode" aria-label="${esc(t('listView'))}">${availableModes(hasShops()).map((m) => `<option value="${m}" ${m === mode ? 'selected' : ''}>${esc(t(`listMode_${m}`))}</option>`).join('')}</select></label>
   </div>
-  ${open.length && mode === 'shop' ? `<p class="hint small">${esc(t('shopsToVisit', groups.length))}</p>` : ''}
+  ${nothing ? `<p class="empty">${esc(t('noListMatch'))}</p>` : `
   ${open.length ? `${body}
-    <p class="hint small">${esc(t(grouped ? 'dragHintGroups' : 'dragHintItems'))}</p>
-    ${ui.sel ? selBar(open) : `<div class="button-row">
+    ${drag ? `<p class="hint small">${esc(t(grouped ? 'dragHintGroups' : 'dragHintItems'))}</p>` : ''}
+    <p class="hint small">${esc(t('tapItemHint'))}</p>
+    ${ui.sel ? selBar(allOpen) : `<div class="button-row">
       <button class="btn" data-action="sel-start">☑ ${esc(t('selectMany'))}</button>
       <button class="btn" data-action="share-list">${esc(t('share'))}</button>
-    </div>`}` : `<p class="empty">${esc(t('listEmpty'))}</p>`}
-  ${done.length ? `<h2>${esc(t('inCart'))} (${done.length})</h2><ul class="list done">${done.map((i) => itemRow(i)).join('')}</ul>
+    </div>`}` : q ? '' : `<p class="empty">${esc(t('listEmpty'))}</p>`}
+  ${done.length ? `<h2>${esc(t('inCart'))} (${done.length})</h2><ul class="list shop done">${done.map((i) => itemRow(i, { mode })).join('')}</ul>
     <div class="button-row">
       <button class="btn primary" data-action="put-away">📦 ${esc(t('putAway'))}</button>
       <button class="btn" data-action="clear-checked">${esc(t('clearChecked'))}</button>
     </div>
-    <p class="hint small">${esc(t('putAwayExplain'))}</p>` : ''}`;
+    <p class="hint small">${esc(t('putAwayExplain'))}</p>` : ''}`}`;
 }
 
 // After a drag: save the new order of the items, or of the groups.
@@ -1128,7 +1140,7 @@ function onSorted({ kind, group, keys }) {
     if (group === 'dept') setPref('deptOrder', reorderSubset(deptOrder(), keys));
     else if (group === 'shop') {
       // dragging shop groups reorders the shops (as in Everyday)
-      const ids = reorderSubset(shopsSorted().map((x) => x.id), keys);
+      const ids = reorderSubset(shopsSorted().map((x) => x.id), keys.filter((k) => k !== '__any'));
       ids.forEach((sid, n) => { const sh = shopById(sid); if (sh && sh.order !== n) upsert('shops', { ...sh, order: n }, { silent: true }); });
     } else if (group === 'recipe') {
       const saved = pref('recipeOrder', []);
@@ -1244,10 +1256,12 @@ function commitPutAway() {
   toast(t('putAwayDone', n));
 }
 
-function shopCat(i) {
-  if (i.cat && CATEGORY_IDS.includes(i.cat)) return i.cat; // chosen by hand in the item's dialog
-  const p = (i.pantryId && get('pantry', i.pantryId)) || live('pantry').find((x) => normalizeName(x.name) === normalizeName(i.name));
-  return p ? categoryOf(p) : categorize(i.name);
+// The department of a list item: its own `cat`, else the shared rules (depts.js; household and personal care too)
+function shopCat(i) { return deptOf(i); }
+// A new item's department: the pantry's department for things you keep, else the shared rules
+function newItemCat(name) {
+  const p = live('pantry').find((x) => normalizeName(x.name) === normalizeName(name));
+  return p && p.cat ? categoryOf(p) : deptOf({ name });
 }
 
 function groupByDept(items, catOf) {
@@ -1699,12 +1713,11 @@ function listSettings() {
   return `
   <h2>${esc(t('tabList'))}</h2>
   <div class="field-label">${esc(t('listView'))}</div>
-  <div class="seg" role="radiogroup" aria-label="${esc(t('listView'))}">
-    ${listModes().map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
-  </div>
+  <label class="sort-pick">⇅ <select id="settings-list-mode" aria-label="${esc(t('listView'))}">${availableModes(hasShops()).map((m) => `<option value="${m}" ${m === mode ? 'selected' : ''}>${esc(t(`listMode_${m}`))}</option>`).join('')}</select></label>
+  <p class="hint small">${esc(t('listViewHint'))}</p>
   <div class="field-label">${esc(t('deptOrderTitle'))}</div>
   <p class="hint small">${esc(t('deptOrderHint'))}</p>
-  <ul class="dept-order" data-sortable="dept-settings">${deptOrder().map((c) => `<li data-sort-key="${esc(c)}">${grip(`d-${c}`, t(`cat_${c}`))}<span>${categoryIcon(c)} ${esc(t(`cat_${c}`))}</span></li>`).join('')}</ul>
+  <ul class="dept-order" data-sortable="dept-settings">${deptOrder().map((c) => `<li data-sort-key="${esc(c)}">${grip(`d-${c}`, t(`cat_${c}`))}<span>${esc(deptLabel(c))}</span></li>`).join('')}</ul>
   ${custom ? `<button type="button" class="btn small ghost" data-action="dept-reset">↺ ${esc(t('resetOrder'))}</button>` : ''}`;
 }
 
@@ -1748,7 +1761,7 @@ function shopSettings() {
   <p class="hint">${esc(t('shopsHint'))}</p>
   ${shops.length ? `<ul class="shop-list" data-sortable="shops-settings">${shops.map((sh) => `<li data-sort-key="${esc(sh.id)}">
       ${grip(`s-${sh.id}`, sh.name)}
-      <div class="shop-main"><strong>${esc(sh.name)}</strong><small>${esc(hoursText(sh))}${sh.minutes ? ` · ⏱ ${esc(t('shopVisit', sh.minutes))}` : ''}</small>${sh.place ? `<small>📍 ${esc(sh.place)}</small>` : ''}</div>
+      <div class="shop-info"><strong>${esc(sh.name)}</strong><small>${esc(hoursText(sh))}${sh.minutes ? ` · ⏱ ${esc(t('shopVisit', sh.minutes))}` : ''}</small>${sh.place ? `<small>📍 ${esc(sh.place)}</small>` : ''}</div>
       <button type="button" class="btn small ghost" data-action="shop-edit" data-id="${esc(sh.id)}" aria-label="${esc(t('shopEdit'))}">✎</button>
     </li>`).join('')}</ul><p class="hint small">${esc(t('shopsOrderHint'))}</p>` : `<p class="hint">${esc(t('shopsNone'))}</p>`}
   <button type="button" class="btn" data-action="shop-new">+ ${esc(t('shopNew'))}</button>`;
@@ -1924,10 +1937,11 @@ function openItemEdit(id) {
   const it = get('shopping', id);
   if (!it) return;
   let picked = itemShopIds(it);
-  const autoCat = (name) => { const { cat, ...rest } = { ...it, name }; return shopCat(rest); };
+  const startCat = shopCat(it);
   const units = UNITS.includes(it.unit || '') ? UNITS : [...UNITS, it.unit];
-  // the same dialog as Everyday's: name, amount, department, notes, the shops that sell it
-  const chips = () => shopsSorted().map((sh) => { const on = picked.includes(sh.id); return `<button type="button" class="chip shop-chip ${on ? 'on' : ''}" data-pick="${esc(sh.id)}" aria-pressed="${on}">${esc(sh.name)}</button>`; }).join('');
+  // the same dialog as Everyday's: name, amount, department, note, the shops that sell it
+  const chips = () => shopsSorted().map((sh) => { const on = picked.includes(sh.id); return `<button type="button" class="chip shop-chip ${on ? 'on' : ''}" data-pick="${esc(sh.id)}" role="checkbox" aria-checked="${on}">${esc(sh.name)}</button>`; }).join('');
+  const shopsHint = () => t(hasShops() ? 'itemShopsHint' : 'itemShopsNoneYet');
   openModal(`
     <h2>${esc(it.name)}</h2>
     <label>${esc(t('name'))}<input name="name" value="${esc(it.name)}" required autocomplete="off"></label>
@@ -1935,7 +1949,7 @@ function openItemEdit(id) {
       <label>${esc(t('quantity'))}<input name="qty" inputmode="decimal" value="${esc(it.qty ?? '')}"></label>
       <label>${esc(t('unit'))}<select name="unit">${units.map((u) => `<option value="${esc(u)}" ${u === (it.unit || '') ? 'selected' : ''}>${esc(u === '' ? '—' : unitOptionLabel(u))}</option>`).join('')}</select></label>
     </div>
-    <label>${esc(t('department'))}<select name="cat">${CATEGORIES.map((c) => `<option value="${c.id}" ${c.id === shopCat(it) ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
+    <label>${esc(t('department'))}<select name="cat">${DEPTS.map((c) => `<option value="${c.id}" ${c.id === startCat ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
     <label>${esc(t('notes'))}<input name="note" value="${esc(it.note || '')}" autocomplete="off"></label>
     <div class="field-label">🏪 ${esc(t('itemShops'))}</div>
     <div class="f-chips shop-chips" id="item-shops">${chips()}</div>
@@ -1943,7 +1957,8 @@ function openItemEdit(id) {
       <input id="new-shop-name" placeholder="${esc(t('newShopPh'))}" autocomplete="off" aria-label="${esc(t('shopName'))}">
       <button type="button" class="btn small" data-new-shop>+ ${esc(t('newShop'))}</button>
     </div>
-    <p class="hint small">${esc(t('itemShopsHint'))}</p>
+    <p class="hint small" id="item-shops-hint">${esc(shopsHint())}</p>
+    ${(it.sources || []).length ? `<p class="hint small">${esc(t('forRecipes', it.sources.join(', ')))}</p>` : ''}
     <div class="button-row sep">
       <button class="btn primary" value="ok">${esc(t('save'))}</button>
       <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
@@ -1952,13 +1967,10 @@ function openItemEdit(id) {
     if (action === 'delete') { remove('shopping', id); changed(); return; }
     const raw = form.qty.value.trim().replace(',', '.');
     const qty = raw === '' ? null : Number(raw);
-    const name = form.name.value.trim() || it.name;
-    // department: only stored when it differs from what the app would pick by itself
-    const cat = form.cat.value === autoCat(name) ? undefined : form.cat.value;
     const cur = get('shopping', id) || it;
-    // everything Ricette doesn't know about (Everyday's fields) stays as it is
-    const next = { ...cur, name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value, note: form.note.value.trim(), shops: picked };
-    if (cat) next.cat = cat; else delete next.cat;
+    // every other field (Everyday's too) stays as it is; the department only changes if you changed it
+    const next = { ...cur, name: form.name.value.trim() || it.name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value, note: form.note.value.trim(), shops: picked };
+    if (form.cat.value !== startCat) next.cat = form.cat.value;
     upsert('shopping', next, { silent: true });
     changed();
   });
@@ -1966,7 +1978,8 @@ function openItemEdit(id) {
     const input = modal.querySelector('#new-shop-name');
     const nm = input.value.trim();
     if (!nm) { input.focus(); return; }
-    const existing = shopsSorted().find((x) => x.name.toLocaleLowerCase() === nm.toLocaleLowerCase());
+    // the same name (case and accents ignored) is the same shop
+    const existing = shopsSorted().find((x) => fold(x.name).trim() === fold(nm));
     let sid = existing?.id;
     if (!sid) {
       const all = shopsSorted();
@@ -1976,6 +1989,7 @@ function openItemEdit(id) {
     if (!picked.includes(sid)) picked = [...picked, sid];
     input.value = '';
     modal.querySelector('#item-shops').innerHTML = chips();
+    modal.querySelector('#item-shops-hint').textContent = shopsHint();
   };
   modal.onclick = (e) => {
     if (e.target.closest('[data-new-shop]')) { addShop(); return; }
@@ -2377,6 +2391,7 @@ document.addEventListener('pointercancel', pointerReleased, true);
 view.addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.action === 'toggle') setChecked(el.dataset.id, el.checked);
+  if (el.id === 'list-mode' || el.id === 'settings-list-mode') { setListMode(el.value); changed(); render(); return; }
   if (el.dataset.action === 'sel' && ui.sel) { if (el.checked) ui.sel.add(el.dataset.id); else ui.sel.delete(el.dataset.id); render(); }
   if (el.dataset.tagdef) saveTagDef(el.dataset.tagdef, { enabled: el.checked });
   if (el.dataset.pa && ui.putaway) {
@@ -2426,10 +2441,24 @@ view.addEventListener('input', (e) => {
     const el = $('#nutri-preview');
     if (el && form) el.innerHTML = nutritionPreview(form.servings.value, form.ingredients.value);
   }
+  // searching the shopping list: not saved, lasts while the screen is open
+  if (e.target.id === 'shop-q') { ui.listQ = e.target.value; render(); return; }
   if (e.target.id === 'search') {
     ui.search = e.target.value;
     $('#cards').innerHTML = cardsHtml();
     hydrate($('#cards'));
+  }
+});
+
+// the ✕ in the list's search: keep the phone's keyboard open; Esc does the same as ✕
+view.addEventListener('pointerdown', (e) => { if (e.target.closest('.search-clear')) e.preventDefault(); });
+view.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && e.target.id === 'shop-q' && e.target.value) {
+    e.preventDefault();
+    ui.listQ = '';
+    e.target.value = '';
+    render();
+    document.getElementById('shop-q')?.focus({ preventScroll: true });
   }
 });
 
@@ -2561,7 +2590,16 @@ view.addEventListener('click', (e) => {
     case 'pin-edit': ui.pinEdit = !ui.pinEdit; render(); break;
     case 'pin-toggle': togglePin(btn.dataset.value); break;
     case 'tags-more': ui.allTags = !ui.allTags; render(); break;
-    case 'list-mode': setPref('listMode', btn.dataset.value); changed(); render(); break;
+    case 'list-mode': setListMode(btn.dataset.value); changed(); render(); break;
+    case 'shop-q-clear': {
+      ui.listQ = '';
+      const f = document.getElementById('shop-q');
+      if (f) f.value = ''; // the redraw keeps what's typed in the focused field
+      render();
+      document.getElementById('shop-q')?.focus({ preventScroll: true });
+      break;
+    }
+    case 'sel-row': { if (ui.sel.has(id)) ui.sel.delete(id); else ui.sel.add(id); render(); break; }
     case 'dept-reset': setPref('deptOrder', []); changed(); render(); break;
     case 'suggest-sort': saveSettings({ suggestSort: btn.dataset.value }).then(render); break;
     case 'folder-delete': openFolderDelete(get('folders', id)); break;
@@ -3287,7 +3325,7 @@ async function start() {
   onChange((kind) => { if (COLLECTIONS.includes(kind) || kind === 'meta') renderIfSafe(); else if (kind === 'meta-time') updateSyncBadge(); });
   window.addEventListener('hashchange', () => {
     if (route().name !== 'edit') ui.edit = null;
-    if (route().name !== 'list') ui.sel = null;
+    if (route().name !== 'list') { ui.sel = null; ui.listQ = ''; }
     window.scrollTo(0, 0);
     render();
   });

@@ -555,8 +555,8 @@ dialog .row #pick-q { flex: 1; min-width: 0; }
 
 .shop-list { list-style: none; padding: 0; margin: .5rem 0; display: grid; gap: .4rem; }
 .shop-list li { display: flex; align-items: center; gap: .5rem; padding: .6rem .5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface, transparent); }
-.shop-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.shop-main small { color: var(--muted); }
+.shop-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.shop-info small { color: var(--muted); }
 .hours-row { border: 1px solid var(--line); border-radius: 12px; padding: .5rem; margin: .4rem 0; display: grid; gap: .4rem; }
 .day-chips { display: flex; gap: .3rem; flex-wrap: wrap; }
 .day-chips .chip { min-width: 2.2rem; justify-content: center; }
@@ -564,7 +564,6 @@ dialog .row #pick-q { flex: 1; min-width: 0; }
 .hours-times input { flex: 1; min-width: 0; }
 .hours-date { display: flex; align-items: center; gap: .5rem; }
 .shop-chips .chip b { font-size: .8em; opacity: .8; }
-.item-shops { color: var(--muted); }
 .list .icon.edit { opacity: .6; }
 .hours-date { flex-wrap: wrap; }
 .hours-date input { flex: 1; min-width: 0; max-width: 100%; }
@@ -589,3 +588,47 @@ dialog .row #pick-q { flex: 1; min-width: 0; }
 .new-shop .btn { white-space: nowrap; }
 .button-row.sep { border-top: 1px solid var(--line); padding-top: 1rem; margin-top: .75rem; }
 .list .item-note { color: var(--muted); font-style: italic; }
+
+/* ===== from Everyday (docs/shoplist.css, copied unchanged): tools row, search, group headers, rows ===== */
+/* Shopping list styles from Everyday (v18), for Ricette to match. Uses these CSS variables; map them
+   to Ricette's own if the names differ:
+   --bg, --surface, --ink, --muted, --line, --accent, --accent-ink, --radius, --sans
+   Everyday's values: light  --bg #f6f4ef --surface #fff --ink #1f2a2b --muted #6c7676 --line #e2e0d8 --accent #2f6b6f
+                      dark   --bg #151a1b --surface #1f2627 --ink #e9eeec --muted #94a09f --line #313b3c --accent #6fb7b4 */
+
+/* Tools row under the "add" field: search on the left, ⇅ view menu on the right; wraps on phones. */
+.task-tools { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-start; gap: 8px; margin: 4px 0 8px; }
+.task-tools .sort-pick { margin-left: auto; }
+.sort-pick { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; color: var(--muted); }
+.sort-pick select { width: auto; margin: 0; padding: 6px 28px 6px 10px; }
+
+/* Search: a pill with a magnifier, shorter than the full-width "add" field; ✕ only once something is typed. */
+.search-box { position: relative; display: flex; align-items: center; flex: 1 1 200px; max-width: 340px; min-width: 0; }
+.search-box .search-ico { position: absolute; left: 12px; width: 17px; height: 17px; fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-linecap: round; pointer-events: none; }
+.search-box:focus-within .search-ico { stroke: var(--accent); }
+.search-box input { width: 100%; margin: 0; padding: 8px 36px 8px 38px; border-radius: 999px; background: var(--surface); font-size: .92rem; }
+.search-box input::-webkit-search-cancel-button, .search-box input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.search-clear { position: absolute; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 25%, transparent); color: var(--ink); cursor: pointer; }
+.search-clear svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.search-clear:hover { background: color-mix(in srgb, var(--muted) 40%, transparent); }
+.search-box input:placeholder-shown ~ .search-clear { display: none; }
+
+/* Group headers and rows */
+.dept-h { display: flex; align-items: center; gap: 6px; font: 600 1rem var(--sans); margin: 14px 0 6px; }
+.dept-h span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dept-h small { color: var(--muted); font-weight: 400; }
+.list.shop li { justify-content: flex-start; gap: 4px; padding-right: 4px; }
+.list.shop li > input[type=checkbox] { width: 22px; height: 22px; flex: none; accent-color: var(--accent); margin: 0 4px 0 10px; }
+.list.shop li .drag-handle + input[type=checkbox] { margin-left: 0; }
+.shop-main { flex: 1; min-width: 0; text-align: left; border: 0; background: none; font: inherit; color: inherit; padding: 12px 6px; cursor: pointer; }
+.shop-main .q { font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.shop-main small { color: var(--muted); font-size: .8rem; }
+.shop-main small.inline { font-size: .85rem; }
+.item-shops { color: var(--muted); font-size: .76rem; white-space: nowrap; }
+.list.shop.done .item-text { text-decoration: line-through; color: var(--muted); }
+.list.shop.done .q { color: var(--muted); }
+
+/* Ricette: the shop's opening status next to its group's name, the multi-select box */
+.dept-h .shop-status { flex: none; }
+.list.shop li > input.sel-box { margin: 0 4px 0 10px; }
