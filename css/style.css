@@ -550,3 +550,32 @@ dialog .row #pick-q { flex: 1; min-width: 0; }
 .fix-list { list-style: none; padding: 0; margin: .25rem 0 1rem; display: grid; gap: .5rem; }
 .fix-list li { padding: .5rem .25rem; border-bottom: 1px solid var(--line, rgba(127,127,127,.2)); }
 .fix-list .check { display: flex; gap: .6rem; align-items: flex-start; }
+
+.shop-list { list-style: none; padding: 0; margin: .5rem 0; display: grid; gap: .4rem; }
+.shop-list li { display: flex; align-items: center; gap: .5rem; padding: .6rem .5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface, transparent); }
+.shop-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.shop-main small { color: var(--muted); }
+.hours-row { border: 1px solid var(--line); border-radius: 12px; padding: .5rem; margin: .4rem 0; display: grid; gap: .4rem; }
+.day-chips { display: flex; gap: .3rem; flex-wrap: wrap; }
+.day-chips .chip { min-width: 2.2rem; justify-content: center; }
+.hours-times { display: flex; align-items: center; gap: .4rem; }
+.hours-times input { flex: 1; min-width: 0; }
+.hours-date { display: flex; align-items: center; gap: .5rem; }
+.shop-chips .chip b { font-size: .8em; opacity: .8; }
+.item-shops { color: var(--muted); }
+.list .icon.edit { opacity: .6; }
+.hours-date { flex-wrap: wrap; }
+.hours-date input { flex: 1; min-width: 0; max-width: 100%; }
+
+.shop-status { font-size: .78rem; font-weight: 500; color: var(--muted); margin-left: .4rem; white-space: nowrap; }
+.shop-status.open { color: #4c8a3f; }
+.shop-status.closed { color: #b3402e; }
+.shop-link { text-decoration: none; margin-left: .2rem; }
+
+.sel-bar { position: sticky; bottom: calc(var(--tabbar-h, 72px) + .5rem); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .6rem .75rem; margin-top: .75rem; border-radius: 16px; background: var(--surface, #fff); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.sel-bar { flex-direction: column; align-items: stretch; }
+.sel-top, .sel-actions { display: flex; align-items: center; gap: .5rem; }
+.sel-bar .sel-n { flex: 1; font-weight: 600; }
+.sel-actions .btn.primary { flex: 1; }
+.sel-group { margin-left: auto; font-size: .85rem; }
+.list .sel-box { accent-color: var(--accent); }

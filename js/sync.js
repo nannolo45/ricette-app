@@ -12,6 +12,8 @@ export const PATHS = {
   devices: 'push/devices.json',
   tagdefs: 'data/tags.json',
   prefs: 'data/prefs.json',
+  // shared with Everyday (same format): where things can be bought
+  shops: 'data/shops.json',
 };
 const VAPID_PATH = 'push/vapid.json';
 

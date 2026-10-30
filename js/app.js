@@ -16,6 +16,8 @@ import { findDishImage } from './dish-image.js';
 import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
 import { originOf, flagOf, CONTINENTS, CONTINENT_ICON } from './geo.js';
 import { planBookFix, booksOf } from './book-fix.js';
+import { assignItems } from './shops.js';
+import { shopStatus } from './shop-status.js';
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
@@ -150,17 +152,19 @@ function folderHref(id) { return id ? `#/folder/${encodeURIComponent(id)}` : '#/
 
 // ---------- shopping / pantry logic ----------
 
-function addToShopping({ name, qty, unit, note }, source) {
+function addToShopping({ name, qty, unit, note, shops }, source) {
   const existing = live('shopping').find((s) => !s.checked && !s.auto && namesMatch(s.name, name)
     && addQuantities(s, { qty, unit }) !== null);
   if (existing) {
     const sum = addQuantities(existing, { qty, unit });
     const sources = [...new Set([...(existing.sources || []), source].filter(Boolean))];
-    upsert('shopping', { ...existing, qty: sum.qty == null ? null : round(sum.qty), unit: sum.unit, sources }, { silent: true });
+    // merged: the union of both items' shops, the first item's order first
+    const merged = [...new Set([...(existing.shops || []), ...(shops || [])])];
+    upsert('shopping', { ...existing, qty: sum.qty == null ? null : round(sum.qty), unit: sum.unit, sources, ...(merged.length ? { shops: merged } : {}) }, { silent: true });
   } else {
     upsert('shopping', {
       id: uid(), name, qty: qty == null ? null : round(qty), unit: unit || '', note: note || '',
-      checked: false, sources: source ? [source] : [], addedAt: Date.now(),
+      checked: false, sources: source ? [source] : [], addedAt: Date.now(), ...(shops && shops.length ? { shops } : {}),
     }, { silent: true });
   }
 }
@@ -1006,23 +1010,29 @@ function viewEdit(id) {
   </form>`;
 }
 
-const LIST_MODES = ['dept', 'recipe', 'plain'];
-function listMode() { const m = pref('listMode', 'dept'); return LIST_MODES.includes(m) ? m : 'dept'; }
+const LIST_MODES = ['dept', 'recipe', 'plain', 'shop'];
+// "By shop" only once there are shops
+function listModes() { return live('shops').length ? LIST_MODES : LIST_MODES.filter((m) => m !== 'shop'); }
+function listMode() { const m = pref('listMode', 'dept'); return listModes().includes(m) ? m : 'dept'; }
 
 const GRIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
 function grip(id, label) {
   return `<button type="button" class="drag-handle" id="${esc(id)}" aria-label="${esc(t('dragToMove', label))}" title="${esc(t('dragHint'))}">${GRIP}</button>`;
 }
 
-function itemRow(i, { drag = false, showSource = true } = {}) {
+function itemRow(i, { drag = false, showSource = true, showShops = true } = {}) {
+  // choosing several items (to give them shops at once): a selection box instead of the tick, no buttons
+  const selecting = ui.sel && !i.checked;
+  if (selecting) drag = false;
   const src = i.auto ? `<span class="badge">${esc(t('fromPantry'))}</span>`
     : showSource && (i.sources || []).length ? `<small>${esc(i.sources.join(', '))}</small>`
       : (i.sources || []).length > 1 ? `<small>+ ${esc(i.sources.slice(1).join(', '))}</small>` : '';
   return `<li class="${i.checked ? 'checked' : ''}" ${drag ? `data-sort-key="${esc(i.id)}"` : ''}>
     ${drag ? grip(`h-${i.id}`, i.name) : ''}
-    <label><input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" ${i.checked ? 'checked' : ''}>
-      <span class="item-text"><span class="q">${esc(qtyText(i.qty, i.unit))}</span> ${esc(i.name)} ${src}</span></label>
-    <button class="icon" data-action="del-item" data-id="${esc(i.id)}" aria-label="${esc(t('remove'))}">×</button>
+    <label>${selecting ? `<input type="checkbox" class="sel-box" data-action="sel" data-id="${esc(i.id)}" ${ui.sel.has(i.id) ? 'checked' : ''} aria-label="${esc(t('selectItem', i.name))}">` : `<input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" ${i.checked ? 'checked' : ''}>`}
+      <span class="item-text"><span class="q">${esc(qtyText(i.qty, i.unit))}</span> ${esc(i.name)} ${src}${showShops && itemShopIds(i).length ? ` <small class="item-shops">🏪 ${esc(itemShopIds(i).map((x) => shopById(x).name).join(' / '))}</small>` : ''}</span></label>
+    ${i.checked || selecting ? '' : `<button class="icon edit" data-action="item-edit" data-id="${esc(i.id)}" aria-label="${esc(t('itemEdit'))}">✎</button>`}
+    ${selecting ? '' : `<button class="icon" data-action="del-item" data-id="${esc(i.id)}" aria-label="${esc(t('remove'))}">×</button>`}
   </li>`;
 }
 
@@ -1043,6 +1053,12 @@ function deptOrder() { return byOrder(CATEGORY_IDS, pref('deptOrder', [])); }
 function listGroups(open, mode = listMode()) {
   const items = [...open].sort(byItemOrder);
   if (mode === 'plain') return [['all', '', items]];
+  if (mode === 'shop') {
+    // the fewest shops that sell everything (shops.js, the same rules as Everyday), shown in your order of shops
+    const shops = shopsSorted();
+    const plan = assignItems(items, shops) || new Map();
+    return shops.filter((sh) => plan.has(sh.id)).map((sh) => [sh.id, `🏪 ${sh.name}`, plan.get(sh.id).sort(byItemOrder)]);
+  }
   if (mode === 'recipe') {
     const groups = new Map();
     const firstAdded = new Map();
@@ -1069,8 +1085,8 @@ function viewList() {
   const body = grouped
     ? `<div class="groups" data-sortable="groups" data-group="${mode}">${groups.map(([k, label, list]) => `
       <section class="grp" data-sort-key="${esc(k)}">
-        <h3 class="dept-h" ${mode === 'dept' ? `id="dept-${esc(k)}"` : ''}>${grip(`g-${mode}-${k}`, label)}<span>${esc(label)}</span><small>${list.length}</small></h3>
-        <ul class="list" data-sortable="items" data-group="${esc(k)}">${list.map((i) => itemRow(i, { drag: true, showSource: mode !== 'recipe' })).join('')}</ul>
+        <h3 class="dept-h" ${mode === 'dept' ? `id="dept-${esc(k)}"` : ''}>${grip(`g-${mode}-${k}`, label)}<span>${esc(label)}</span>${mode === 'shop' ? shopHead(k) : ''}${ui.sel ? `<button type="button" class="link-btn sel-group" data-action="sel-group" data-value="${esc(k)}">${esc(t(list.every((i) => ui.sel.has(i.id)) ? 'selectNone' : 'selectAll'))}</button>` : `<small>${list.length}</small>`}</h3>
+        <ul class="list" data-sortable="items" data-group="${esc(k)}">${list.map((i) => itemRow(i, { drag: true, showSource: mode !== 'recipe', showShops: mode !== 'shop' })).join('')}</ul>
       </section>`).join('')}</div>`
     : `<ul class="list" data-sortable="items" data-group="all">${groups[0][2].map((i) => itemRow(i, { drag: true })).join('')}</ul>`;
   return `
@@ -1079,11 +1095,15 @@ function viewList() {
     <button class="btn primary" aria-label="+">+</button>
   </form>
   <div class="seg" role="radiogroup" aria-label="${esc(t('listView'))}">
-    ${LIST_MODES.map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
+    ${listModes().map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
   </div>
+  ${open.length && mode === 'shop' ? `<p class="hint small">${esc(t('shopsToVisit', groups.length))}</p>` : ''}
   ${open.length ? `${body}
     <p class="hint small">${esc(t(grouped ? 'dragHintGroups' : 'dragHintItems'))}</p>
-    <button class="btn" data-action="share-list">${esc(t('share'))}</button>` : `<p class="empty">${esc(t('listEmpty'))}</p>`}
+    ${ui.sel ? selBar(open) : `<div class="button-row">
+      <button class="btn" data-action="sel-start">☑ ${esc(t('selectMany'))}</button>
+      <button class="btn" data-action="share-list">${esc(t('share'))}</button>
+    </div>`}` : `<p class="empty">${esc(t('listEmpty'))}</p>`}
   ${done.length ? `<h2>${esc(t('inCart'))} (${done.length})</h2><ul class="list done">${done.map((i) => itemRow(i)).join('')}</ul>
     <div class="button-row">
       <button class="btn primary" data-action="put-away">📦 ${esc(t('putAway'))}</button>
@@ -1101,11 +1121,20 @@ function onSorted({ kind, group, keys }) {
     changed();
   } else if (kind === 'groups') {
     if (group === 'dept') setPref('deptOrder', reorderSubset(deptOrder(), keys));
-    else if (group === 'recipe') {
+    else if (group === 'shop') {
+      // dragging shop groups reorders the shops (as in Everyday)
+      const ids = reorderSubset(shopsSorted().map((x) => x.id), keys);
+      ids.forEach((sid, n) => { const sh = shopById(sid); if (sh && sh.order !== n) upsert('shops', { ...sh, order: n }, { silent: true }); });
+    } else if (group === 'recipe') {
       const saved = pref('recipeOrder', []);
       setPref('recipeOrder', reorderSubset(saved, keys).slice(-200));
     }
     changed();
+  } else if (kind === 'shops-settings') {
+    // the order of the shops is the user's preference (Everyday reads it too)
+    keys.forEach((sid, n) => { const sh = shopById(sid); if (sh && sh.order !== n) upsert('shops', { ...sh, order: n }, { silent: true }); });
+    changed();
+    render();
   } else if (kind === 'dept-settings') {
     setPref('deptOrder', keys);
     changed();
@@ -1383,6 +1412,7 @@ function viewSettings() {
     <p class="hint">${esc(t('setupHelp'))}</p>
   </form>`}
   ${listSettings()}
+  ${shopSettings()}
   ${onlineSettings()}
   ${tagSettings()}
   <h2>${esc(t('reminders'))}</h2>
@@ -1664,12 +1694,259 @@ function listSettings() {
   <h2>${esc(t('tabList'))}</h2>
   <div class="field-label">${esc(t('listView'))}</div>
   <div class="seg" role="radiogroup" aria-label="${esc(t('listView'))}">
-    ${LIST_MODES.map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
+    ${listModes().map((m) => `<button type="button" role="radio" aria-checked="${m === mode}" class="${m === mode ? 'on' : ''}" data-action="list-mode" data-value="${m}">${esc(t(`listMode_${m}`))}</button>`).join('')}
   </div>
   <div class="field-label">${esc(t('deptOrderTitle'))}</div>
   <p class="hint small">${esc(t('deptOrderHint'))}</p>
   <ul class="dept-order" data-sortable="dept-settings">${deptOrder().map((c) => `<li data-sort-key="${esc(c)}">${grip(`d-${c}`, t(`cat_${c}`))}<span>${categoryIcon(c)} ${esc(t(`cat_${c}`))}</span></li>`).join('')}</ul>
   ${custom ? `<button type="button" class="btn small ghost" data-action="dept-reset">↺ ${esc(t('resetOrder'))}</button>` : ''}`;
+}
+
+// ---------- shops (shared with Everyday: data/shops.json, same format) ----------
+
+function shopsSorted() {
+  return live('shops').slice().sort((a, b) => (Number.isFinite(a.order) ? a.order : 1e9) - (Number.isFinite(b.order) ? b.order : 1e9) || String(a.name).localeCompare(String(b.name)));
+}
+function shopById(id) { return live('shops').find((x) => x.id === id); }
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const toMin = (v) => { const m = /^(\d{1,2}):(\d{2})/.exec(v || ''); return m ? +m[1] * 60 + +m[2] : null; };
+// ISO weekday 1 = Monday … 7 = Sunday (1 Jan 2024 was a Monday)
+function weekdayName(d, style = 'short') { return new Date(2024, 0, d).toLocaleDateString(getLang(), { weekday: style }); }
+function daysText(days) {
+  const ds = [...new Set(days)].sort((a, b) => a - b);
+  const runs = [];
+  for (const d of ds) { const r = runs[runs.length - 1]; if (r && d === r[1] + 1) r[1] = d; else runs.push([d, d]); }
+  return runs.map(([a, b]) => (a === b ? weekdayName(a) : b === a + 1 ? `${weekdayName(a)}, ${weekdayName(b)}` : `${weekdayName(a)}–${weekdayName(b)}`)).join(', ');
+}
+function dateText(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(getLang(), { weekday: 'short', day: 'numeric', month: 'short' });
+}
+/** "Mon–Fri 08:00–12:30, 15:30–19:30 · Sat 08:00–12:00" */
+function hoursText(shop) {
+  const rows = (shop.hours || []).filter((h) => Number.isFinite(h.from) && Number.isFinite(h.to));
+  if (!rows.length) return t('shopAlwaysOpen');
+  const groups = new Map();
+  for (const h of rows) {
+    const key = h.date ? `d:${h.date}` : `w:${[...new Set(h.days || [])].sort().join(',')}`;
+    if (!groups.has(key)) groups.set(key, { label: h.date ? dateText(h.date) : daysText(h.days || []), ranges: [] });
+    groups.get(key).ranges.push([h.from, h.to]);
+  }
+  return [...groups.values()].map((g) => `${g.label} ${g.ranges.sort((a, b) => a[0] - b[0]).map(([a, b]) => `${hhmm(a)}–${hhmm(b)}`).join(', ')}`).join(' · ');
+}
+
+function shopSettings() {
+  const shops = shopsSorted();
+  return `
+  <h2>🏪 ${esc(t('shopsTitle'))}</h2>
+  <p class="hint">${esc(t('shopsHint'))}</p>
+  ${shops.length ? `<ul class="shop-list" data-sortable="shops-settings">${shops.map((sh) => `<li data-sort-key="${esc(sh.id)}">
+      ${grip(`s-${sh.id}`, sh.name)}
+      <div class="shop-main"><strong>${esc(sh.name)}</strong><small>${esc(hoursText(sh))}${sh.minutes ? ` · ⏱ ${esc(t('shopVisit', sh.minutes))}` : ''}</small>${sh.place ? `<small>📍 ${esc(sh.place)}</small>` : ''}</div>
+      <button type="button" class="btn small ghost" data-action="shop-edit" data-id="${esc(sh.id)}" aria-label="${esc(t('shopEdit'))}">✎</button>
+    </li>`).join('')}</ul><p class="hint small">${esc(t('shopsOrderHint'))}</p>` : `<p class="hint">${esc(t('shopsNone'))}</p>`}
+  <button type="button" class="btn" data-action="shop-new">+ ${esc(t('shopNew'))}</button>`;
+}
+
+function hoursRowsHtml(rows) {
+  return rows.map((h, i) => `<div class="hours-row" data-i="${i}">
+    ${h.date != null
+      ? `<label class="hours-date">${esc(t('shopOnDate'))}<input type="date" name="date${i}" value="${esc(h.date)}" required></label>`
+      : `<div class="day-chips" role="group" aria-label="${esc(t('shopDays'))}">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<button type="button" class="chip ${(h.days || []).includes(d) ? 'on' : ''}" data-h="day" data-i="${i}" data-d="${d}" aria-pressed="${(h.days || []).includes(d)}" title="${esc(weekdayName(d, 'long'))}">${esc(weekdayName(d, 'narrow'))}</button>`).join('')}</div>`}
+    <div class="hours-times">
+      <input type="time" name="from${i}" value="${Number.isFinite(h.from) ? hhmm(h.from) : ''}" required aria-label="${esc(t('shopFrom'))}">
+      <span>–</span>
+      <input type="time" name="to${i}" value="${Number.isFinite(h.to) ? hhmm(h.to) : ''}" required aria-label="${esc(t('shopTo'))}">
+      <button type="button" class="icon" data-h="del" data-i="${i}" aria-label="${esc(t('remove'))}">×</button>
+    </div>
+  </div>`).join('');
+}
+
+function openShopEdit(id) {
+  const existing = id ? shopById(id) : null;
+  const shops = shopsSorted();
+  const draft = existing ? JSON.parse(JSON.stringify(existing))
+    : { id: uid(), name: '', minutes: 30, hours: [], place: '', link: '', order: shops.length ? Math.max(...shops.map((x) => x.order || 0)) + 1 : 0 };
+  draft.hours ||= [];
+  openModal(`
+    <h2>🏪 ${esc(t(existing ? 'shopEdit' : 'shopNew'))}</h2>
+    <label>${esc(t('shopName'))}<input name="name" value="${esc(draft.name)}" required autocomplete="off"></label>
+    <label>${esc(t('shopMinutes'))}<input name="minutes" type="number" min="1" step="1" inputmode="numeric" value="${esc(draft.minutes ?? 30)}"></label>
+    <div class="field-label">${esc(t('shopHours'))}</div>
+    <p class="hint small">${esc(t('shopHoursHint'))}</p>
+    <div id="shop-hours">${hoursRowsHtml(draft.hours)}</div>
+    <div class="button-row">
+      <button type="button" class="btn small" data-h="add-days">+ ${esc(t('shopAddDays'))}</button>
+      <button type="button" class="btn small" data-h="add-date">+ ${esc(t('shopAddDate'))}</button>
+    </div>
+    <label>${esc(t('shopPlace'))}<input name="place" value="${esc(draft.place || '')}" autocomplete="off"></label>
+    <label>${esc(t('shopLink'))}<input name="link" type="url" value="${esc(draft.link || '')}" placeholder="https://maps.app.goo.gl/…"></label>
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('save'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+      ${existing ? `<button class="btn danger" value="delete" formnovalidate>${esc(t('delete'))}</button>` : ''}
+    </div>`, (form, action) => {
+    if (action === 'delete') {
+      if (!confirm(t('shopDeleteConfirm', draft.name))) return;
+      remove('shops', draft.id); // items still naming it count it as gone (spec: deleted shops are ignored)
+      changed();
+      return;
+    }
+    readHours(form, draft);
+    const hours = draft.hours
+      .filter((h) => Number.isFinite(h.from) && Number.isFinite(h.to) && h.to > h.from && (h.date || (h.days || []).length))
+      .map((h) => (h.date ? { date: h.date, from: h.from, to: h.to } : { days: [...new Set(h.days)].sort((a, b) => a - b), from: h.from, to: h.to }));
+    const minutes = Math.round(Number(form.minutes.value));
+    upsert('shops', {
+      ...draft, name: form.name.value.trim(), minutes: minutes > 0 ? minutes : 30, hours,
+      place: form.place.value.trim(), link: form.link.value.trim(),
+    }, { silent: true });
+    changed();
+  });
+  const form = modal.querySelector('form');
+  const box = modal.querySelector('#shop-hours');
+  const redraw = () => { readHours(form, draft); box.innerHTML = hoursRowsHtml(draft.hours); validateHours(form, draft); };
+  modal.onclick = (e) => {
+    const b = e.target.closest('[data-h]');
+    if (!b) return;
+    const i = Number(b.dataset.i);
+    if (b.dataset.h === 'day') { readHours(form, draft); const ds = new Set(draft.hours[i].days || []); const d = Number(b.dataset.d); if (ds.has(d)) ds.delete(d); else ds.add(d); draft.hours[i].days = [...ds]; box.innerHTML = hoursRowsHtml(draft.hours); validateHours(form, draft); }
+    else if (b.dataset.h === 'del') { readHours(form, draft); draft.hours.splice(i, 1); box.innerHTML = hoursRowsHtml(draft.hours); validateHours(form, draft); }
+    else if (b.dataset.h === 'add-days') { readHours(form, draft); draft.hours.push({ days: [1, 2, 3, 4, 5], from: 480, to: 1140 }); redraw(); }
+    else if (b.dataset.h === 'add-date') { readHours(form, draft); draft.hours.push({ date: todayStr(), from: 540, to: 720 }); redraw(); }
+  };
+  modal.oninput = () => validateHours(form, draft);
+}
+
+function readHours(form, draft) {
+  draft.hours.forEach((h, i) => {
+    const f = form.elements[`from${i}`]; const to = form.elements[`to${i}`]; const d = form.elements[`date${i}`];
+    if (f) h.from = toMin(f.value);
+    if (to) h.to = toMin(to.value);
+    if (d) h.date = d.value;
+  });
+}
+// "to" before "from", or a weekday row without days: the browser won't let the form be saved
+function validateHours(form, draft) {
+  draft.hours.forEach((h, i) => {
+    const f = form.elements[`from${i}`]; const to = form.elements[`to${i}`];
+    if (!f || !to) return;
+    const a = toMin(f.value); const b = toMin(to.value);
+    to.setCustomValidity(a != null && b != null && b <= a ? t('shopToAfterFrom') : '');
+    if (h.date == null) f.setCustomValidity((h.days || []).length ? '' : t('shopPickDays'));
+  });
+}
+
+// ---------- several items at once ----------
+
+function selBar(open) {
+  const n = [...ui.sel].filter((id) => open.some((i) => i.id === id)).length;
+  return `<div class="sel-bar" role="toolbar" aria-label="${esc(t('selectMany'))}">
+    <div class="sel-top">
+      <span class="sel-n">${esc(t('selectedN', n))}</span>
+      <button type="button" class="link-btn" data-action="sel-all">${esc(t(n === open.length ? 'selectNone' : 'selectAll'))}</button>
+      <button type="button" class="btn small" data-action="sel-done">${esc(t('done'))}</button>
+    </div>
+    <div class="sel-actions">
+      <button type="button" class="btn small primary" data-action="sel-shops" ${n ? '' : 'disabled'}>🏪 ${esc(t('itemShopsShort'))}</button>
+      <button type="button" class="btn small ghost danger" data-action="sel-delete" ${n ? '' : 'disabled'} aria-label="${esc(t('delete'))}">🗑 ${esc(t('delete'))}</button>
+    </div>
+  </div>`;
+}
+
+function selectedItems() { return [...(ui.sel || [])].map((id) => get('shopping', id)).filter((i) => i && !i.checked); }
+
+function openShopsForMany() {
+  const items = selectedItems();
+  const shops = shopsSorted();
+  if (!items.length) return;
+  if (!shops.length) { toast(t('shopsNone')); return; }
+  let picked = [];
+  const has = (sid) => items.filter((i) => itemShopIds(i).includes(sid)).length;
+  const chips = () => shops.map((sh) => { const n = picked.indexOf(sh.id); const k = has(sh.id); return `<button type="button" class="chip ${n >= 0 ? 'on' : ''}" data-pick="${esc(sh.id)}" aria-pressed="${n >= 0}">${n >= 0 && picked.length > 1 ? `<b>${n + 1}</b> ` : ''}${esc(sh.name)}${k ? ` <small>${k}/${items.length}</small>` : ''}</button>`; }).join('');
+  openModal(`
+    <h2>🏪 ${esc(t('shopsForN', items.length))}</h2>
+    <p class="hint small">${esc(items.map((i) => i.name).slice(0, 8).join(', '))}${items.length > 8 ? ' …' : ''}</p>
+    <div class="f-chips shop-chips" id="many-shops">${chips()}</div>
+    <p class="hint small">${esc(t('itemShopsHint'))}</p>
+    <div class="seg" role="radiogroup" aria-label="${esc(t('shopsHow'))}">
+      <label><input type="radio" name="how" value="add" checked> ${esc(t('shopsHowAdd'))}</label>
+      <label><input type="radio" name="how" value="replace"> ${esc(t('shopsHowReplace'))}</label>
+    </div>
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('apply'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+      <button class="btn ghost" value="delete" formnovalidate>${esc(t('shopsClearMany'))}</button>
+    </div>`, (form, action) => {
+    const how = form.how.value;
+    for (const it of selectedItems()) {
+      let shopsNew;
+      if (action === 'delete') shopsNew = []; // any shop
+      else if (how === 'replace') shopsNew = picked;
+      else shopsNew = [...(it.shops || []), ...picked.filter((x) => !(it.shops || []).includes(x))];
+      // everything else on the item (Everyday's fields too) stays as it is
+      upsert('shopping', { ...it, shops: shopsNew }, { silent: true });
+    }
+    toast(t('shopsSetN', items.length));
+    ui.sel = null;
+    changed();
+  });
+  modal.onclick = (e) => {
+    const b = e.target.closest('[data-pick]');
+    if (!b) return;
+    const sid = b.dataset.pick;
+    picked = picked.includes(sid) ? picked.filter((x) => x !== sid) : [...picked, sid];
+    modal.querySelector('#many-shops').innerHTML = chips();
+  };
+}
+
+// "open until 12:30" / "opens at 15:30" / "opens Mon 08:00", next to a shop's name on the list
+function shopHead(id) {
+  const sh = shopById(id);
+  if (!sh) return '';
+  const st = shopStatus(sh);
+  const txt = st.state === 'always' ? '' : st.state === 'open' ? t('shopOpenUntil', hhmm(st.until))
+    : st.state === 'later' ? t('shopOpensAt', hhmm(st.at)) : st.state === 'next' ? t('shopOpensOn', dateText(st.date).split(' ')[0].replace(/,$/, ''), hhmm(st.at)) : t('shopClosedWeek');
+  const link = sh.link ? ` <a class="shop-link" href="${esc(sh.link)}" target="_blank" rel="noopener" aria-label="${esc(sh.place || sh.link)}">📍</a>` : '';
+  return txt || link ? `<span class="shop-status ${st.state}">${esc(txt)}${link}</span>` : '';
+}
+
+// An item's own shops that still exist, in its order of preference
+function itemShopIds(i) { return (i.shops || []).filter((id) => shopById(id)); }
+
+function openItemEdit(id) {
+  const it = get('shopping', id);
+  if (!it) return;
+  const shops = shopsSorted();
+  let picked = itemShopIds(it);
+  const chips = () => shops.map((sh) => { const n = picked.indexOf(sh.id); return `<button type="button" class="chip ${n >= 0 ? 'on' : ''}" data-pick="${esc(sh.id)}" aria-pressed="${n >= 0}">${n >= 0 && picked.length > 1 ? `<b>${n + 1}</b> ` : ''}${esc(sh.name)}</button>`; }).join('');
+  openModal(`
+    <h2>${esc(t('itemEdit'))}</h2>
+    <label>${esc(t('itemName'))}<input name="name" value="${esc(it.name)}" required autocomplete="off"></label>
+    <div class="two">
+      <label>${esc(t('itemQty'))}<input name="qty" type="number" min="0" step="any" inputmode="decimal" value="${it.qty ?? ''}"></label>
+      <label>${esc(t('itemUnit'))}<input name="unit" value="${esc(it.unit || '')}" autocomplete="off"></label>
+    </div>
+    <div class="field-label">🏪 ${esc(t('itemShops'))}</div>
+    ${shops.length ? `<p class="hint small">${esc(t('itemShopsHint'))}</p><div class="f-chips shop-chips" id="item-shops">${chips()}</div>`
+      : `<p class="hint small">${esc(t('shopsNoneItem'))} <a href="#/settings" data-close>${esc(t('tabSettings'))}</a></p>`}
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('save'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+    </div>`, (form) => {
+    const qty = form.qty.value.trim() === '' ? null : Number(form.qty.value);
+    // everything Ricette doesn't know about (Everyday's fields) stays as it is
+    upsert('shopping', { ...get('shopping', id), name: form.name.value.trim() || it.name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value.trim(), shops: picked }, { silent: true });
+    changed();
+  });
+  modal.onclick = (e) => {
+    if (e.target.closest('[data-close]')) { modal.close(); return; }
+    const b = e.target.closest('[data-pick]');
+    if (!b) return;
+    const sid = b.dataset.pick;
+    picked = picked.includes(sid) ? picked.filter((x) => x !== sid) : [...picked, sid];
+    modal.querySelector('#item-shops').innerHTML = chips();
+  };
 }
 
 // ---------- tag settings ----------
@@ -2059,6 +2336,7 @@ document.addEventListener('pointercancel', pointerReleased, true);
 view.addEventListener('change', (e) => {
   const el = e.target;
   if (el.dataset.action === 'toggle') setChecked(el.dataset.id, el.checked);
+  if (el.dataset.action === 'sel' && ui.sel) { if (el.checked) ui.sel.add(el.dataset.id); else ui.sel.delete(el.dataset.id); render(); }
   if (el.dataset.tagdef) saveTagDef(el.dataset.tagdef, { enabled: el.checked });
   if (el.dataset.pa && ui.putaway) {
     const row = ui.putaway.rows[+el.dataset.i];
@@ -2150,6 +2428,32 @@ view.addEventListener('click', (e) => {
       break;
     }
     case 'del-item': remove('shopping', id); changed(); break;
+    case 'item-edit': openItemEdit(id); break;
+    case 'sel-start': ui.sel = new Set(); render(); break;
+    case 'sel-done': ui.sel = null; render(); break;
+    case 'sel-all': {
+      const open = live('shopping').filter((i) => !i.checked);
+      ui.sel = open.every((i) => ui.sel.has(i.id)) ? new Set() : new Set(open.map((i) => i.id));
+      render();
+      break;
+    }
+    case 'sel-group': {
+      const g = listGroups(live('shopping').filter((i) => !i.checked)).find(([k]) => k === btn.dataset.value);
+      if (g) { const all = g[2].every((i) => ui.sel.has(i.id)); for (const i of g[2]) { if (all) ui.sel.delete(i.id); else ui.sel.add(i.id); } }
+      render();
+      break;
+    }
+    case 'sel-shops': openShopsForMany(); break;
+    case 'sel-delete': {
+      const items = selectedItems();
+      if (!items.length || !confirm(t('deleteSelectedConfirm', items.length))) break;
+      for (const i of items) remove('shopping', i.id);
+      ui.sel = null;
+      changed();
+      break;
+    }
+    case 'shop-new': openShopEdit(null); break;
+    case 'shop-edit': openShopEdit(id); break;
     case 'clear-checked':
       for (const i of live('shopping').filter((x) => x.checked)) remove('shopping', i.id);
       changed();
@@ -2942,6 +3246,7 @@ async function start() {
   onChange((kind) => { if (COLLECTIONS.includes(kind) || kind === 'meta') renderIfSafe(); else if (kind === 'meta-time') updateSyncBadge(); });
   window.addEventListener('hashchange', () => {
     if (route().name !== 'edit') ui.edit = null;
+    if (route().name !== 'list') ui.sel = null;
     window.scrollTo(0, 0);
     render();
   });
