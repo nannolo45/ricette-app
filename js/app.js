@@ -1029,9 +1029,14 @@ function itemRow(i, { drag = false, showSource = true, showShops = true } = {}) 
       : (i.sources || []).length > 1 ? `<small>+ ${esc(i.sources.slice(1).join(', '))}</small>` : '';
   return `<li class="${i.checked ? 'checked' : ''}" ${drag ? `data-sort-key="${esc(i.id)}"` : ''}>
     ${drag ? grip(`h-${i.id}`, i.name) : ''}
-    <label>${selecting ? `<input type="checkbox" class="sel-box" data-action="sel" data-id="${esc(i.id)}" ${ui.sel.has(i.id) ? 'checked' : ''} aria-label="${esc(t('selectItem', i.name))}">` : `<input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" ${i.checked ? 'checked' : ''}>`}
-      <span class="item-text"><span class="q">${esc(qtyText(i.qty, i.unit))}</span> ${esc(i.name)} ${src}${showShops && itemShopIds(i).length ? ` <small class="item-shops">🏪 ${esc(itemShopIds(i).map((x) => shopById(x).name).join(' / '))}</small>` : ''}</span></label>
-    ${i.checked || selecting ? '' : `<button class="icon edit" data-action="item-edit" data-id="${esc(i.id)}" aria-label="${esc(t('itemEdit'))}">✎</button>`}
+    ${(() => {
+      const text = `<span class="q">${esc(qtyText(i.qty, i.unit))}</span> ${esc(i.name)} ${src}${i.note ? ` <small class="item-note">${esc(i.note)}</small>` : ''}${showShops && itemShopIds(i).length ? ` <small class="item-shops">🏪 ${esc(itemShopIds(i).map((x) => shopById(x).name).join(' / '))}</small>` : ''}`;
+      if (selecting) return `<label><input type="checkbox" class="sel-box" data-action="sel" data-id="${esc(i.id)}" ${ui.sel.has(i.id) ? 'checked' : ''} aria-label="${esc(t('selectItem', i.name))}"><span class="item-text">${text}</span></label>`;
+      if (i.checked) return `<label><input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" checked><span class="item-text">${text}</span></label>`;
+      // the box ticks the item; the name opens it for editing (amount, shops)
+      return `<label class="tick"><input type="checkbox" data-action="toggle" data-id="${esc(i.id)}" aria-label="${esc(t('tickItem', i.name))}"></label>
+    <button type="button" class="item-text item-open" data-action="item-edit" data-id="${esc(i.id)}" title="${esc(t('itemEdit'))}">${text}</button>`;
+    })()}
     ${selecting ? '' : `<button class="icon" data-action="del-item" data-id="${esc(i.id)}" aria-label="${esc(t('remove'))}">×</button>`}
   </li>`;
 }
@@ -1240,6 +1245,7 @@ function commitPutAway() {
 }
 
 function shopCat(i) {
+  if (i.cat && CATEGORY_IDS.includes(i.cat)) return i.cat; // chosen by hand in the item's dialog
   const p = (i.pantryId && get('pantry', i.pantryId)) || live('pantry').find((x) => normalizeName(x.name) === normalizeName(i.name));
   return p ? categoryOf(p) : categorize(i.name);
 }
@@ -1868,7 +1874,7 @@ function openShopsForMany() {
     <h2>🏪 ${esc(t('shopsForN', items.length))}</h2>
     <p class="hint small">${esc(items.map((i) => i.name).slice(0, 8).join(', '))}${items.length > 8 ? ' …' : ''}</p>
     <div class="f-chips shop-chips" id="many-shops">${chips()}</div>
-    <p class="hint small">${esc(t('itemShopsHint'))}</p>
+    <p class="hint small">${esc(t('manyShopsHint'))}</p>
     <div class="seg" role="radiogroup" aria-label="${esc(t('shopsHow'))}">
       <label><input type="radio" name="how" value="add" checked> ${esc(t('shopsHowAdd'))}</label>
       <label><input type="radio" name="how" value="replace"> ${esc(t('shopsHowReplace'))}</label>
@@ -1917,36 +1923,70 @@ function itemShopIds(i) { return (i.shops || []).filter((id) => shopById(id)); }
 function openItemEdit(id) {
   const it = get('shopping', id);
   if (!it) return;
-  const shops = shopsSorted();
   let picked = itemShopIds(it);
-  const chips = () => shops.map((sh) => { const n = picked.indexOf(sh.id); return `<button type="button" class="chip ${n >= 0 ? 'on' : ''}" data-pick="${esc(sh.id)}" aria-pressed="${n >= 0}">${n >= 0 && picked.length > 1 ? `<b>${n + 1}</b> ` : ''}${esc(sh.name)}</button>`; }).join('');
+  const autoCat = (name) => { const { cat, ...rest } = { ...it, name }; return shopCat(rest); };
+  const units = UNITS.includes(it.unit || '') ? UNITS : [...UNITS, it.unit];
+  // the same dialog as Everyday's: name, amount, department, notes, the shops that sell it
+  const chips = () => shopsSorted().map((sh) => { const on = picked.includes(sh.id); return `<button type="button" class="chip shop-chip ${on ? 'on' : ''}" data-pick="${esc(sh.id)}" aria-pressed="${on}">${esc(sh.name)}</button>`; }).join('');
   openModal(`
-    <h2>${esc(t('itemEdit'))}</h2>
-    <label>${esc(t('itemName'))}<input name="name" value="${esc(it.name)}" required autocomplete="off"></label>
+    <h2>${esc(it.name)}</h2>
+    <label>${esc(t('name'))}<input name="name" value="${esc(it.name)}" required autocomplete="off"></label>
     <div class="two">
-      <label>${esc(t('itemQty'))}<input name="qty" type="number" min="0" step="any" inputmode="decimal" value="${it.qty ?? ''}"></label>
-      <label>${esc(t('itemUnit'))}<input name="unit" value="${esc(it.unit || '')}" autocomplete="off"></label>
+      <label>${esc(t('quantity'))}<input name="qty" inputmode="decimal" value="${esc(it.qty ?? '')}"></label>
+      <label>${esc(t('unit'))}<select name="unit">${units.map((u) => `<option value="${esc(u)}" ${u === (it.unit || '') ? 'selected' : ''}>${esc(u === '' ? '—' : unitOptionLabel(u))}</option>`).join('')}</select></label>
     </div>
+    <label>${esc(t('department'))}<select name="cat">${CATEGORIES.map((c) => `<option value="${c.id}" ${c.id === shopCat(it) ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
+    <label>${esc(t('notes'))}<input name="note" value="${esc(it.note || '')}" autocomplete="off"></label>
     <div class="field-label">🏪 ${esc(t('itemShops'))}</div>
-    ${shops.length ? `<p class="hint small">${esc(t('itemShopsHint'))}</p><div class="f-chips shop-chips" id="item-shops">${chips()}</div>`
-      : `<p class="hint small">${esc(t('shopsNoneItem'))} <a href="#/settings" data-close>${esc(t('tabSettings'))}</a></p>`}
-    <div class="button-row">
+    <div class="f-chips shop-chips" id="item-shops">${chips()}</div>
+    <div class="row new-shop">
+      <input id="new-shop-name" placeholder="${esc(t('newShopPh'))}" autocomplete="off" aria-label="${esc(t('shopName'))}">
+      <button type="button" class="btn small" data-new-shop>+ ${esc(t('newShop'))}</button>
+    </div>
+    <p class="hint small">${esc(t('itemShopsHint'))}</p>
+    <div class="button-row sep">
       <button class="btn primary" value="ok">${esc(t('save'))}</button>
       <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
-    </div>`, (form) => {
-    const qty = form.qty.value.trim() === '' ? null : Number(form.qty.value);
+      <button class="btn danger" value="delete" formnovalidate>${esc(t('delete'))}</button>
+    </div>`, (form, action) => {
+    if (action === 'delete') { remove('shopping', id); changed(); return; }
+    const raw = form.qty.value.trim().replace(',', '.');
+    const qty = raw === '' ? null : Number(raw);
+    const name = form.name.value.trim() || it.name;
+    // department: only stored when it differs from what the app would pick by itself
+    const cat = form.cat.value === autoCat(name) ? undefined : form.cat.value;
+    const cur = get('shopping', id) || it;
     // everything Ricette doesn't know about (Everyday's fields) stays as it is
-    upsert('shopping', { ...get('shopping', id), name: form.name.value.trim() || it.name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value.trim(), shops: picked }, { silent: true });
+    const next = { ...cur, name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value, note: form.note.value.trim(), shops: picked };
+    if (cat) next.cat = cat; else delete next.cat;
+    upsert('shopping', next, { silent: true });
     changed();
   });
+  const addShop = () => {
+    const input = modal.querySelector('#new-shop-name');
+    const nm = input.value.trim();
+    if (!nm) { input.focus(); return; }
+    const existing = shopsSorted().find((x) => x.name.toLocaleLowerCase() === nm.toLocaleLowerCase());
+    let sid = existing?.id;
+    if (!sid) {
+      const all = shopsSorted();
+      sid = uid();
+      upsert('shops', { id: sid, name: nm, minutes: 30, hours: [], place: '', link: '', order: all.length ? Math.max(...all.map((x) => x.order || 0)) + 1 : 0 }, { silent: true });
+    }
+    if (!picked.includes(sid)) picked = [...picked, sid];
+    input.value = '';
+    modal.querySelector('#item-shops').innerHTML = chips();
+  };
   modal.onclick = (e) => {
-    if (e.target.closest('[data-close]')) { modal.close(); return; }
+    if (e.target.closest('[data-new-shop]')) { addShop(); return; }
     const b = e.target.closest('[data-pick]');
     if (!b) return;
     const sid = b.dataset.pick;
     picked = picked.includes(sid) ? picked.filter((x) => x !== sid) : [...picked, sid];
     modal.querySelector('#item-shops').innerHTML = chips();
   };
+  // Enter in the new-shop field adds the shop instead of saving the item
+  modal.querySelector('#new-shop-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addShop(); } });
 }
 
 // ---------- tag settings ----------
@@ -2092,6 +2132,7 @@ function openOwnTagRename(name) {
 function renderShell() {
   document.title = t('appName');
   $('#app-title').textContent = t('appName');
+  $('#app-title').title = t('toRecipes');
   for (const a of document.querySelectorAll('nav.tabs a')) {
     a.querySelector('.label').textContent = t(`tab${a.dataset.tab.charAt(0).toUpperCase()}${a.dataset.tab.slice(1)}`);
   }
@@ -3254,6 +3295,10 @@ async function start() {
   window.addEventListener('offline', () => updateSyncBadge());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runSync(); });
   $('#sync').addEventListener('click', runSync);
+  // the name at the top: back to all recipes (already there: back to the top, filters kept)
+  $('#app-title').addEventListener('click', (e) => {
+    if ((location.hash || '#/recipes') === '#/recipes') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
   runSync().then(localReminder);
   resolvePendingProducts();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') localReminder(); });

@@ -157,6 +157,8 @@ small { color: var(--muted); }
 .list { list-style: none; padding: 0; margin: 0 0 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .list li { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); min-height: 52px; }
 .list li:last-child { border-bottom: 0; }
+.list label.tick { flex: none; padding: 10px 4px 10px 14px; }
+.list .item-open { flex: 1; text-align: left; background: none; border: 0; color: inherit; font: inherit; padding: 10px 14px 10px 8px; cursor: pointer; min-height: 52px; }
 .list label { flex: 1; display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; }
 .list input[type=checkbox] { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
 .list .item-text small { display: block; font-size: .78rem; }
@@ -579,3 +581,11 @@ dialog .row #pick-q { flex: 1; min-width: 0; }
 .sel-actions .btn.primary { flex: 1; }
 .sel-group { margin-left: auto; font-size: .85rem; }
 .list .sel-box { accent-color: var(--accent); }
+
+.home-link { color: inherit; text-decoration: none; }
+
+.new-shop { display: flex; gap: .5rem; margin: .5rem 0 .25rem; }
+.new-shop input { flex: 1; min-width: 0; }
+.new-shop .btn { white-space: nowrap; }
+.button-row.sep { border-top: 1px solid var(--line); padding-top: 1rem; margin-top: .75rem; }
+.list .item-note { color: var(--muted); font-style: italic; }

@@ -12,6 +12,7 @@ export const CATEGORIES = [
   { id: 'sweets', icon: '🍫' },
   { id: 'drinks', icon: '🧃' },
   { id: 'frozen', icon: '🧊' },
+  { id: 'household', icon: '🧽' },
   { id: 'other', icon: '📦' },
 ];
 export const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
@@ -21,6 +22,10 @@ const re = (list) => new RegExp(`(?:^|[^a-zà-öø-ÿ])(?:${list.join('|')})`, '
 
 // Checked in this order: the first match wins ("pomodori pelati" = staples, not produce).
 const RULES = [
+  // first: "sale per lavastoviglie" is not salt, "pellicola per alimenti" not food
+  ['household', re(['detersiv', 'ammorbident', 'candeggin', 'varechina', 'spugn', 'sgrassator', 'anticalcare', 'brillantante', 'carta igienica', 'carta (?:da )?cucina', 'scottex', 'sacchett[io] (?:per (?:la )?)?(?:spazzatura|immondizia|rifiuti)', 'sacchi (?:spazzatura|neri)', 'pellicola', 'alluminio', 'carta (?:da )?forno', 'lavastoviglie', 'lavatrice', 'pastiglie', 'pulizi', 'fazzoletti', 'tovagliolini', 'dentifricio', 'shampoo', 'bagnoschiuma', 'sapone', 'deodorante',
+    '[a-zäöüß]*spül(?:tabs|mittel|maschine|maschinensalz|schwamm)', '[a-zäöüß]*waschmittel', 'weichspüler', '[a-zäöüß]*schwamm(?!erl)', '[a-zäöüß]*reiniger', 'putzmittel', 'entkalker', 'toilettenpapier', 'klopapier', 'küchenrolle', 'küchenpapier', 'müllbeutel', 'müllsäcke', 'frischhaltefolie', 'alufolie', 'backpapier', 'taschentücher', 'servietten', 'zahnpasta', 'duschgel', 'seife',
+    'detergent', 'dish soap', 'washing.up liquid', 'dishwasher', 'sponge', 'bleach', 'toilet (?:paper|roll)', 'kitchen roll', 'paper towels?', '(?:bin|trash|garbage) bags?', 'cling film', 'plastic wrap', 'tin foil', 'aluminium foil', 'aluminum foil', 'baking paper', 'parchment paper', 'cleaner', 'soap', 'toothpaste', 'shower gel', 'tissues', 'napkins'])],
   ['frozen', re(['surgelat', 'congelat', 'gelato', 'ghiacciol', 'bastoncini di pesce', 'tiefkühl', 'tk-', 'gefroren', 'speiseeis', 'frozen', 'ice cream', 'fish fingers'])],
   ['condiments', re(['[a-zäöüß]*öl(?![a-zäöüß])', '[a-zäöüß]*essig(?![a-zäöüß])', '[a-zäöüß]*gewürz(?![a-zäöüß])', 'olio', 'aceto', 'sale(?! e )', 'sale$', 'pepe(?!r)', 'spezi', 'origano', 'cannella', 'noce moscata', 'curry', 'paprika', 'curcuma', 'zafferano', 'cumino', 'senape', 'ketchup', 'maionese', 'salsa di soia', 'dado', 'brodo', 'capperi', 'tabasco', 'pesto',
     'öl(?![a-z])', 'olivenöl', 'essig', 'salz', 'pfeffer', 'gewürz', 'zimt', 'muskat', 'senf', 'mayonnaise', 'sojasoße', 'sojasauce', 'brühe', 'kapern',
