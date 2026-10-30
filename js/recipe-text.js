@@ -2,17 +2,110 @@
 // ingredients, steps and notes. Italian, German and English.
 // Input: lines as {text, h?, brk?}: h = text height (bigger = title), brk = a new paragraph starts here.
 import { parseIngredient } from './parse.js';
-import { extractTimes, hasTimes, formatMinutes } from './times.js';
+import { extractTimes, hasTimes, formatMinutes, durationsIn } from './times.js';
 
 const HEAD = {
   ing: /^(ingredienti|ingredienti per\b.*|occorrente|cosa (?:ti )?serve|zutaten|zutaten für\b.*|ingredients|you(?:'| wi)ll need)\s*:?$/i,
   steps: /^(preparazione|procedimento|esecuzione|come si prepara|come prepararl[aoie]|zubereitung|anleitung|so geht'?s|so wird'?s gemacht|method|directions|instructions|preparation|steps)\s*:?$/i,
   notes: /^(consigli[oi]?|il consiglio|i consigli|note|nota|varianti|variante|curiosità|conservazione|tipps?|hinweise?|varianten?|notes?|tips?|variations?|cook'?s notes?)(?:\s+(?:dello chef|del cuoco|vom koch))?\s*:?$/i,
 };
+// "Timing Information:", "Nutritional Information:", "Valori nutrizionali", "Nährwerte": tables, not recipe text
+const META_HEAD = /^(?:timing(?: information)?|times|cooking times|nutrition(?:al)?(?: (?:information|info|facts|values|data))?|nutrition facts|amount per serving\b.*|per serving|valori nutrizionali\b.*|informazioni nutrizionali|tabella nutrizionale|tempi|nährwerte\b.*|nährwertangaben|nährwertinformationen|zeiten|zeitangaben)\s*:?$/i;
+export const isMetaHeading = (t) => META_HEAD.test(String(t).trim());
+
+// Pages of a book that aren't recipes (titles)
+const NOT_RECIPE = /^(?:introduction|intro|foreword|preface|prologue|epilogue|conclusion|final words|(?:table of )?contents|index|glossary|copyright\b.*|legal(?: notes?| notice| disclaimer)?|disclaimer|about the authors?|about me|meet the author|acknowledg(?:e)?ments?|dedication|thank(?:s| you)\b.*|any issues\b.*|contact(?: me| us)?\b.*|(?:common )?abbreviations|conversions?(?: tables?| charts?)?|measurements?(?: conversions?)?|kitchen (?:tools|equipment)|free (?:gift|books?|bonus|download)\b.*|newsletter\b.*|join the club\b.*|subscribe\b.*|send the book!?|(?:also by|other books|more books)\b.*|interested in\b.*|can i ask\b.*|let'?s be friends\b.*|come on\b.*|facebook|twitter|instagram|pinterest|youtube|introduzione|prefazione|premessa|indice(?: delle ricette)?|sommario|glossario|ringraziamenti|dedica|conclusioni?|l'autore|l['’]autrice|sull['’]autore|chi sono|note legali|tabella delle conversioni|equivalenze|einleitung|einführung|vorwort|nachwort|inhalt|inhaltsverzeichnis|register|rezeptregister|glossar|impressum|danksagung|danke\b.*|über (?:die autorin|den autor|mich)|abkürzungen|umrechnungstabelle|schlusswort)\s*[:.!?]*$/i;
+export const isNotRecipeTitle = (t) => NOT_RECIPE.test(String(t).replace(/\s+/g, ' ').trim()) || isMetaHeading(t);
+
+// Self-promotion at the end of free e-books: links, newsletters, reviews, social networks
+const PROMO = /(?:\b(?:subscribe|newsletter|sign up|mailing list|email address|e-mail address|box ?set|free (?:e-?)?books?|download (?:my|the|this)|tap the (?:book )?cover|follow (?:the|this) link|click (?:here|the link|them)|leave a review|post a review|write a review|amazon|kindle|author page|facebook|twitter|instagram|pinterest|youtube|social networks?|like and subscribe|follow me|my (?:other |new )?books|send the book|join the club|iscriviti|lascia una recensione|recensione su|seguimi|abonnier|newsletter|rezension|bewertung auf|folge mir)\b|https?:\/\/|www\.)/i;
+export const isPromoLine = (t) => PROMO.test(String(t));
+
+// "Calories Fat Protein", "1092 kcal 78.6 g 157.5g": a nutrition table, not ingredients
+const NUTRIENT = /(?<![\p{L}])(?:calories|calorie|kalorien|energy|energia|energie|brennwert|fat|saturated fat|grassi(?: saturi)?|fett|carbohydrates?|carbs|carboidrati|kohlenhydrate|protein|proteins|proteine|eiweiß|eiweiss|cholesterol|colesterolo|cholesterin|sodium|sodio|natrium|fiber|fibre|fibra|fibre alimentari|ballaststoffe|sugars?|zuccheri|zucker|salt|sale|salz)(?![\p{L}])/giu;
+const NUTRI_VALUE = /(\d+(?:[.,]\d+)?)\s*(kcal|cal|kj|mg|g|%)?(?![\p{L}\d])/giu;
+export function isNutritionLine(t) {
+  t = String(t).trim();
+  if (/percent daily values?|% daily value|tagesbedarf|fabbisogno giornaliero|based on a 2[,.]?000/i.test(t)) return true;
+  const labels = (t.match(NUTRIENT) || []).length;
+  if (labels >= 3) return true;
+  // only numbers with nutrition units: "1092 kcal 78.6 g 157.5g 39.1 g 155 mg"
+  const rest = t.replace(NUTRI_VALUE, '').replace(NUTRIENT, '').replace(/[\s|·•,;:*-]/g, '');
+  const values = (t.match(/\d+(?:[.,]\d+)?\s*(?:kcal|mg|g)(?![\p{L}])/giu) || []).length;
+  return !rest && values >= 2 && /kcal|mg/i.test(t) || (labels >= 1 && /\d\s*(?:kcal|mg)\b/i.test(t) && !rest);
+}
+
+const NUTRI_KEYS = [
+  ['kcal', /^(?:calories|calorie|kalorien|energy|energia|energie|brennwert)$/i],
+  ['fat', /^(?:fat|grassi|fett)$/i],
+  ['carbs', /^(?:carbohydrates?|carbs|carboidrati|kohlenhydrate)$/i],
+  ['protein', /^(?:protein|proteins|proteine|eiweiß|eiweiss)$/i],
+];
+/**
+ * A nutrition table read row by row or column by column: labels and values are paired in order
+ * ("Calories Fat Protein … 1092 kcal 78.6 g 39.1 g …" or "Calories 312 kcal Fat 12 g").
+ * → {kcal, fat, carbs, protein} (the ones found), per serving as the book states them.
+ */
+export function parseNutrition(text) {
+  const s = String(text || '');
+  const tokens = [];
+  let m;
+  NUTRIENT.lastIndex = 0;
+  while ((m = NUTRIENT.exec(s))) {
+    // "saturated fat" is not the fat total
+    const key = /saturated|saturi/i.test(m[0]) ? 'other' : (NUTRI_KEYS.find(([, re]) => re.test(m[0]))?.[0] || 'other');
+    tokens.push({ i: m.index, end: m.index + m[0].length, label: key });
+  }
+  NUTRI_VALUE.lastIndex = 0;
+  while ((m = NUTRI_VALUE.exec(s))) {
+    if (tokens.some((t) => m.index >= t.i && m.index < t.end)) continue;
+    // "2,000 calorie diet" is not a value
+    if (/^\s*calorie diet/i.test(s.slice(m.index + m[0].length, m.index + m[0].length + 14))) continue;
+    tokens.push({ i: m.index, value: parseFloat(m[1].replace(',', '.')), unit: (m[2] || '').toLowerCase() });
+  }
+  tokens.sort((a, b) => a.i - b.i);
+  const queue = [];
+  const out = {};
+  for (const tk of tokens) {
+    if (tk.label) { queue.push(tk.label); continue; }
+    const key = queue.shift();
+    if (!key) continue;
+    if (key !== 'other' && out[key] == null && Number.isFinite(tk.value)) out[key] = key === 'kcal' && tk.unit === 'kj' ? Math.round(tk.value / 4.184) : tk.value;
+  }
+  return out;
+}
+
+const TIME_KEYS = [
+  ['total', /^(?:total(?: time)?|tempo totale|gesamt(?:zeit)?|ready in)$/i],
+  ['rest', /^(?:rest(?:ing)?(?: time)?|marinating|riposo|ruhezeit|wartezeit)$/i],
+  ['cook', /^(?:cook(?:ing)?(?: time)?|cottura|kochzeit|backzeit|garzeit)$/i],
+  ['prep', /^(?:prep(?:aration)?(?: time)?|preparazione|zubereitung(?:szeit)?|vorbereitung|arbeitszeit)$/i],
+];
+const TIME_LABEL = /(?<![\p{L}])(?:total time|total|tempo totale|gesamtzeit|ready in|resting time|resting|marinating|riposo|ruhezeit|wartezeit|cooking time|cooking|cook time|cottura|kochzeit|backzeit|garzeit|preparation time|preparation|prep time|prep|preparazione|zubereitungszeit|zubereitung|vorbereitung|arbeitszeit)(?![\p{L}])/giu;
+/** A table of times, row by row or column by column ("Preparation Cooking Total Time 1 h 15 m 6 m 1 h 21 m"). */
+export function parseTimeTable(text) {
+  const s = String(text || '');
+  const tokens = [];
+  let m;
+  TIME_LABEL.lastIndex = 0;
+  while ((m = TIME_LABEL.exec(s))) tokens.push({ i: m.index, label: TIME_KEYS.find(([, re]) => re.test(m[0]))?.[0] });
+  for (const d of durationsIn(s)) tokens.push({ i: d.index, min: d.min });
+  tokens.sort((a, b) => a.i - b.i);
+  const queue = [];
+  const out = {};
+  for (const tk of tokens) {
+    if (tk.label) { queue.push(tk.label); continue; }
+    const key = queue.shift();
+    if (key && out[key] == null) out[key] = Math.round(tk.min);
+  }
+  return out;
+}
+
 // "Ingredienti per 4 persone", "Zutaten für 4 Personen"
 const ING_HEAD_LOOSE = /^(ingredienti|zutaten|ingredients)\b.{0,40}$/i;
 
 const SERVINGS = [
+  /\bamount per serving\s*\(\s*(\d{1,2})\s*total\s*\)/i,
   /\b(?:serves|servings|porzioni|portionen|yield|makes)\s*:?\s*(\d{1,2})\b/i,
   /\b(\d{1,2})\s*(?:persone|porzioni|personen|portionen|persons|people|servings|portions|pers\.)/i,
   /\b(?:für|per|for|makes|ergibt|circa)\s+(?:ca\.?\s+|about\s+)?(\d{1,2})\s*(?:stück|stücke|stk\.?|pezzi|fette|slices|pieces|cookies|biscotti|muffins?|kekse)\b/i,
@@ -54,13 +147,14 @@ function clean(s) {
 }
 
 export function isHeader(t) {
+  if (t.length <= 50 && META_HEAD.test(t)) return 'meta';
   for (const [kind, re] of Object.entries(HEAD)) if (t.length <= 40 && re.test(t)) return kind;
   if (t.length <= 45 && ING_HEAD_LOOSE.test(t) && !/\d+\s*(?:g|ml|kg|l)\b/i.test(t)) return 'ing';
   return null;
 }
 
 export function isIngredientLike(t) {
-  if (t.length > 75) return false;
+  if (t.length > 75 || isNutritionLine(t)) return false;
   if (TO_TASTE.test(t)) return true;
   const p = parseIngredient(t);
   if (p.qty != null && !/[.!?]$/.test(t) && t.split(' ').length <= 12) return true;
@@ -137,6 +231,12 @@ export function parseRecipeText(input) {
   let sawIngHeader = false;
   let stepBuf = '';
   let stepNumbered = false;
+  // tables of times and nutrition values ("Timing Information:", "Nutritional Information:")
+  let timeBuf = '';
+  let nutriBuf = '';
+  let beforeMeta = 'pre';
+  let metaKind = '';
+  const nextHasTime = (i) => lines.slice(i + 1, i + 4).some((x) => durationsIn(x.text).length);
 
   const flushStep = () => {
     const st = stepBuf.trim();
@@ -156,7 +256,31 @@ export function parseRecipeText(input) {
   lines.forEach((l, i) => {
     if (i === titleIdx) return;
     let t = l.text;
-    const header = isHeader(t);
+    let header = isHeader(t);
+    if (header === 'meta') {
+      if (state === 'steps') flushStep();
+      if (state !== 'meta') beforeMeta = state;
+      state = 'meta';
+      metaKind = /nutri|nähr|valori/i.test(t) ? 'nutri' : /amount|serving/i.test(t) ? metaKind : 'time';
+      const sv = servingsOf(t); if (sv) servings = servings || sv;
+      return;
+    }
+    // nutrition values anywhere: not ingredients, not steps
+    if (isNutritionLine(t)) { nutriBuf += ` ${t}`; return; }
+    if (state === 'meta') {
+      // "Preparation" here is a row of the times table, not the method heading
+      if (header === 'steps' && nextHasTime(i)) header = null;
+      if (!header) {
+        const short = t.length <= 30 && !/[.!?]$/.test(t);
+        // a table read cell by cell: "Calories" / "Fat" / … / "1092 kcal" / "78.6 g"
+        if (metaKind === 'nutri' && (short || /\d\s*(?:kcal|k?j|mg|g)\b/i.test(t))) { nutriBuf += ` ${t}`; return; }
+        if (durationsIn(t).length || short) { timeBuf += ` ${t}`; return; }
+        // a real sentence: back to where we were
+        state = beforeMeta === 'pre' ? 'notes' : beforeMeta;
+      }
+    }
+    // a link to the author's newsletter is not part of the recipe
+    if (isPromoLine(t) && (ingredients.length || steps.length || stepBuf)) return;
     if (header) {
       if (header === 'ing') { const s = servingsOf(t); if (s) servings = servings || s; sawIngHeader = true; }
       if (state === 'steps') flushStep();
@@ -233,8 +357,11 @@ export function parseRecipeText(input) {
     for (const t of intro.splice(0)) (isIngredientLike(t) ? ingredients.push({ raw: t }) : steps.push(t));
   }
   if (servings == null) servings = servingsOf(all.slice(0, 400));
+  // a table of times ("Preparation | 1 h 30 m · Cooking | 10 m · Total Time | 9 h 40 m")
+  for (const [k, v] of Object.entries(parseTimeTable(timeBuf))) if (times[k] == null) times[k] = v;
   // labelled times anywhere (also in the intro or the notes)
-  for (const [k, v] of Object.entries(extractTimes(all))) if (times[k] == null) times[k] = v;
+  for (const [k, v] of Object.entries(extractTimes(all.split('\n').filter((x) => !isNutritionLine(x)).join('\n')))) if (times[k] == null) times[k] = v;
+  const nutrition = parseNutrition(nutriBuf);
   if (times.total != null) time = formatMinutes(times.total);
   else if (!time && (times.prep != null || times.cook != null)) time = formatMinutes((times.prep || 0) + (times.cook || 0) + (times.rest || 0));
   if (!time) { const tm = all.match(TIME); if (tm) time = tm[1].trim(); }
@@ -249,6 +376,7 @@ export function parseRecipeText(input) {
     steps: steps.map((s) => s.replace(/\s+([,.;:!?])/g, '$1')),
     times,
     notes: noteText,
+    ...(nutrition.kcal != null || nutrition.protein != null ? { nutrition: { ...nutrition, per: 'serving' } } : {}),
     lang: detectLang(all),
   };
 }

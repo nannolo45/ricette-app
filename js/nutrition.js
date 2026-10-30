@@ -455,12 +455,27 @@ export function estimateNutrition(r) {
   };
 }
 
+// values printed in the book or stated by the website (per serving) beat our estimate
+export function statedNutrition(r) {
+  const st = r.nutrition;
+  if (!st || (!Number.isFinite(st.kcal) && !Number.isFinite(st.protein))) return null;
+  const servings = r.servings || 4;
+  const est = (!Number.isFinite(st.kcal) || !Number.isFinite(st.protein)) ? estimateNutrition(r) : null;
+  const kcal = Number.isFinite(st.kcal) ? st.kcal : est?.perServing.kcal;
+  const protein = Number.isFinite(st.protein) ? st.protein : est?.perServing.protein;
+  if (kcal == null || protein == null) return null;
+  return {
+    kcal: kcal * servings, protein: protein * servings, servings, items: [], unknown: [], skipped: 0, partial: false, known: 0,
+    stated: true, perServing: { kcal, protein },
+  };
+}
+
 const cache = new Map();
 /** Cached per recipe version (id + updatedAt). */
 export function nutritionOf(r) {
   const key = `${r.id}|${r.updatedAt || ''}|${r.servings || ''}`;
   if (cache.has(key)) return cache.get(key);
-  const n = estimateNutrition(r);
+  const n = statedNutrition(r) || estimateNutrition(r);
   if (cache.size > 2000) cache.clear();
   cache.set(key, n);
   return n;

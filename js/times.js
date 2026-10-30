@@ -5,7 +5,7 @@
 // Shared by the app and the GitHub job (scripts/lib/times.js is a verbatim copy).
 
 const NUM = String.raw`(\d+(?:[.,]\d+)?(?:\s*½)?|½)`;
-const UNIT = String.raw`(ore|ora|h|hrs?|hours?|std\.?|stunden?|minuti|minuto|minutes?|minuten|mins?\.?|min\.?|'|giorni|giorno|days?|tage?n?|secondi|secondo|seconds?|sekunden|secs?\.?)`;
+const UNIT = String.raw`(ore|ora|h|hrs?|hours?|std\.?|stunden?|minuti|minuto|minutes?|minuten|mins?\.?|min\.?|m|'|giorni|giorno|days?|tage?n?|secondi|secondo|seconds?|sekunden|secs?\.?)`;
 const RANGE = String.raw`(?:\s*(?:-|–|—|a|to|bis|o|or|oder)\s*${NUM})?`;
 const DUR = new RegExp(String.raw`(?:(?:da|from|von|ca\.?|circa|about|approx\.?|etwa|ungefähr|rund)\s+)?${NUM}${RANGE}\s*${UNIT}(?![a-zà-ü])`, 'gi');
 // (?<!…)/(?!…) instead of \b: \b doesn't know letters like ü
@@ -46,11 +46,12 @@ export function durationsIn(text) {
   const merged = [];
   for (const d of out) {
     const prev = merged[merged.length - 1];
-    if (prev && /^\s*(?:e|and|und|,)?\s*$/i.test(s.slice(prev.end, d.index)) && prev.min >= 60 && d.min < 60) {
-      prev.min += d.min; prev.end = d.end;
+    // only whole hours take minutes ("1 h 15 m" + "6 m" are two times, as in a table)
+    if (prev && !prev.glued && /^\s*(?:e|and|und|,)?\s*$/i.test(s.slice(prev.end, d.index)) && prev.min >= 60 && prev.min % 60 === 0 && d.min < 60) {
+      prev.min += d.min; prev.end = d.end; prev.glued = true;
     } else merged.push({ ...d });
   }
-  return merged.map((d) => ({ ...d, min: Math.round(d.min * 10) / 10 }));
+  return merged.map(({ glued, ...d }) => ({ ...d, min: Math.round(d.min * 10) / 10 }));
 }
 
 /** Minutes in a short time text ("1 h 20 min", "30 mins", "mezz'ora"), or null. */
@@ -181,6 +182,8 @@ export function recipeTimes(r, { minutesOfTotal = parseMinutes } = {}) {
     active = stated.prep + (stated.cook != null && !cookIsWait ? stated.cook : 0);
     waiting = (stated.rest ?? est.restWait) + (stated.cook != null && cookIsWait ? stated.cook : 0);
     if (total != null && stated.cook == null && stated.rest == null) waiting = Math.max(0, total - stated.prep);
+    // "Total 9 h 40" with 1 h 30 work and 10 min cooking: the rest is waiting nobody listed (marinating overnight…)
+    if (total != null && active + waiting < total) waiting = total - active;
   } else if (total != null) {
     // only the total: keep it, split it the way the steps suggest
     waiting = Math.min(est.waiting, Math.max(0, total - 5));

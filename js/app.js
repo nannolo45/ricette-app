@@ -15,6 +15,7 @@ import { parseRecipeText, detectLang as textLang } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
 import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
 import { originOf, flagOf, CONTINENTS, CONTINENT_ICON } from './geo.js';
+import { planBookFix, booksOf } from './book-fix.js';
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
@@ -412,7 +413,59 @@ function viewRecipes() {
       <button class="btn small" data-action="new-recipe">+ ${esc(t('manual'))}</button>
     </div>
   </div>
+  ${folderId ? bookFixBanner(folderId) : ''}
   <div id="cards">${cardsHtml()}</div>`;
+}
+
+// ---------- tidying up books imported by an older version ----------
+
+function bookFixPlans(folderId) {
+  const inFolder = live('recipes').filter((r) => r.folderId === folderId);
+  return Object.entries(booksOf(inFolder)).map(([bookId]) => {
+    // the whole book (its recipes may have been moved to other folders since)
+    const all = live('recipes').filter((r) => (r.bookId || '') === bookId || String(r.id).startsWith(`r_${bookId}_`));
+    return { bookId, ...planBookFix(all) };
+  }).filter((p) => p.remove.length || p.changes.length);
+}
+
+function bookFixBanner(folderId) {
+  const plans = bookFixPlans(folderId);
+  if (!plans.length) return '';
+  const nRemove = plans.reduce((a, p) => a + p.remove.length, 0);
+  const nFix = plans.reduce((a, p) => a + p.changes.length, 0);
+  return `<div class="book-fix"><span>🧹 ${esc(t('bookFixBanner', nRemove, nFix))}</span>
+    <button class="btn small primary" data-action="book-fix" data-id="${esc(folderId)}">${esc(t('bookFixGo'))}</button></div>`;
+}
+
+function openBookFix(folderId) {
+  const plans = bookFixPlans(folderId);
+  if (!plans.length) return;
+  const toRemove = plans.flatMap((p) => p.remove);
+  const changes = plans.flatMap((p) => p.changes);
+  const what = (c) => [c.patch.times && `⏱ ${t('bookFixTimes')}`, c.patch.nutrition && `🔥 ${t('bookFixNutrition')}`, c.patch.steps && `🧽 ${t('bookFixSteps')}`].filter(Boolean).join(' · ');
+  openModal(`
+    <h2>🧹 ${esc(t('bookFixTitle'))}</h2>
+    ${toRemove.length ? `<h3>${esc(t('bookFixRemove'))}</h3><p class="hint small">${esc(t('bookFixRemoveHint'))}</p>
+    <ul class="fix-list">${toRemove.map((x) => `<li><label class="check"><input type="checkbox" name="rm" value="${esc(x.id)}" ${x.sure ? 'checked' : ''}>
+      <span><strong>${esc(x.title || '—')}</strong><br><small>${esc(t(`bookFixWhy_${x.reason}`))}</small></span></label></li>`).join('')}</ul>` : ''}
+    ${changes.length ? `<h3>${esc(t('bookFixChange'))}</h3><ul class="fix-list">${changes.map((c) => `<li><strong>${esc(c.title)}</strong><br><small>${esc(what(c))}</small></li>`).join('')}</ul>` : ''}
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('bookFixApply'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+    </div>`, (form) => {
+    const picked = new Set([...form.querySelectorAll('input[name=rm]:checked')].map((x) => x.value));
+    for (const x of toRemove) {
+      if (picked.has(x.id)) remove('recipes', x.id);
+      // kept on purpose: don't ask again
+      else { const r = get('recipes', x.id); if (r) upsert('recipes', { ...r, bookFixOk: true }, { silent: true }); }
+    }
+    for (const c of changes) {
+      const r = get('recipes', c.id);
+      if (r) upsert('recipes', { ...r, ...c.patch }, { silent: true });
+    }
+    changed();
+    toast(t('bookFixDone', picked.size, changes.length));
+  });
 }
 
 // ---------- sorting, filters, tags ----------
@@ -640,16 +693,16 @@ function nutritionBox(r, n) {
   const f = n / base;
   return `<section class="nutri" id="nutri" aria-label="${esc(t('nutrition'))}">
     <div class="nutri-main">
-      <span class="nutri-kcal"><strong>${nu.partial ? '≈ ' : '≈ '}${kcalText(nu.perServing.kcal)}</strong> kcal</span>
+      <span class="nutri-kcal"><strong>${nu.stated ? '' : '≈ '}${kcalText(nu.perServing.kcal)}</strong> kcal</span>
       <span class="nutri-prot"><strong>${protText(nu.perServing.protein)} g</strong> ${esc(t('protein'))}</span>
-      <small>${esc(t('perPerson'))}</small>
+      <small>${esc(t('perPerson'))}${nu.stated ? ` · ${esc(t(r.source?.type === 'book' ? 'nutriFromBook' : 'nutriFromSource'))}` : ''}</small>
     </div>
     <div class="nutri-total">${esc(t('nutriTotal', n))}: <strong>${kcalText(nu.kcal * f)} kcal</strong> · <strong>${protText(nu.protein * f)} g</strong> ${esc(t('protein'))}</div>
     ${nu.partial ? `<p class="hint small warn">${esc(t('nutriPartial', nu.unknown.join(', ')))}</p>` : ''}
-    <details class="nutri-details"><summary>${esc(t('nutriHow'))}</summary>
+    ${nu.stated ? '' : `<details class="nutri-details"><summary>${esc(t('nutriHow'))}</summary>
       <ul>${nu.items.map((i) => `<li><span>${esc(i.name)}</span><small>${esc(qtyText(Math.round(i.grams * f), 'g'))}</small><span>${kcalText(i.kcal * f)} kcal</span><span>${protText(i.protein * f)} g</span></li>`).join('')}</ul>
       <p class="hint small">${esc(t('nutriExplain'))}${nu.skipped ? ` ${esc(t('nutriSkipped', nu.skipped))}` : ''}</p>
-    </details>
+    </details>`}
   </section>`;
 }
 
@@ -776,7 +829,7 @@ function sourceLabel(src) {
 
 const PHOTO_ERRORS = { no_text: 'errNoText', not_a_recipe: 'errNotRecipe', ocr_unavailable: 'errOcr' };
 
-const BOOK_ERRORS = { no_recipes_found: 'errBookNoRecipes', no_text: 'errBookNoText', unsupported_format: 'errBookFormat' };
+const BOOK_ERRORS = { no_recipes_found: 'errBookNoRecipes', no_text: 'errBookNoText', unsupported_format: 'errBookFormat', job_failed: 'errBookJob' };
 
 function bookItem(q) {
   const name = q.bookTitle || q.book || q.file?.split('/').pop() || '';
@@ -797,8 +850,11 @@ function bookItem(q) {
       </div></div>`;
   }
   const waiting = !isConfigured() || !navigator.onLine || state.meta.dirty;
+  const pr = q.progress && q.progress.pages ? q.progress : null;
+  const pct = pr ? Math.min(100, Math.round((pr.page / pr.pages) * 100)) : 0;
   return `<div class="queue pending book">
     <div class="q-main"><span class="q-book">📚</span><div><span class="spinner"></span> ${esc(t(waiting ? 'bookUploading' : 'bookReading'))}<br><small>${esc(name)}</small>
+      ${pr && !waiting ? `<div class="book-progress"><progress max="100" value="${pct}" aria-label="${esc(t('bookProgress', pr.page, pr.pages))}"></progress><small>${esc(t('bookProgress', pr.page, pr.pages))}</small></div>` : ''}
       <small class="hint">${esc(t('bookReadingHint'))}</small></div></div>
     <div class="actions"><button class="btn small ghost" data-action="q-remove" data-id="${esc(q.id)}">${esc(t('remove'))}</button></div></div>`;
 }
@@ -2125,6 +2181,7 @@ view.addEventListener('click', (e) => {
     case 'key-cancel': ui.keyEdit = ''; ui.keyMsg = null; render(); break;
     case 'key-remove': if (confirm(t('keyRemoveConfirm', SRC_LABEL[btn.dataset.value]))) { setPref(PHOTO_KEYS[btn.dataset.value], ''); ui.keyMsg = null; changed(); } break;
     case 'key-test': { const svc = btn.dataset.value; testKey(svc, photoKey(svc)).then((r) => { ui.keyMsg = { svc, r }; render(); }); break; }
+    case 'book-fix': openBookFix(id); break;
     case 'open-book': ui.search = ''; ui.filters = null; ui.showFilters = false; location.hash = folderHref(id); break;
     case 'put-away': startPutAway(); break;
     case 'pa-scan': putAwayScan(); break;
