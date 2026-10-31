@@ -116,3 +116,10 @@ export async function prefetchAll() {
 export function coverOf(r) {
   return (r.photos && r.photos[0]) || r.image || '';
 }
+
+// After emptying the device: forget the photos shown so far (the blobs are gone from the store too)
+export function clearPhotoCache() {
+  for (const url of urls.values()) { try { URL.revokeObjectURL(url); } catch { /* already gone */ } }
+  urls.clear();
+  inflight.clear();
+}

@@ -642,3 +642,6 @@ dialog .row #pick-q { flex: 1; min-width: 0; }
 .pantry-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .pantry-actions { flex-wrap: nowrap; }
 .pantry-actions .btn { flex: 1 1 0; min-width: 0; width: auto; margin: 0; justify-content: center; white-space: normal; font-size: .92rem; line-height: 1.25; text-align: center; }
+
+.choice-list { display: grid; gap: 10px; margin: 12px 0; }
+.choice-list .btn { white-space: normal; text-align: left; line-height: 1.3; padding: 12px 14px; }

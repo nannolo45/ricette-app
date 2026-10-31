@@ -1,5 +1,5 @@
 import {
-  state, load, live, get, upsert, remove, uid, onChange, saveSettings, COLLECTIONS,
+  state, load, live, get, upsert, remove, uid, onChange, saveSettings, COLLECTIONS, replaceCollection, saveMeta, kvKeys, kvDel,
 } from './store.js';
 import { syncNow, isConfigured, isSyncing, testConnection } from './sync.js';
 import {
@@ -7,7 +7,7 @@ import {
   UNITS, stepFor, setDecimalSeparator,
 } from './parse.js';
 import { t, setLang, getLang, LANGS, unitLabel, unitOptionLabel, detectLang } from './i18n.js';
-import { addPhoto, addScan, addUpload, hydrate, prefetchAll, coverOf, isRepoPhoto } from './photos.js';
+import { addPhoto, addScan, addUpload, hydrate, prefetchAll, coverOf, isRepoPhoto, clearPhotoCache } from './photos.js';
 import { daysUntil, expiryState, todayStr } from './expiry.js';
 import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
@@ -1478,6 +1478,7 @@ function viewSettings() {
     <div class="button-row">
       <button type="button" class="btn" data-action="sync-now">${esc(t('syncNow'))}</button>
       <button type="button" class="btn ghost" data-action="gh-edit">${esc(t('editConnection'))}</button>
+      <button type="button" class="btn small ghost" data-action="wipe-local">${esc(t('wipeLocal'))}</button>
       <button type="button" class="btn ghost danger" data-action="gh-disconnect">${esc(t('disconnect'))}</button>
     </div>
     <p class="hint">${esc(t('lastSync'))}: ${esc(last)}</p>
@@ -2720,6 +2721,9 @@ view.addEventListener('click', (e) => {
         saveSettings({ token: '', verified: false }).then(() => { ui.ghEdit = false; ui.connMsg = ''; render(); updateSyncBadge(); });
       }
       break;
+    case 'wipe-local':
+      if (confirm(t('wipeLocalConfirm'))) wipeLocalData().then(() => { toast(t('wipedLocal')); changed(); }); // changed() also schedules a sync
+      break;
     case 'sync-now': runSync().then(() => { ui.connMsg = state.meta.lastError ? `err_${state.meta.lastError}` : ''; render(); }); break;
     case 'export': exportData(); break;
     default: break;
@@ -3324,12 +3328,54 @@ function saveRecipe(form) {
   changed();
 }
 
+// ---------- connection: switching repositories safely (same as Everyday v25) ----------
+
+/** Empty this device: every collection, the photos, what's waiting to upload. Settings (repo, token, language) stay. */
+async function wipeLocalData() {
+  for (const c of COLLECTIONS) await replaceCollection(c, []);
+  for (const k of await kvKeys('img:')) await kvDel(k);
+  await kvDel('pendingPhotos');
+  clearPhotoCache();
+  await saveMeta({ dirty: false, lastSync: null, lastError: null });
+  ui.edit = null; ui.sel = null; ui.listQ = ''; ui.pantryQ = ''; ui.putaway = null; ui.filters = null; ui.search = '';
+}
+
+async function deviceHasData() {
+  return COLLECTIONS.some((c) => live(c).length > 0) || (await kvKeys('img:')).length > 0;
+}
+
 async function saveGithub(form) {
+  const prev = state.settings;
   const typed = form.token.value.trim();
-  await saveSettings({
+  const next = {
     owner: form.owner.value.trim(), repo: form.repo.value.trim(),
-    token: typed || state.settings.token, branch: form.branch.value.trim() || 'main', verified: false,
-  });
+    // the token field is usually left empty when only owner/repo change: keep the token
+    token: typed || prev.token, branch: form.branch.value.trim() || 'main',
+  };
+  const same = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
+  const switching = prev.owner && prev.repo && (!same(prev.owner, next.owner) || !same(prev.repo, next.repo)) && await deviceHasData();
+  if (!switching) { await connectTo(next, false); return; }
+  // another repository and this device holds data: ask, or the old data would be uploaded into it
+  openModal(`
+    <h2>${esc(t('switchRepoTitle'))}</h2>
+    <p class="hint">${esc(`${prev.owner}/${prev.repo} → ${next.owner}/${next.repo}`)}</p>
+    <div class="choice-list">
+      <button type="button" class="btn primary" data-choice="fresh">${esc(t('switchRepoFresh'))}</button>
+      <button type="button" class="btn" data-choice="keep">${esc(t('switchRepoKeep'))}</button>
+    </div>
+    <div class="button-row"><button class="btn ghost" value="cancel" formnovalidate>${esc(t('cancel'))}</button></div>`, () => {});
+  modal.onclick = (e) => {
+    const b = e.target.closest('[data-choice]');
+    if (!b) return;
+    const fresh = b.dataset.choice === 'fresh';
+    modal.close();
+    connectTo(next, fresh);
+  };
+}
+
+async function connectTo(next, fresh) {
+  if (fresh) await wipeLocalData();
+  await saveSettings({ ...next, verified: false });
   const res = await testConnection();
   ui.connMsg = res.ok ? 'connected' : `err_${res.error}`;
   if (res.ok) { await saveSettings({ verified: true }); ui.ghEdit = false; }

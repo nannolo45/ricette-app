@@ -41,6 +41,17 @@ export async function kvSet(key, value) {
   });
 }
 
+// Keys in the local store starting with a prefix (e.g. the photo blobs "img:…")
+export async function kvKeys(prefix = '') {
+  const d = await db();
+  if (!d) return [];
+  return new Promise((resolve) => {
+    const req = d.transaction(STORE).objectStore(STORE).getAllKeys();
+    req.onsuccess = () => resolve(req.result.filter((k) => String(k).startsWith(prefix)));
+    req.onerror = () => resolve([]);
+  });
+}
+
 export async function kvDel(key) {
   const d = await db();
   if (!d) return;
