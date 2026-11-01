@@ -118,6 +118,22 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Empty screens (v43, Nov 1):** copy the contents of `app/` to the top of ricette-app (nothing in the data repo).
+  Every screen with nothing in it now says why and offers one next step: a new collection welcomes you with *Aggiungi
+  una ricetta* and *Collega GitHub*; empty Preferite / Da provare, an empty folder, a search or filters with no results
+  (clear them in one tap), an empty list (*Tutto preso*, add from a recipe) and Ingredienti e cibi with nothing to fix.
+  An empty pantry asks *Cosa hai sempre in casa?*: tick a few common staples and add them in one go as C'è / Poca /
+  Finita products.
+- **Recipe editor (v42, Nov 1):** copy the contents of `app/` to the top of ricette-app as usual (nothing changes in
+  the data repo). Modifica is now one page of cards: Annulla / Salva at the top, photos as a strip, then Persone,
+  Tempo, Cartella and Fonte as rows that open in place. Ingredients are rows under their group headings: tap one to
+  change quantity, unit, detail, group or food; drag the handle to reorder; *+ Ingrediente*, *+ Gruppo*, and ⋯ on a
+  heading to rename, move or remove a group. *Scrivi come testo* edits or pastes the whole list as text (groups as
+  "Name:" lines) with a live count of what needs checking. Steps are numbered cards (move up, split, delete, drag).
+  Tags are chips: green ones are automatic (tap to hide), yours have ×. Leaving with unsaved changes asks first.
+  Fixing a wrong food is now one thing everywhere: **Correggi** (it was *Non è questo*) teaches the dictionary that
+  this name is that food, so it applies to every recipe, the list and the pantry; nothing is pinned to a single item
+  any more (older pins still count). "None of these" is gone: pick the right food or make a new one.
 - **Ingredient groups (v41, Nov 1):** replace the `app/` folder (ricette-app) **and** in the data repo copy
   `scripts/import-recipes.mjs` and `scripts/lib/recipe-text.js`. Recipes can split their ingredients into groups
   ("Per la frolla", "Per il ripieno"): in the editor, a line ending with ":" starts a group; the recipe page shows a
@@ -128,7 +144,7 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
   `app/js/lang-food.js` is gone, delete it if your upload tool doesn't), **and** in the data repo copy
   `scripts/import-recipes.mjs` and `scripts/lib/foods.js` (and delete `scripts/lib/lang-food.js`, no longer used).
   List items, pantry products and recipe ingredients now remember which food they are (filled in for existing data a
-  batch at a time after each sync). If Ricette gets one wrong, tap **Non è questo** in the item's or product's panel
+  batch at a time after each sync). If Ricette gets one wrong, tap **Correggi** (before v42: *Non è questo*) in the item's or product's panel
   and pick the right food, say it's none, or make a new one: the name is then recognised that way everywhere, in
   Everyday too (new file `data/foods.json`). **Settings → Ingredienti e cibi** lists the names nothing recognises, your
   own foods and the names you've added. Once, departments saved on list items by older versions are cleared where the

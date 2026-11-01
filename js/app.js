@@ -3,11 +3,13 @@ import {
 } from './store.js';
 import { syncNow, isConfigured, isSyncing, testConnection, clearFileCache, CONTRACT } from './sync.js';
 import { askConfirm, toast } from './ui/dialogs.js';
+import { emptyState } from './ui/empty.js';
 import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/format.js';
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
+import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 import { GUIDE } from './guide.js';
 
-const APP_VERSION = 'v41';
+const APP_VERSION = 'v43';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -780,17 +782,63 @@ function recipeRows(list, coverage, flat) {
   }).join('')}</div>`;
 }
 
+// Nothing to show (v43): one empty state per reason, each with the one thing to do next.
 function emptyRecipes(flat) {
   const folderId = currentFolderId();
-  if (filters().archived) return `<p class="empty">${esc(t('noArchived'))}</p>`;
-  if (normalizeName(ui.search) || filterCount()) {
-    const inPart = !folderId && recipeSeg() !== 'all' && !normalizeName(ui.search);
-    return `<p class="empty">${esc(t('noMatches'))}</p>${inPart ? `<p class="empty-more"><button type="button" class="btn small" data-action="seg" data-value="all" data-keep="1">${esc(t('searchAll'))}</button></p>` : ''}`;
+  const q = normalizeName(ui.search);
+  const nf = filterCount();
+  if (filters().archived && !q && nf === 1) {
+    return emptyState({ size: 'small', icon: 'archive', title: t('esArchivedTitle'), text: t('noArchived'), main: { label: t('esShowOthers'), action: 'f-clear' } });
   }
-  if (folderId) return childFolders(folderId).length ? '' : `<p class="empty">${esc(t('folderEmpty'))}</p>`;
-  if (flat && recipeSeg() === 'fav') return `<p class="empty">${esc(t('noFavourites'))}</p>`;
-  if (flat && recipeSeg() === 'try') return `<p class="empty">${esc(t('noToTry'))}</p>`;
-  return live('recipes').length || childFolders(null).length ? '' : `<p class="empty">${esc(t('noRecipes'))}</p>`;
+  if (q || nf) {
+    const inPart = !folderId && recipeSeg() !== 'all' && !q;
+    const main = inPart ? { label: t('searchAll'), action: 'seg', data: { value: 'all', keep: '1' } }
+      : nf ? { label: t('esClearFilters'), action: 'f-clear' } : { label: t('clearSearch'), action: 'recipes-q-clear' };
+    const second = q && nf ? { label: t('clearSearch'), action: 'recipes-q-clear' } : null;
+    return emptyState({ size: 'small', icon: 'search', title: t('noMatches'), text: q ? t('esNoMatchSearch', ui.search.trim()) : t('esNoMatchFilters'), main, second });
+  }
+  if (folderId) {
+    return childFolders(folderId).length ? '' : emptyState({ size: 'small', icon: 'folder', title: t('folderEmpty'), text: t('esFolderText'), main: { label: t('addRecipe'), action: 'open-add' } });
+  }
+  // nothing at all yet: the welcome, whichever segment is selected
+  if (!live('recipes').length && !childFolders(null).length) {
+    return emptyState({ icon: 'book', title: t('esNoRecipesTitle'), text: t('esNoRecipesText'), main: { label: t('addRecipe'), action: 'open-add' },
+      second: isConfigured() ? null : { label: t('connectGithub'), href: '#/settings/sync' } });
+  }
+  if (flat && recipeSeg() === 'fav') {
+    return emptyState({ size: 'small', icon: 'star', title: t('esNoFavTitle'), text: t('esNoFavText'), main: { label: t('searchAll'), action: 'seg', data: { value: 'all' } } });
+  }
+  if (flat && recipeSeg() === 'try') {
+    return emptyState({ size: 'small', icon: 'inbox', title: t('esNoTryTitle'), text: t('esNoTryText'), main: { label: t('addRecipe'), action: 'open-add' } });
+  }
+  return '';
+}
+
+// The empty pantry: a few common staples to tick, added in one go as C'è / Poca / Finita products
+const START_STAPLES = ['olive-oil', 'salt', 'pepper', 'flour', 'pasta', 'rice', 'sugar', 'coffee', 'canned-tomatoes', 'vinegar', 'garlic', 'onion'];
+function emptyPantry() {
+  const picked = ui.pantryStart || (ui.pantryStart = new Set());
+  const lang = getLang();
+  const chips = START_STAPLES.filter((id) => foodRec(id)).map((id) => {
+    const on = picked.has(id);
+    return `<button type="button" class="chip${on ? ' on' : ''}" data-action="es-staple" data-id="${esc(id)}" aria-pressed="${on}">${on ? '✓ ' : ''}${esc(foodName(id, lang))}</button>`;
+  }).join('');
+  const n = picked.size;
+  return emptyState({ icon: 'pantry', tone: 'green', title: t('esPantryTitle'), text: t('esPantryText'), extra: `<div class="chips es-chips">${chips}</div>`,
+    main: { label: n ? t('esAddStaples', n) : t('esPickStaples'), action: 'es-staples-add', disabled: !n }, second: { label: t('esTypeOther'), action: 'es-type' } });
+}
+function addStartStaples() {
+  const lang = getLang();
+  let n = 0;
+  for (const id of ui.pantryStart || []) {
+    const name = foodName(id, lang);
+    if (!name || findPantry(name)) continue;
+    upsert('pantry', { id: uid(), name, qty: null, unit: '', min: null, target: null, track: 'level', level: 'ok', addedAt: Date.now(), food: id }, { silent: true });
+    n++;
+  }
+  ui.pantryStart = null;
+  changed();
+  if (n) toast(t('staplesSaved', n));
 }
 
 function recipeList() {
@@ -919,8 +967,7 @@ function nutritionBox(r, n) {
   </section>`;
 }
 
-function nutritionPreview(servings, text) {
-  const ingredients = parseIngs(groupLines(String(text || '').split('\n')));
+function nutritionLine(servings, ingredients) {
   const nu = estimateNutrition({ servings: Math.max(1, Number(servings) || 4), ingredients });
   if (!nu) return `🔥 ${esc(t('nutriNone'))}`;
   return `🔥 ≈ <strong>${kcalText(nu.perServing.kcal)} kcal</strong> · <strong>${protText(nu.perServing.protein)} g</strong> ${esc(t('protein'))} ${esc(t('perPerson'))}${nu.partial ? ` <small class="warn">(${esc(t('nutriUnknownShort', nu.unknown.length))})</small>` : ''}`;
@@ -956,7 +1003,7 @@ function missingText(m) {
 // "Con la dispensa": recipes ranked by what's at home, with what's missing and what it uses up
 function pantryResults(ranked) {
   const pantryEmpty = !live('pantry').some(atHome);
-  if (pantryEmpty) return `<p class="empty">${esc(t('pantryEmptyForSuggest'))}<br><a class="btn" href="#/pantry">${esc(t('tabPantry'))}</a></p>`;
+  if (pantryEmpty) return emptyState({ size: 'small', icon: 'pantry', tone: 'green', title: t('esSuggestTitle'), text: t('pantryEmptyForSuggest'), main: { label: t('tabPantry'), href: '#/pantry' } });
   const by = suggestSort();
   const list = ranked.slice(0, 60);
   const expSoon = new Map(expiringItems().map((x) => [x.p.id, x.d]));
@@ -1106,18 +1153,6 @@ function deleteRecipeUndoable(id) {
   toast(t('recipeDeleted'), { undo: () => { upsert('recipes', snap); changed(); location.hash = `#/recipe/${encodeURIComponent(snap.id)}`; } });
 }
 
-// Tags in the editor (v34; the recipe page only shows them): automatic ones on/off, your own as a list.
-function tagEditor(r) {
-  const autos = autoTags({ ...r, hiddenTags: [] }, tagDefs());
-  const hidden = new Set(r.hiddenTags || []);
-  const own = (r.tags || []).filter(Boolean);
-  return `<fieldset class="tag-edit"><legend>${esc(t('tags'))}</legend>
-    ${autos.length ? `<div class="f-sub">${esc(t('autoTagsHere'))}</div><div class="tag-checks">${autos.map((a) => `<label class="tag-check"><input type="checkbox" name="autoOn" value="${esc(a)}" ${hidden.has(a) ? '' : 'checked'}> <span>${esc(autoLabel(a))}</span></label>`).join('')}</div>` : ''}
-    <label>${esc(t('ownTags'))}<input name="ownTags" id="own-tags" value="${esc(own.join(', '))}" list="all-tags" autocomplete="off" placeholder="${esc(t('ownTagsPh'))}"><small>${esc(t('ownTagsHint'))}</small></label>
-    <datalist id="all-tags">${[...new Set(live('recipes').flatMap((x) => x.tags || []))].sort().map((tg) => `<option value="${esc(tg)}">`).join('')}</datalist>
-  </fieldset>`;
-}
-
 function photoStrip() {
   const photos = ui.edit?.photos || [];
   return `${photos.map((p, i) => `<div class="shot">
@@ -1137,67 +1172,6 @@ function refreshPhotoStrip() {
   if (!el) return;
   el.innerHTML = photoStrip();
   hydrate(el);
-}
-
-function viewEdit(id) {
-  const isNew = id === 'new';
-  const r = isNew ? { title: '', url: ui.prefillUrl, servings: 4, ingredients: [], steps: [], folderId: ui.newFolder || null, ...(ui.prefillSource || {}) } : get('recipes', id);
-  if (!r) return `<p class="empty">${esc(t('notFound'))}</p>`;
-  if (!ui.edit || ui.edit.route !== id) {
-    ui.edit = { route: id, id: isNew ? uid() : id, photos: [...(r.photos || [])], busy: false, imageCredit: r.imageCredit || null };
-    if (isNew && ui.prefillSource?.findImageFor) lookForDishPhoto(ui.edit, ui.prefillSource.findImageFor, ui.prefillSource.lang);
-  }
-  // groups as heading lines ("Per la crema:"), the way they're typed
-  let lastGroup = '';
-  const ingText = ingredientsOf(r).flatMap((i) => {
-    const line = i.raw || [formatQty(i.qty, i.unit), unitLabel(i.unit, i.qty), i.name].filter(Boolean).join(' ');
-    const g = i.group || '';
-    const head = g && g !== lastGroup ? [`${g}:`] : [];
-    lastGroup = g;
-    return [...head, line];
-  }).join('\n');
-  return `
-  <a class="back" href="${isNew ? folderHref(ui.newFolder) : `#/recipe/${encodeURIComponent(id)}`}">← ${esc(t('back'))}</a>
-  <h1>${esc(t(isNew ? 'newRecipe' : 'editRecipe'))}</h1>
-  ${(r.sourcePhotos || ui.prefillSource?.sourcePhotos || []).length ? `<div class="field-label">${esc(t('originalForCheck'))}</div>
-    <div class="gallery">${(r.sourcePhotos || ui.prefillSource.sourcePhotos).map((p) => `<button type="button" class="shot page" data-action="view-photo" data-src="${esc(p)}">${photoTag(p)}</button>`).join('')}</div>` : ''}
-  <form id="edit-form" class="form" data-id="${esc(id)}">
-    <div class="field-label">${esc(t('photos'))} <button type="button" class="link-btn" data-action="photo-search">🔍 ${esc(t('searchPhotoOnline'))}</button></div>
-    <div class="photo-strip" id="photo-strip">${photoStrip()}</div>
-    <label>${esc(t('title'))}<input name="title" required value="${esc(r.title)}"></label>
-    <label>${esc(t('folder'))}<select name="folderId">${folderOptions(recipeFolderId(r))}</select></label>
-    <label>${esc(t('url'))}<input name="url" type="url" value="${esc(r.url || '')}"></label>
-    <div class="source-fields ${r.source?.type === 'book' ? 'is-book' : ''}">
-      <label>${esc(t('sourceLabel'))}<select name="sourceType">
-        <option value="">${esc(t('srcWeb'))}</option>
-        <option value="book" ${r.source?.type === 'book' ? 'selected' : ''}>📖 ${esc(t('srcBook'))}</option>
-        <option value="note" ${r.source?.type === 'note' ? 'selected' : ''}>✍️ ${esc(t('srcNote'))}</option>
-      </select></label>
-      <div class="two book-only">
-        <label>${esc(t('bookTitle'))}<input name="book" value="${esc(r.source?.book || '')}" list="books"></label>
-        <label>${esc(t('page'))}<input name="page" value="${esc(r.source?.page || '')}" inputmode="numeric"></label>
-      </div>
-    </div>
-    ${booksDatalist()}
-    <div class="two">
-      <label>${esc(t('servingsLabel'))}<input name="servings" type="number" min="1" step="1" value="${esc(r.servings || 4)}"></label>
-      <label>${esc(t('totalTimeLabel'))}<input name="time" value="${esc(r.time || '')}" placeholder="${esc(t('timePh'))}"></label>
-    </div>
-    ${(() => { const est = recipeTimes({ ...r, prepMin: undefined, waitMin: undefined }); return `<div class="two times-edit">
-      <label>🔪 ${esc(t('activeTimeLabel'))} <small>(min)</small><input name="prepMin" id="prep-min" type="number" min="0" step="1" inputmode="numeric" value="${Number.isFinite(r.prepMin) ? r.prepMin : ''}" placeholder="${est.active}"></label>
-      <label>⏳ ${esc(t('waitTimeLabel'))} <small>(min)</small><input name="waitMin" id="wait-min" type="number" min="0" step="1" inputmode="numeric" value="${Number.isFinite(r.waitMin) ? r.waitMin : ''}" placeholder="${est.waiting}"></label>
-    </div>
-    <p class="hint small">${esc(t('timesEditHint'))}</p>`; })()}
-    <label>${esc(t('ingredients'))}<textarea name="ingredients" rows="10" placeholder="${esc(t('ingredientsHelp'))}">${esc(ingText)}</textarea></label>
-    <p class="hint small">${esc(t('ingGroupsHint'))}</p>
-    <p class="nutri-preview" id="nutri-preview" aria-live="polite">${nutritionPreview(r.servings || 4, ingText)}</p>
-    <label>${esc(t('steps'))}<textarea name="steps" rows="8" placeholder="${esc(t('stepsHelp'))}">${esc((r.steps || []).join('\n'))}</textarea></label>
-    <label>${esc(t('notes'))}<textarea name="notes" rows="3">${esc(r.notes || '')}</textarea></label>
-    ${(() => { const o = originOf({ ...r, cuisine: '' }); const guess = o ? (o.country ? countryName(o.country) : t(`cont_${o.continent}`)) : t('originUnknown'); return `<label>🌍 ${esc(t('originLabel'))}<input name="cuisine" value="${esc([].concat(r.cuisine || []).join(', '))}" placeholder="${esc(t('originPh', guess))}" autocomplete="off"><small>${esc(t('originHint'))}</small></label>`; })()}
-    ${tagEditor(r)}
-    <label>${esc(t('image'))}<input name="image" type="url" value="${esc(r.image || '')}"></label>
-    <button class="btn primary">${esc(t('save'))}</button>
-  </form>`;
 }
 
 // ---------- shopping list: the same views, search and layout as Everyday (shoplist.js, depts.js) ----------
@@ -1297,7 +1271,9 @@ function viewList() {
   ${state.meta.contractNewer ? `<p class="hint warn contract-note">${esc(t('contractNewer'))}</p>` : ''}
   ${ui.reorder && !selecting ? `<div class="reorder-bar"><span>${esc(t(GROUPED_MODES.includes(mode) ? 'dragHintGroups' : 'dragHintItems'))}</span><button type="button" class="btn small" data-action="reorder-done">${esc(t('done'))}</button></div>` : ''}
   ${selecting ? selBar(allOpen) : ''}
-  ${nothing ? `<p class="empty">${esc(t('noListMatch'))}</p>` : open.length ? listHtml(groups, opts) : (q || nf) ? '' : `<p class="empty">${esc(t('listEmpty'))}</p>`}
+  ${nothing ? emptyState({ size: 'small', icon: 'search', title: t('noListMatch'), main: q ? { label: t('clearSearch'), action: 'shop-q-clear' } : null })
+    : open.length ? listHtml(groups, opts) : (q || nf) ? ''
+      : emptyState({ icon: 'check', tone: 'green', title: t('esListTitle'), text: t(done.length ? 'esListCartText' : 'esListText'), main: { label: t('esFromRecipe'), href: '#/recipes' } })}
   ${drag && mode === 'plain' && !ui.reorder ? `<p class="hint small">${esc(t('dragHintItems'))}</p>` : ''}
   ${(ui.cartOpen || q) && done.length ? `<h2 class="cart-h">${esc(t('inCart'))}</h2>${rowsHtml(done, { ...opts, drag: false, selecting: false })}<p class="hint small">${esc(t('putAwayExplain'))}</p>` : ''}
   ${cartBarHtml({ labels: listLabels(), count: done.length, open: Boolean(ui.cartOpen), main: { label: `📦 ${t('putAway')}` } })}`;
@@ -1344,6 +1320,7 @@ function clearChecked() {
 
 // After a drag: save the new order of the items, or of the groups.
 function onSorted({ kind, group, keys }) {
+  if (kind === 'edit-ings' || kind === 'edit-steps') { editSorted(kind, group, keys); return; }
   if (kind === 'items') {
     const open = live('shopping').filter((i) => !i.checked);
     const flat = listGroups(open).flatMap(([k, , list]) => (k === group ? keys.map((id) => list.find((i) => i.id === id)).filter(Boolean) : list));
@@ -1712,8 +1689,9 @@ function viewPantry() {
     return `<button type="button" class="dept-chip ${n.out ? 'bad' : n.low ? 'warn' : ''}" data-action="dept-jump" data-value="${c}">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${list.length}</small>${n.out + n.low ? ` <b>${n.out + n.low}</b>` : ''}</button>`;
   }).join('')}</div>` : ''}
   ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map((p) => pantryRow(p, { mode: 'expiry' })).join('')}</ul>` : ''}
-  ${!all.length ? `<p class="empty">${esc(t('pantryEmpty'))}</p><p class="center"><a class="btn suggest-link" href="#/suggest">🍳 ${esc(t('whatCanICook'))}</a></p>`
-    : !items.length ? `<p class="empty">${esc(t(q ? 'noPantryMatch' : 'noPantryFilter'))}${filter ? ` <button type="button" class="link-btn" data-action="p-filter" data-value="${filter}">${esc(t('showAll'))}</button>` : ''}</p>`
+  ${!all.length ? emptyPantry()
+    : !items.length ? emptyState({ size: 'small', icon: 'search', title: t(q ? 'noPantryMatch' : 'noPantryFilter'),
+      main: q ? { label: t('clearSearch'), action: 'pantry-q-clear' } : filter ? { label: t('showAll'), action: 'p-filter', data: { value: filter } } : null })
       : body}`;
 }
 
@@ -1903,7 +1881,7 @@ function openPhotoSearch() {
   const form = $('#edit-form');
   const title = form?.title.value.trim() || '';
   let found = [];
-  const lang = textLang(`${title} ${form?.ingredients.value || ''}`) || getLang();
+  const lang = textLang(`${title} ${editIngText()}`) || getLang();
   const grid = () => found.length
     ? found.map((c, i) => `<button type="button" class="pick" data-i="${i}" title="${esc(c.title || '')}"><img src="${esc(c.thumb || c.url)}" alt="" loading="lazy" referrerpolicy="no-referrer"><span class="pick-src">${SRC_LABEL[c.source] || c.source}</span></button>`).join('')
     : '';
@@ -2462,7 +2440,7 @@ function foodsSettings() {
   <h2>${esc(t('foodsUnknown'))} <small>${unknown.length}</small></h2>
   ${unknown.length ? `<ul class="list food-unknown">${unknown.slice(0, 150).map((u) => `<li><span class="fu-name">${esc(u.name)} <small>${u.n > 1 ? `×${u.n} · ` : ''}${esc(where(u.where))}</small></span>
     <span class="fu-acts"><button type="button" class="btn small" data-action="fu-link" data-value="${esc(u.name)}">${esc(t('foodsLink'))}</button><button type="button" class="btn small ghost" data-action="fu-new" data-value="${esc(u.name)}">${esc(t('foodsNew'))}</button></span></li>`).join('')}</ul>`
-    : `<p class="empty">${esc(t('foodsAllKnownLong'))}</p>`}
+    : emptyState({ size: 'small', icon: 'check', tone: 'green', title: t('foodsAllKnown'), text: t('foodsAllKnownLong') })}
   <h2>${esc(t('foodsOwn'))} <small>${own.length}</small></h2>
   ${own.length ? `<ul class="list food-own">${own.map((f) => `<li><span>${deptIcon(f.dept || 'other')} ${esc(foodName(f.id, getLang()) || f.it || f.de || f.en)}${(f.alt || []).length ? ` <small>${esc(f.alt.join(', '))}</small>` : ''}</span><button type="button" class="icon" data-action="fu-del" data-id="${esc(f.id)}" aria-label="${esc(t('delete'))}">✕</button></li>`).join('')}</ul>` : `<p class="hint small">${esc(t('foodsOwnNone'))}</p>`}
   <h2>${esc(t('foodsExtra'))} <small>${extra.reduce((n, f) => n + f.alt.length, 0)}</small></h2>
@@ -2480,7 +2458,6 @@ function openFoodLink(name) {
     render();
   }, { sheet: true });
   const ff = modal.querySelector('#food-field');
-  ff.querySelector('[data-ff=none]').remove();
   wireFoodField(ff, st, () => name);
   modal.onclick = (e) => { foodFieldClick(e, st, ff, () => name); };
   ff.querySelector('[data-ff=open]').click();
@@ -2504,9 +2481,11 @@ function openNewFood(name) {
   }, { sheet: true });
 }
 
-// ---------- which food: the "Non è questo" field (item sheet, product sheet, Ingredienti) ----------
+// ---------- which food: the "Correggi" field (item sheet, product sheet, ingredient sheet, Ingredienti) ----------
+// One job, one place (v42): correcting a food always teaches the dictionary (data/foods.json), so the
+// same name is that food everywhere. Nothing is pinned to a single item any more; older pins still count.
 
-// st: { food, pinned, choice: null | 'pick' | 'none' | 'new' }
+// st: { food, pinned, choice: null | 'pick' | 'new' }
 function foodState(rec) { return { food: rec ? (rec.foodPinned && !rec.food ? null : foodOfItemSafe(rec)) : null, pinned: Boolean(rec?.foodPinned), choice: null }; }
 function foodOfItemSafe(rec) { const id = rec.food && foodRec(rec.food) ? foodRec(rec.food).id : (rec.foodPinned ? null : foodOf(rec.name)); return id; }
 function foodLabelHtml(id) {
@@ -2516,12 +2495,13 @@ function foodLabelHtml(id) {
 }
 function foodFieldHtml(st, name) {
   return `<div class="sl-field food-field" id="food-field"><span>${esc(t('foodLabel'))}</span>
-    <div class="ff-row"><span class="ff-cur">${foodLabelHtml(st.food)}${st.pinned || st.choice ? ' <small>📌</small>' : ''}</span>
+    <div class="ff-row"><span class="ff-cur">${foodLabelHtml(st.food)}</span>
       <button type="button" class="ff-btn link-btn" data-ff="open">${esc(t('notThis'))}</button></div>
     <div class="ff-pick" hidden>
+      <p class="hint small ff-hint">${esc(t('foodFixHint', name || '…'))}</p>
       <input class="ff-q" id="ff-q" placeholder="${esc(t('searchFoodPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchFoodPh'))}">
       <ul class="ff-res"></ul>
-      <div class="ff-more"><button type="button" class="sl-chip" data-ff="none">${esc(t('noFood'))}</button><button type="button" class="sl-chip dashed" data-ff="new">${esc(t('newFood', name || ''))}</button></div>
+      <div class="ff-more"><button type="button" class="sl-chip dashed" data-ff="new">${esc(t('newFood', name || ''))}</button></div>
     </div></div>`;
 }
 function foodResultsHtml(q) {
@@ -2537,15 +2517,20 @@ function foodFieldClick(e, st, root, getName) {
   const act = b.dataset.ff;
   if (act === 'open') {
     pick.hidden = !pick.hidden;
-    if (!pick.hidden) { const q = pick.querySelector('.ff-q'); q.value = getName(); pick.querySelector('.ff-res').innerHTML = foodResultsHtml(q.value); q.focus(); q.select(); }
+    if (!pick.hidden) {
+      const nm = getName();
+      const q = pick.querySelector('.ff-q'); q.value = nm;
+      pick.querySelector('.ff-hint').textContent = t('foodFixHint', nm || '…');
+      pick.querySelector('[data-ff=new]').textContent = t('newFood', nm);
+      pick.querySelector('.ff-res').innerHTML = foodResultsHtml(q.value); q.focus(); q.select();
+    }
     return true;
   }
   if (act === 'pick') { st.food = b.dataset.id; st.choice = 'pick'; }
-  if (act === 'none') { st.food = null; st.choice = 'none'; }
   if (act === 'new') { st.food = null; st.choice = 'new'; st.newName = getName(); }
   root.querySelector('.ff-cur').innerHTML = st.choice === 'new'
-    ? `✨ ${esc(t('newFoodShort', st.newName))} <small>📌</small>`
-    : `${foodLabelHtml(st.food)} <small>📌</small>`;
+    ? `✨ ${esc(t('newFoodShort', st.newName))}`
+    : foodLabelHtml(st.food);
   pick.hidden = true;
   return true;
 }
@@ -2572,9 +2557,9 @@ function newUserFood(name, dept) {
 /** The record with the food the person chose in the field (or, without a choice, refreshed after a rename). */
 function applyFoodChoice(rec, st, newName, dept, oldName = rec.name) {
   const out = { ...rec };
-  if (st.choice === 'pick') { out.food = st.food; out.foodPinned = true; addFoodName(st.food, newName); return out; }
-  if (st.choice === 'none') { delete out.food; out.foodPinned = true; return out; }
-  if (st.choice === 'new') { out.food = newUserFood(st.newName || newName, dept); out.foodPinned = true; return out; }
+  // a correction goes into the dictionary; the item then simply follows it (an older pin is dropped)
+  if (st.choice === 'pick') { addFoodName(st.food, newName); out.food = st.food; delete out.foodPinned; return out; }
+  if (st.choice === 'new') { out.food = newUserFood(st.newName || newName, dept); delete out.foodPinned; return out; }
   return newName !== oldName ? refood(out, newName) : out;
 }
 
@@ -2759,6 +2744,7 @@ function render() {
     default: html = viewRecipes();
   }
   paint(view, html, (v) => { hydrate(v); updatePantryBadge(); });
+  if (r.name === 'edit') afterEditRender();
   updateSyncBadge();
   refreshSheet();
 }
@@ -3070,11 +3056,7 @@ view.addEventListener('change', onViewChange);
 
 function onViewInput(e) {
   if (e.target.dataset.pa && ui.putaway && e.target.type !== 'checkbox') ui.putaway.rows[+e.target.dataset.i][e.target.dataset.pa] = e.target.value;
-  if (e.target.closest('#edit-form') && (e.target.name === 'ingredients' || e.target.name === 'servings')) {
-    const form = e.target.form;
-    const el = $('#nutri-preview');
-    if (el && form) el.innerHTML = nutritionPreview(form.servings.value, form.ingredients.value);
-  }
+  editInput(e);
   // searching the shopping list: not saved, lasts while the screen is open
   if (e.target.id === 'shop-q') { ui.listQ = e.target.value; render(); return; }
   if (e.target.id === 'pantry-q') { ui.pantryQ = e.target.value; render(); return; }
@@ -3088,7 +3070,9 @@ view.addEventListener('input', onViewInput);
 
 // the ✕ in the list's search: keep the phone's keyboard open; Esc does the same as ✕
 view.addEventListener('pointerdown', (e) => { if (e.target.closest('.search-clear')) e.preventDefault(); });
+view.addEventListener('focusout', editFocusOut);
 view.addEventListener('keydown', (e) => {
+  if (editKeydown(e)) return;
   if (e.key === 'Escape' && (e.target.id === 'shop-q' || e.target.id === 'pantry-q') && e.target.value) {
     e.preventDefault();
     if (e.target.id === 'shop-q') ui.listQ = ''; else ui.pantryQ = '';
@@ -3101,6 +3085,7 @@ view.addEventListener('keydown', (e) => {
 function onViewClick(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn || btn.dataset.action === 'sl-toggle' || (btn.dataset.action === 'sl-select' && btn.tagName === 'INPUT')) return;
+  if (editClick(btn)) return;
   const { action, id } = btn.dataset;
   switch (action) {
     case 'srv-dec':
@@ -3226,6 +3211,15 @@ function onViewClick(e) {
     case 'open-filters': openSheet('filters'); break;
     case 'pantry-toggle': ui.withPantry = !ui.withPantry; if (route().name !== 'recipes' && route().name !== 'folder') location.hash = '#/recipes'; else render(); break;
     case 'open-add': openSheet('add'); break;
+    case 'recipes-q-clear': ui.search = ''; render(); break;
+    case 'es-staple': {
+      const set = ui.pantryStart || (ui.pantryStart = new Set());
+      if (set.has(id)) set.delete(id); else set.add(id);
+      render();
+      break;
+    }
+    case 'es-staples-add': addStartStaples(); break;
+    case 'es-type': document.getElementById('add-pantry-input')?.focus(); break;
     case 'sheet-close': if (modal.open) modal.close(); break;
     case 'sort': saveSettings({ sort: btn.dataset.value }).then(render); break;
     case 'rview': saveSettings({ recipeView: btn.dataset.value }).then(render); break;
@@ -3932,7 +3926,6 @@ function queueImport(url) {
 function saveRecipe(form) {
   const id = ui.edit?.id || (form.dataset.id === 'new' ? uid() : form.dataset.id);
   const prev = get('recipes', id) || { createdAt: Date.now() };
-  const lines = (v) => v.split('\n').map((s) => s.trim()).filter(Boolean);
   upsert('recipes', {
     ...prev, id,
     title: form.title.value.trim(),
@@ -3942,14 +3935,11 @@ function saveRecipe(form) {
     prepMin: form.prepMin.value.trim() === '' ? undefined : Math.max(0, Math.round(+form.prepMin.value)),
     waitMin: form.waitMin.value.trim() === '' ? undefined : Math.max(0, Math.round(+form.waitMin.value)),
     image: form.image.value.trim(),
-    ingredients: withFoods(parseIngs(groupLines(lines(form.ingredients.value))), prev.ingredients || []),
-    steps: lines(form.steps.value),
+    ingredients: editIngredients(),
+    steps: editSteps(),
     notes: form.notes.value.trim(),
     cuisine: form.cuisine ? form.cuisine.value.trim() : prev.cuisine,
-    ...(form.ownTags ? {
-      tags: [...new Map(form.ownTags.value.split(',').map((x) => x.trim().replace(/\s+/g, ' ')).filter(Boolean).map((x) => [x.toLowerCase(), x])).values()],
-      hiddenTags: [...form.querySelectorAll('input[name=autoOn]')].filter((x) => !x.checked).map((x) => x.value),
-    } : {}),
+    ...editTags(),
     folderId: form.folderId.value || null,
     source: form.sourceType.value ? {
       type: form.sourceType.value,
@@ -3972,6 +3962,7 @@ function saveRecipe(form) {
   }
   ui.prefillUrl = '';
   ui.prefillSource = null;
+  editMarkClean();
   ui.edit = null;
   delete ui.servings[id];
   location.hash = `#/recipe/${encodeURIComponent(id)}`;
@@ -4091,6 +4082,7 @@ async function autoConfigure() {
 }
 
 async function start() {
+  setupEditView({ ui, modal, uid, withFoods, parseIngs, ingredientsOf, grip, openModal, foodState, foodFieldHtml, foodFieldClick, wireFoodField, applyFoodChoice, deptGuess: (name) => deptOf({ name }), nutritionLine, autoTags, tagDefs, autoLabel, folderOf, folderOptions, recipeFolderId, folderHref, countryName, booksDatalist, photoStrip, photoTag, lookForDishPhoto, deleteRecipeUndoable });
   setupRecipeView({ ui, modal, stageOfR, tagDefs, tagLabel, nutritionOf, nutritionBox, folderHref, recipeFolderId, folderOf, coverOf, photoTag, timesLine, sourceLabel, ingredientsOf, servingsFor, openModal, changed, setStage, deleteRecipeUndoable, folderOptions });
   await load();
   refreshUserFoods();
@@ -4103,6 +4095,13 @@ async function start() {
   if (!isConfigured()) migrateStages(); // connected devices do it after a sync, on fresh data
   onChange((kind) => { if (COLLECTIONS.includes(kind) || kind === 'meta') renderIfSafe(); else if (kind === 'meta-time') updateSyncBadge(); });
   window.addEventListener('hashchange', () => {
+    // leaving the editor with unsaved changes: back to it, then ask
+    if (ui.edit && route().name !== 'edit' && editIsDirty()) {
+      const target = location.hash;
+      history.replaceState(null, '', `#/edit/${ui.edit.route}`);
+      confirmLeaveEdit().then((ok) => { if (ok) location.hash = target; });
+      return;
+    }
     if (ui.sheet && modal.open) modal.close();
     // "Con la dispensa" lasts while you stay with the recipes (and their pages)
     if (!['recipes', 'folder', 'recipe', 'edit', 'suggest'].includes(route().name)) ui.withPantry = false;
