@@ -984,3 +984,12 @@ p.center { text-align: center; }
 .receipt-card.error .rc-main strong { color: var(--danger); }
 .receipt-card .icon-btn { width: 40px; height: 40px; font-size: 1rem; color: var(--muted); }
 .pa-raw { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .75rem; }
+
+/* ---------- v45: Everyday's planned trips ---------- */
+.trip-card { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; padding: 10px 12px; margin: 8px 0 10px; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.trip-card .tc-ico { font-size: 1.3rem; }
+.trip-card .tc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.trip-card .tc-main small { color: var(--muted); }
+.trip-card .tc-act { color: var(--accent); font-weight: 600; font-size: .85rem; white-space: nowrap; }
+.trip-card.on { border-color: var(--accent); background: var(--accent-soft); }
+.shop-trip { margin-left: 6px; color: var(--accent); font-weight: 600; }

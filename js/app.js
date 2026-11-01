@@ -9,7 +9,7 @@ import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './vi
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 import { GUIDE } from './guide.js';
 
-const APP_VERSION = 'v44';
+const APP_VERSION = 'v45';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -31,6 +31,7 @@ import { availableModes, currentMode, saveModeTarget, groupItems, itemMatches, a
 import { listHtml, rowsHtml, viewSheetHtml, itemSheetHtml, shopChipsHtml, cartBarHtml, menuHtml } from './shoplist-ui.js';
 import { DEPTS, DEPT_IDS, deptIcon, deptOf } from './depts.js';
 import { shopStatus } from './shop-status.js';
+import { assignItems } from './shops.js';
 import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
@@ -1227,7 +1228,57 @@ function listLabels() {
     less: t('fewerQty'), more: t('moreQty'), save: t('save'), delete: t('delete'), cancel: t('cancel'), inCart: (n) => t('inCartN', n),
   };
 }
-const LIST_FMT = { qty: (i) => (i.qty != null || i.unit ? qtyText(i.qty, i.unit) : ''), shopNames: (i) => shopNamesOf(i), addedDay: (i) => addedDay(i) };
+const LIST_FMT = { qty: (i) => (i.qty != null || i.unit ? qtyText(i.qty, i.unit) : ''), shopNames: (i) => itemWhere(i), addedDay: (i) => addedDay(i) };
+
+// ---------- Everyday's planned trips (v45): read-only pref `trips`, written by Everyday ----------
+// { id: 'trips', value: [{ id, date, start, minutes, shops: [shopId…] }] }; shops [] = the general run (items naming no shop).
+function upcomingTrips() {
+  const v = pref('trips', []);
+  if (!Array.isArray(v)) return [];
+  const td = todayStr(); const now = new Date(); const nowMin = now.getHours() * 60 + now.getMinutes();
+  return v.filter((tr) => tr && tr.date && (tr.date > td || (tr.date === td && (tr.start ?? 0) + (tr.minutes || 0) > nowMin)))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.start || 0) - (b.start || 0)));
+}
+// item id → its trip, worked out like Everyday does (assignItems over the open items)
+function tripOfItems() {
+  const trips = upcomingTrips();
+  const map = new Map();
+  if (!trips.length) return map;
+  const open = live('shopping').filter((i) => !i.checked);
+  const byShop = assignItems(open, shopsSorted()) || new Map();
+  for (const tr of trips) {
+    const list = (tr.shops || []).length ? (tr.shops || []).flatMap((sid) => byShop.get(sid) || []) : open.filter((i) => !itemShopIds(i).length);
+    for (const i of list) if (!map.has(i.id)) map.set(i.id, tr);
+  }
+  return map;
+}
+function tripWhen(tr) {
+  const td = todayStr();
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const tm = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  const [y, m, d] = tr.date.split('-').map(Number);
+  const day = tr.date === td ? t('tripToday') : tr.date === tm ? t('tripTomorrow') : new Date(y, m - 1, d).toLocaleDateString(getLang(), { weekday: 'long' });
+  return `${day} ${hhmm(tr.start || 0)}`;
+}
+function tripShops(tr) { return (tr.shops || []).map((sid) => shopById(sid)?.name).filter(Boolean); }
+// the meta line's "where": the trip when one is planned ("sabato 10:00 · Esselunga"), else the item's shops
+function itemWhere(i) {
+  const tr = ui.tripMap?.get(i.id);
+  if (!tr) return shopNamesOf(i);
+  const name = (tr.shops || []).length ? shopById(ui.tripShopOf?.get(i.id))?.name : '';
+  return [`🛒 ${tripWhen(tr)}${name ? ` · ${name}` : ''}`];
+}
+function nextTripCard(open) {
+  const tr = upcomingTrips()[0];
+  if (!tr) return '';
+  const n = open.filter((i) => ui.tripMap?.get(i.id) === tr).length;
+  if (!n && !ui.tripOnly) return '';
+  const shops = tripShops(tr);
+  return `<button type="button" class="card trip-card${ui.tripOnly ? ' on' : ''}" data-action="trip-only" aria-pressed="${Boolean(ui.tripOnly)}">
+    <span class="tc-ico" aria-hidden="true">🛒</span><span class="tc-main"><strong>${esc(t('nextTrip'))} · ${esc(tripWhen(tr))}</strong>
+    <small>${esc([shops.join(', ') || t('tripAnyShop'), t('nThings', n)].join(' · '))}</small></span>
+    <span class="tc-act">${esc(t(ui.tripOnly ? 'showAllItems' : 'showTrip'))}</span></button>`;
+}
 function listFilters() { return (ui.listFilters ||= { shop: '', low: false }); }
 
 function viewList() {
@@ -1239,7 +1290,13 @@ function viewList() {
   const nf = listFilterCount(f);
   const match = (i) => !q || itemMatches(i, q, shopNamesOf(i));
   const allOpen = items.filter((i) => !i.checked);
-  const open = filterItems(allOpen.filter(match), f, { shops: shopsSorted() });
+  ui.tripMap = tripOfItems();
+  ui.tripShopOf = new Map();
+  for (const [sid, list] of assignItems(allOpen, shopsSorted()) || []) for (const i of list) ui.tripShopOf.set(i.id, sid);
+  const next = upcomingTrips()[0];
+  if (ui.tripOnly && !next) ui.tripOnly = false;
+  let open = filterItems(allOpen.filter(match), f, { shops: shopsSorted() });
+  if (ui.tripOnly) open = open.filter((i) => ui.tripMap.get(i.id) === next);
   const done = items.filter((i) => i.checked && match(i)).sort(byItemOrder);
   const selecting = Boolean(ui.sel);
   // ⠿ only in "My order", or in the other views after ⋯ → Reorder
@@ -1267,6 +1324,7 @@ function viewList() {
     <button type="button" class="sb-btn ${nf ? 'on' : ''}" data-action="list-view-sheet" aria-label="${esc(t('viewFilters'))}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="sb-mode">${esc(t(`listMode_${mode}`))}</span></button>
   </div>
+  ${nextTripCard(allOpen)}
   ${chips.length ? `<div class="active-chips">${chips.join('')}</div>` : ''}
   ${state.meta.contractNewer ? `<p class="hint warn contract-note">${esc(t('contractNewer'))}</p>` : ''}
   ${ui.reorder && !selecting ? `<div class="reorder-bar"><span>${esc(t(GROUPED_MODES.includes(mode) ? 'dragHintGroups' : 'dragHintItems'))}</span><button type="button" class="btn small" data-action="reorder-done">${esc(t('done'))}</button></div>` : ''}
@@ -2334,7 +2392,9 @@ function shopHead(id) {
   const txt = st.state === 'always' ? '' : st.state === 'open' ? t('shopOpenUntil', hhmm(st.until))
     : st.state === 'later' ? t('shopOpensAt', hhmm(st.at)) : st.state === 'next' ? t('shopOpensOn', dateText(st.date).split(' ')[0].replace(/,$/, ''), hhmm(st.at)) : t('shopClosedWeek');
   const link = sh.link ? ` <a class="shop-link" href="${esc(sh.link)}" target="_blank" rel="noopener" aria-label="${esc(sh.place || sh.link)}">📍</a>` : '';
-  return txt || link ? `<span class="shop-status ${st.state}">${esc(txt)}${link}</span>` : '';
+  const trip = upcomingTrips().find((tr) => (tr.shops || []).includes(id));
+  const tripTxt = trip ? `<span class="shop-trip">🛒 ${esc(tripWhen(trip))}</span>` : '';
+  return txt || link || tripTxt ? `<span class="shop-status ${st.state}">${esc(txt)}${link}${tripTxt}</span>` : '';
 }
 
 // An item's own shops that still exist, in its order of preference
@@ -3225,6 +3285,7 @@ function onViewClick(e) {
       break;
     }
     case 'es-staples-add': addStartStaples(); break;
+    case 'trip-only': ui.tripOnly = !ui.tripOnly; render(); break;
     case 'receipt-putaway': startReceiptPutAway(id); break;
     case 'receipt-remove': undoableRemove('queue', id, () => render()); break;
     case 'es-type': document.getElementById('add-pantry-input')?.focus(); break;
@@ -4063,7 +4124,7 @@ async function wipeLocalData() {
 
 async function deviceHasData() {
   // the app's own bookkeeping (stagesV1) doesn't make a device "hold data"
-  return COLLECTIONS.some((c) => live(c).filter((x) => !(c === 'prefs' && ['stagesV1', 'contract', 'staplesAsked', 'catCleanV1'].includes(x.id))).length > 0) || (await kvKeys('img:')).length > 0;
+  return COLLECTIONS.some((c) => live(c).filter((x) => !(c === 'prefs' && ['stagesV1', 'contract', 'staplesAsked', 'catCleanV1', 'trips'].includes(x.id))).length > 0) || (await kvKeys('img:')).length > 0;
 }
 
 async function saveGithub(form) {
@@ -4185,7 +4246,7 @@ async function start() {
     // "Con la dispensa" lasts while you stay with the recipes (and their pages)
     if (!['recipes', 'folder', 'recipe', 'edit', 'suggest'].includes(route().name)) ui.withPantry = false;
     if (route().name !== 'edit') ui.edit = null;
-    if (route().name !== 'list') { ui.sel = null; ui.listQ = ''; }
+    if (route().name !== 'list') { ui.sel = null; ui.listQ = ''; ui.tripOnly = false; }
     if (route().name !== 'pantry') ui.pantryQ = '';
     window.scrollTo(0, 0);
     render();

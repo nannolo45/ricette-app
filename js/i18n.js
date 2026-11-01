@@ -6,6 +6,8 @@ const plural = (n, one, many) => (n === 1 ? one : many);
 
 const dict = {
   it: {
+    // v45 trips from Everyday
+    tripToday: 'oggi', tripTomorrow: 'domani', nextTrip: 'Prossimo giro', tripAnyShop: 'spesa generica', nThings: (n) => (n === 1 ? '1 cosa' : `${n} cose`), showTrip: 'Mostra solo questo', showAllItems: 'Mostra tutto',
     // v44 receipts
     receiptRead: 'Leggi uno scontrino', receiptNeedsGithub: 'Per leggere gli scontrini serve il collegamento a GitHub (Impostazioni → Collegamento GitHub).', receiptHint: 'Fotografa lo scontrino dritto e ben illuminato; se è lungo, in più foto dall\'alto in basso.', receiptPrivacy: 'La foto va nel tuo repository privato, viene letta lì e poi cancellata.', receiptSend: 'Leggi lo scontrino', receiptSent: 'Scontrino inviato: lo leggo e te lo mostro qui in Dispensa.', receiptDone: (n) => (n === 1 ? 'Scontrino letto: 1 prodotto' : `Scontrino letto: ${n} prodotti`), receiptTotal: (x) => `Totale ${x} €`, receiptFailed: 'Scontrino non letto', receiptNoItems: 'Non ho trovato prodotti con un prezzo. Riprova con una foto più dritta e nitida.', receiptTryAgain: 'Qualcosa è andato storto. Riprova con un\'altra foto.', receiptReading: 'Sto leggendo lo scontrino…', receiptWait: 'Di solito ci vuole un minuto o due.', receiptPutAwayHint: 'Ecco cosa ho letto sullo scontrino. Correggi i nomi, togli la spunta a ciò che non va in dispensa e aggiungi le scadenze se vuoi. Quello che era nella lista della spesa ne esce.', offTheList: 'esce dalla lista',
     // v43 empty states
@@ -216,6 +218,8 @@ const dict = {
     installHint: 'Suggerimento: aggiungi l\'app alla schermata Home per usarla come un\'app, anche offline.',
   },
   de: {
+    // v45 trips from Everyday
+    tripToday: 'heute', tripTomorrow: 'morgen', nextTrip: 'Nächster Einkauf', tripAnyShop: 'allgemeiner Einkauf', nThings: (n) => (n === 1 ? '1 Sache' : `${n} Sachen`), showTrip: 'Nur diesen zeigen', showAllItems: 'Alles zeigen',
     // v44 receipts
     receiptRead: 'Kassenbon lesen', receiptNeedsGithub: 'Zum Lesen von Kassenbons braucht es die GitHub-Verbindung (Einstellungen → GitHub-Verbindung).', receiptHint: 'Fotografiere den Bon gerade und gut beleuchtet; einen langen in mehreren Fotos von oben nach unten.', receiptPrivacy: 'Das Foto kommt in dein privates Repository, wird dort gelesen und dann gelöscht.', receiptSend: 'Bon lesen', receiptSent: 'Bon gesendet: ich lese ihn und zeige ihn dir hier im Vorrat.', receiptDone: (n) => (n === 1 ? 'Bon gelesen: 1 Produkt' : `Bon gelesen: ${n} Produkte`), receiptTotal: (x) => `Summe ${x} €`, receiptFailed: 'Bon nicht gelesen', receiptNoItems: 'Keine Produkte mit Preis gefunden. Versuch es mit einem geraderen, schärferen Foto.', receiptTryAgain: 'Etwas ist schiefgegangen. Versuch es mit einem anderen Foto.', receiptReading: 'Ich lese den Bon…', receiptWait: 'Das dauert meist ein bis zwei Minuten.', receiptPutAwayHint: 'Das habe ich auf dem Bon gelesen. Korrigiere die Namen, nimm den Haken bei allem weg, was nicht in den Vorrat gehört, und trag Ablaufdaten ein, wenn du willst. Was auf der Einkaufsliste stand, wird davon gestrichen.', offTheList: 'kommt von der Liste',
     // v43 empty states
@@ -426,6 +430,8 @@ const dict = {
     installHint: 'Tipp: Füge die App zum Home-Bildschirm hinzu, dann funktioniert sie wie eine App, auch offline.',
   },
   en: {
+    // v45 trips from Everyday
+    tripToday: 'today', tripTomorrow: 'tomorrow', nextTrip: 'Next trip', tripAnyShop: 'general shop', nThings: (n) => (n === 1 ? '1 thing' : `${n} things`), showTrip: 'Show only this', showAllItems: 'Show all',
     // v44 receipts
     receiptRead: 'Read a receipt', receiptNeedsGithub: 'Reading receipts needs the GitHub connection (Settings → GitHub connection).', receiptHint: 'Photograph the receipt straight and well lit; a long one in several photos, top to bottom.', receiptPrivacy: 'The photo goes to your private repository, is read there and then deleted.', receiptSend: 'Read the receipt', receiptSent: 'Receipt sent: I’ll read it and show it to you here in the Pantry.', receiptDone: (n) => (n === 1 ? 'Receipt read: 1 product' : `Receipt read: ${n} products`), receiptTotal: (x) => `Total €${x}`, receiptFailed: 'Receipt not read', receiptNoItems: 'No products with a price found. Try a straighter, sharper photo.', receiptTryAgain: 'Something went wrong. Try another photo.', receiptReading: 'Reading the receipt…', receiptWait: 'It usually takes a minute or two.', receiptPutAwayHint: 'This is what I read on the receipt. Fix the names, untick what doesn’t go in the pantry and add expiry dates if you like. What was on the shopping list comes off it.', offTheList: 'comes off the list',
     // v43 empty states

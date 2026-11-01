@@ -118,6 +118,12 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Everyday's trips on the list (v45, Nov 1):** copy the contents of `app/` to the top of ricette-app (nothing in
+  the data repo beyond v44's files). When Everyday has planned grocery trips (*Pianifica la spesa*, Everyday v46),
+  each item on Ricette's list says which trip it's on ("🛒 domani 10:00 · Esselunga"), a *Prossimo giro* card at the
+  top shows only the next trip's items when tapped, and in the Shops view each shop shows its next trip. Everyday
+  writes the trips (pref `trips`); Ricette only reads them. Meals planned in Everyday now also count as cooked on the
+  recipe (Everyday adds to the same counter as *L'ho cucinata*).
 - **Receipts (v44, Nov 1):** copy the contents of `app/` to the top of ricette-app, **and** in the data repo copy
   `scripts/import-recipes.mjs`, `scripts/ocr.mjs`, the new `scripts/lib/receipt.js` and
   `.github/workflows/import-recipes.yml` (a hidden folder: it now installs text recognition for receipts too). In the
