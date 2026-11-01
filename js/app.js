@@ -9,7 +9,7 @@ import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './vi
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 import { GUIDE } from './guide.js';
 
-const APP_VERSION = 'v43';
+const APP_VERSION = 'v44';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -250,7 +250,7 @@ function postSync() {
     }
   }
   for (const q of live('queue')) {
-    if (q.status === 'done' && q.type !== 'book' && q.type !== 'search' && Date.now() - (q.updatedAt || 0) > 60_000) remove('queue', q.id);
+    if (q.status === 'done' && !['book', 'search', 'receipt'].includes(q.type) && Date.now() - (q.updatedAt || 0) > 60_000) remove('queue', q.id);
     if (q.type === 'image' && q.status === 'error' && Date.now() - (q.updatedAt || 0) > 86_400_000) remove('queue', q.id);
   }
   // pictures for recipes that have none: the GitHub job looks for them, a batch at a time
@@ -362,7 +362,7 @@ function updateSyncBadge(syncing = isSyncing()) { shellSyncBadge(syncing); }
 // ---------- views ----------
 
 // queue entries the user put there (links, photos, books) — not the app's own jobs
-const USER_QUEUE = (q) => !['search', 'image', 'autophoto'].includes(q.type);
+const USER_QUEUE = (q) => !['search', 'image', 'autophoto', 'receipt'].includes(q.type);
 
 function viewRecipes() {
   const folderId = currentFolderId();
@@ -1415,6 +1415,7 @@ function commitPutAway() {
     if (r.itemId) remove('shopping', r.itemId);
     n++;
   }
+  if (P.receiptId) remove('queue', P.receiptId); // the receipt is done with
   ui.putaway = null;
   ensureLowItems();
   location.hash = '#/pantry';
@@ -1451,10 +1452,11 @@ function viewPutAway() {
   const P = ui.putaway;
   if (!P) return `<a class="back" href="#/list">← ${esc(t('tabList'))}</a><p class="empty">${esc(t('putAwayEmpty'))}</p>`;
   const n = P.rows.filter((r) => r.include).length;
+  const back = P.receiptId ? '#/pantry' : '#/list';
   return `
-  <a class="back" href="#/list">← ${esc(t('tabList'))}</a>
+  <a class="back" href="${back}">← ${esc(t(P.receiptId ? 'tabPantry' : 'tabList'))}</a>
   <h1>📦 ${esc(t('putAway'))}</h1>
-  <p class="hint">${esc(t('putAwayHint'))}</p>
+  <p class="hint">${esc(t(P.receiptId ? 'receiptPutAwayHint' : 'putAwayHint'))}</p>
   <button class="btn scan-btn" type="button" data-action="pa-scan">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8"/></svg>
     ${esc(t('putAwayScan'))}</button>
@@ -1471,13 +1473,13 @@ function viewPutAway() {
             <select id="pa-unit-${i}" data-pa="unit" data-i="${i}" aria-label="${esc(t('unit'))}">${UNITS.map((u) => `<option value="${u}" ${u === (r.unit || '') ? 'selected' : ''}>${esc(unitOptionLabel(u))}</option>`).join('')}</select>
             <label class="pa-exp"><span>${esc(t('expires'))}</span><input type="date" id="pa-expires-${i}" data-pa="expires" data-i="${i}" value="${esc(r.expires || '')}"></label>
           </div>
-          <small>→ ${esc(where)}${r.barcode ? ` · 🏷️ ${esc(r.brand || r.barcode)}` : ''}${r.stocked ? ` · ${esc(t('alreadyCounted'))}` : ''}</small>
+          <small>→ ${esc(where)}${r.barcode ? ` · 🏷️ ${esc(r.brand || r.barcode)}` : ''}${r.stocked ? ` · ${esc(t('alreadyCounted'))}` : ''}${P.receiptId && r.itemId ? ` · ${esc(t('offTheList'))}` : ''}${r.raw ? ` · <span class="pa-raw">${esc(r.raw)}</span>` : ''}</small>
         </div>
       </li>`;
     }).join('')}</ul>
     <div class="button-row">
       <button class="btn primary" ${n ? '' : 'disabled'}>📦 ${esc(t('putAwayConfirm', n))}</button>
-      <a class="btn" href="#/list">${esc(t('cancel'))}</a>
+      <a class="btn" href="${back}">${esc(t('cancel'))}</a>
     </div>
   </form>`;
 }
@@ -1565,6 +1567,7 @@ function setLevel(p, level) {
 function openPantryMenu() {
   const entries = [
     { id: 'scan', label: `▥ ${t('scan')}` },
+    { id: 'receipt', label: `🧾 ${t('receiptRead')}` },
     { id: 'staples', label: `🫙 ${t('staplesPickTitle')}` },
     { id: 'settings', label: `⚙ ${t('setPage_pantry')}` },
   ];
@@ -1575,6 +1578,7 @@ function openPantryMenu() {
     modal.close();
     const v = b.dataset.value;
     if (v === 'scan') startScan();
+    if (v === 'receipt') setTimeout(openReceiptCapture, 0);
     if (v === 'staples') setTimeout(() => openStaplesPicker(false), 0);
     if (v === 'settings') location.hash = '#/settings/pantry';
   };
@@ -1683,6 +1687,7 @@ function viewPantry() {
   </div>
   <div class="f-chips p-summary" role="group" aria-label="${esc(t('filters'))}">${summary('expiring')}${summary('low')}<a class="chip suggest-link" href="#/suggest">🍳 ${esc(t('whatCanICook'))}</a></div>
   ${extraChip}` : ''}
+  ${receiptCards()}
   ${plain ? staplesCard() : ''}
   ${plain && groups.length > 1 ? `<div class="dept-overview">${groups.map(([c, , list]) => {
     const n = counts(list);
@@ -3002,7 +3007,7 @@ view.addEventListener('sorted', (e) => onSorted(e.detail));
 document.addEventListener('pointerdown', () => { ui.pointerDown = true; }, true);
 const pointerReleased = () => setTimeout(() => {
   ui.pointerDown = false;
-  if (ui.renderLater && !isDragging()) { ui.renderLater = false; renderIfSafe(); }
+  if (ui.renderLater && !isDragging()) { ui.renderLater = false; if (route().name === 'putaway') render(); else renderIfSafe(); }
 }, 50);
 document.addEventListener('pointerup', pointerReleased, true);
 document.addEventListener('pointercancel', pointerReleased, true);
@@ -3017,7 +3022,8 @@ function onViewChange(e) {
     const row = ui.putaway.rows[+el.dataset.i];
     row[el.dataset.pa] = el.type === 'checkbox' ? el.checked : el.value;
     if (el.dataset.pa === 'name') { row.pantryId = null; row.cat = null; }
-    render();
+    // leaving a field by tapping a button: redraw after the tap, or the tap would land on a replaced button
+    if (ui.pointerDown) ui.renderLater = true; else render();
   }
   if (el.dataset.pref === 'autoPhotos') { setPref('autoPhotos', el.checked); changed(); }
   if (el.dataset.src || el.dataset.site) {
@@ -3219,6 +3225,8 @@ function onViewClick(e) {
       break;
     }
     case 'es-staples-add': addStartStaples(); break;
+    case 'receipt-putaway': startReceiptPutAway(id); break;
+    case 'receipt-remove': undoableRemove('queue', id, () => render()); break;
     case 'es-type': document.getElementById('add-pantry-input')?.focus(); break;
     case 'sheet-close': if (modal.open) modal.close(); break;
     case 'sort': saveSettings({ sort: btn.dataset.value }).then(render); break;
@@ -3606,6 +3614,77 @@ function openPhotoCapture() {
     c.scans.splice(+b.dataset.i, 1);
     refreshCapture();
   };
+}
+
+// ---------- shop receipts (v44): photo → read by the GitHub job → the Metti in dispensa screen ----------
+
+function openReceiptCapture() {
+  if (!isConfigured()) { toast(t('receiptNeedsGithub')); return; }
+  const c = ui.capture = { id: uid(), kind: 'receipt', scans: [], busy: false };
+  openModal(`
+    <h2>🧾 ${esc(t('receiptRead'))}</h2>
+    <div class="photo-strip" id="scan-strip"></div>
+    <p class="hint">${esc(t('receiptHint'))}</p>
+    <p class="hint small">${esc(t('receiptPrivacy'))}</p>
+    <div class="button-row">
+      <button class="btn primary" value="ok" disabled>${esc(t('receiptSend'))}</button>
+      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
+    </div>`, () => {
+    if (!c.scans.length) return;
+    upsert('queue', { id: c.id, type: 'receipt', scans: [...c.scans], status: 'pending', addedAt: Date.now() }, { silent: true });
+    ui.capture = null;
+    changed();
+    toast(t('receiptSent'));
+  }, { sheet: true });
+  refreshCapture();
+  modal.onchange = async (e) => {
+    const el = e.target;
+    if (el.id === 'scan-input' && el.files.length) {
+      c.busy = true; refreshCapture();
+      for (const f of [...el.files]) {
+        try { c.scans.push(await addScan(c.id, f)); } catch { toast(t('photoError')); }
+      }
+      c.busy = false; refreshCapture();
+    }
+  };
+  modal.onclick = (e) => {
+    const b = e.target.closest('[data-action=scan-remove]');
+    if (!b) return;
+    c.scans.splice(+b.dataset.i, 1);
+    refreshCapture();
+  };
+}
+
+function receiptCards() {
+  const list = live('queue').filter((q) => q.type === 'receipt').sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  return list.map((q) => {
+    const x = `<button type="button" class="icon-btn" data-action="receipt-remove" data-id="${esc(q.id)}" aria-label="${esc(t('remove'))}">✕</button>`;
+    if (q.status === 'done') {
+      return `<div class="card receipt-card done"><span class="rc-ico" aria-hidden="true">🧾</span><div class="rc-main"><strong>${esc(t('receiptDone', (q.items || []).length))}</strong>${q.total != null ? `<small>${esc(t('receiptTotal', q.total.toFixed(2).replace('.', getLang() === 'en' ? '.' : ',')))}</small>` : ''}</div>
+        <button type="button" class="btn primary small" data-action="receipt-putaway" data-id="${esc(q.id)}">📦 ${esc(t('putAway'))}</button>${x}</div>`;
+    }
+    if (q.status === 'error') {
+      return `<div class="card receipt-card error"><span class="rc-ico" aria-hidden="true">🧾</span><div class="rc-main"><strong>${esc(t('receiptFailed'))}</strong><small>${esc(t(q.error === 'no_items' ? 'receiptNoItems' : 'receiptTryAgain'))}</small></div>${x}</div>`;
+    }
+    const msg = navigator.onLine && !state.meta.dirty ? t('receiptReading') : t('importQueuedOffline');
+    return `<div class="card receipt-card pending"><span class="spinner"></span><div class="rc-main"><strong>${esc(msg)}</strong><small>${esc(t('receiptWait'))}</small></div>${x}</div>`;
+  }).join('');
+}
+
+function startReceiptPutAway(id) {
+  const q = get('queue', id);
+  if (!q || !(q.items || []).length) return;
+  const open = live('shopping');
+  const used = new Set();
+  const rows = q.items.map((it) => {
+    const name = String(it.name || '').trim();
+    // bought what was on the list: putting it away takes it off the list too
+    const onList = open.find((i) => !used.has(i.id) && sameFood(i, name));
+    if (onList) used.add(onList.id);
+    return { itemId: onList?.id || null, include: true, name, qty: it.qty ?? 1, unit: it.unit || '', expires: '', pantryId: null, raw: it.raw || '', ...foodFields(name) };
+  });
+  ui.putaway = { rows, flash: -1, receiptId: id };
+  location.hash = '#/putaway';
 }
 
 // ---------- barcode scanning ----------

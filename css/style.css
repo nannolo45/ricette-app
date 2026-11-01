@@ -975,3 +975,12 @@ p.center { text-align: center; }
 .empty-state.small .es-acts { flex-direction: row; flex-wrap: wrap; justify-content: center; width: auto; }
 .empty-state .es-acts .btn { min-height: 46px; justify-content: center; }
 .empty-state .es-acts .btn[disabled] { opacity: .5; }
+
+/* ---------- v44: receipts ---------- */
+.receipt-card { display: flex; align-items: center; gap: 10px; padding: 10px 6px 10px 12px; margin: 10px 0; }
+.receipt-card .rc-ico { font-size: 1.4rem; }
+.receipt-card .rc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.receipt-card .rc-main small { color: var(--muted); }
+.receipt-card.error .rc-main strong { color: var(--danger); }
+.receipt-card .icon-btn { width: 40px; height: 40px; font-size: 1rem; color: var(--muted); }
+.pa-raw { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .75rem; }

@@ -118,6 +118,15 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Receipts (v44, Nov 1):** copy the contents of `app/` to the top of ricette-app, **and** in the data repo copy
+  `scripts/import-recipes.mjs`, `scripts/ocr.mjs`, the new `scripts/lib/receipt.js` and
+  `.github/workflows/import-recipes.yml` (a hidden folder: it now installs text recognition for receipts too). In the
+  Pantry, ⋯ → *Leggi uno scontrino*: photograph a receipt (a long one in several photos). The GitHub job reads it
+  (free, Tesseract, in your private repo) and deletes the photo; a minute or two later the Pantry shows *Scontrino
+  letto: N prodotti*. *Metti in dispensa* opens the same screen as after shopping, with the products, their pack sizes
+  and the receipt line under each: fix names, untick what doesn't belong, add expiry dates, confirm. Anything that was
+  on the shopping list comes off it. Italian and German receipts work best. Also fixed: on the Metti in dispensa
+  screen, tapping the button straight after editing a name no longer gets lost.
 - **Empty screens (v43, Nov 1):** copy the contents of `app/` to the top of ricette-app (nothing in the data repo).
   Every screen with nothing in it now says why and offers one next step: a new collection welcomes you with *Aggiungi
   una ricetta* and *Collega GitHub*; empty Preferite / Da provare, an empty folder, a search or filters with no results
