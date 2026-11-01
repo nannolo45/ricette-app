@@ -9,7 +9,7 @@ import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './vi
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 import { GUIDE } from './guide.js';
 
-const APP_VERSION = 'v46';
+const APP_VERSION = 'v47';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -376,14 +376,15 @@ function viewRecipes() {
   return `
   ${!folderId ? `<div class="seg" role="tablist" aria-label="${esc(t('recipesPart'))}">${SEGS.map((k) => `<button type="button" role="tab" class="seg-btn ${k === seg ? 'on' : ''}" aria-selected="${k === seg}" data-action="seg" data-value="${k}">${esc(t(`seg_${k}`))}${k === 'all' ? '' : ` <small>${counts[k]}</small>`}</button>`).join('')}</div>` : ''}
   ${active.length && !showQueue ? importNote(active) : ''}
-  <div class="searchbar">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-    <input type="search" id="search" placeholder="${esc(t('search'))}" value="${esc(ui.search)}" aria-label="${esc(t('search'))}">
-    ${viewToggle()}
-    <button type="button" class="sb-btn ${filterCount() ? 'on' : ''}" data-action="open-filters" aria-label="${esc(t('filtersTitle'))}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>${filterCount() ? `<span>${filterCount()}</span>` : ''}</button>
+  <div class="search-row">
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="search" placeholder="${esc(t('search'))}" value="${esc(ui.search)}" aria-label="${esc(t('search'))}">
+    </div>
+    ${filterButton()}
   </div>
-  ${quickChips()}
+  ${filtersClosedLine()}
+  ${filterPanel()}
   ${withPantry() ? pantryBar() : ''}
   ${!withPantry() && (folderId || seg === 'all') ? `<div class="folder-bar">
     <div class="crumbs">
@@ -418,38 +419,41 @@ function importNote(active) {
   </button>`;
 }
 
-// v46: one row of quick switches under the search: sorting, Con la dispensa, ≤ 30 min, your pinned tags,
-// then every other filter in use (removable). Everything else is in the Filtri sheet.
+// v47: "Filtri" opens a panel right under the search, as in Everyday: sorting and view, the quick switches,
+// then sections that open in place, one at a time. Closed, only what's in use stays visible, as removable chips.
 const SORT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>';
-function quickChips() {
-  const f = filters();
-  const x = (label, kind, value = '') => `<button type="button" class="chip on x" data-action="f-x" data-kind="${kind}" data-value="${esc(value)}" aria-label="${esc(t('removeFilter', label))}">${esc(label)} ✕</button>`;
-  const pins = pinnedTags().filter((tg) => tagCount().has(tg));
-  const tv = f.maxTime || 30;
-  const out = [];
-  // with Con la dispensa on, the list is ranked by what's at home (its own control is in the bar below)
-  if (!withPantry()) out.push(`<button type="button" class="chip sort-chip ${sortKey() !== 'new' ? 'set' : ''}" data-action="sort-menu" aria-haspopup="dialog">${SORT_SVG}<span>${esc(sortLabel())}</span><span class="caret" aria-hidden="true">▾</span></button>`);
-  out.push(chip(`🍳 ${t('withPantry')}`, 'pantry-toggle', '', withPantry()));
-  out.push(chip(`≤ ${tv} min`, 'f-time', tv, Boolean(f.maxTime)));
-  for (const tg of pins) out.push(`<button type="button" class="chip pin-q ${f.tags.includes(tg) ? 'on' : ''}" data-action="f-tag" data-value="${esc(tg)}" aria-pressed="${f.tags.includes(tg)}">${esc(tagLabel(tg))}</button>`);
-  out.push(...f.tags.filter((tg) => !pins.includes(tg)).map((tg) => x(tagLabel(tg), 'tag', tg)));
-  if (f.source) out.push(x({ web: t('srcWeb'), book: t('srcBook'), note: t('srcNote') }[f.source], 'source'));
-  if (f.maxActive) out.push(x(`🔪 ≤ ${f.maxActive} min`, 'maxActive'));
-  if (f.maxKcal) out.push(x(`≤ ${f.maxKcal} kcal`, 'maxKcal'));
-  if (f.minProt) out.push(x(`≥ ${f.minProt} g`, 'minProt'));
-  if (f.ready) out.push(x(t(f.ready === 'all' ? 'readyNow' : 'missingAtMost2'), 'ready'));
-  if (f.archived) out.push(x(t('archivedOnly'), 'archived'));
-  if (globalPeople()) out.push(`<a class="chip ghost-chip" href="#/settings/recipes">👥 ${esc(t('people', globalPeople()))}</a>`);
-  return `<div class="active-chips quick-row">${out.join('')}</div>`;
+const FILTER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>';
+function filtersOpen() { return Boolean(ui.filtersOpen); }
+function filterButton() {
+  const n = filterCount() + (withPantry() ? 1 : 0);
+  const open = filtersOpen();
+  return `<button type="button" class="f-toggle ${open ? 'open' : ''}" data-action="filters-toggle" aria-expanded="${open}" aria-controls="fpanel">${FILTER_SVG}<span>${esc(t('filtersTitle'))}</span>${n ? `<span class="f-count">${n}</span>` : ''}</button>`;
 }
-function viewToggle() {
-  const grid = state.settings.recipeView === 'grid';
-  return `<button type="button" class="sb-btn view-btn" data-action="rview" data-value="${grid ? 'list' : 'grid'}" aria-label="${esc(t(grid ? 'viewList' : 'viewGrid'))}" title="${esc(t(grid ? 'viewList' : 'viewGrid'))}">${grid
-    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
-    : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>'}</button>`;
+// every filter in use, as {label, kind, value}: the closed panel shows them as ✕ chips
+function activeFilters() {
+  const f = filters();
+  const src = { web: t('srcWeb'), book: t('srcBook'), note: t('srcNote') };
+  return [
+    f.maxTime && { label: `≤ ${f.maxTime} min`, kind: 'maxTime' },
+    ...f.tags.map((tg) => ({ label: tagLabel(tg), kind: 'tag', value: tg })),
+    f.maxActive && { label: `🔪 ≤ ${f.maxActive} min`, kind: 'maxActive' },
+    f.maxKcal && { label: `≤ ${f.maxKcal} kcal`, kind: 'maxKcal' },
+    f.minProt && { label: `≥ ${f.minProt} g`, kind: 'minProt' },
+    f.source && { label: src[f.source], kind: 'source' },
+    f.ready && { label: t(f.ready === 'all' ? 'readyNow' : 'missingAtMost2'), kind: 'ready' },
+    f.archived && { label: t('archivedOnly'), kind: 'archived' },
+  ].filter(Boolean);
+}
+function filtersClosedLine() {
+  if (filtersOpen()) return '';
+  const chips = activeFilters();
+  // with Con la dispensa on, the list is ranked by what's at home: no sort line (its bar is below)
+  const sortShown = !withPantry() && (chips.length || sortKey() !== 'new');
+  if (!chips.length && !sortShown) return '';
+  return `<div class="active-chips f-closed">${chips.map((c) => `<button type="button" class="chip on x" data-action="f-x" data-kind="${c.kind}" data-value="${esc(c.value || '')}" aria-label="${esc(t('removeFilter', c.label))}">${esc(c.label)} ✕</button>`).join('')}${sortShown ? `<button type="button" class="f-sortline" data-action="filters-toggle">${SORT_SVG}<span>${esc(sortLabel())}</span></button>` : ''}</div>`;
 }
 
-// Sorting (v46): its own short panel. "Al contrario" replaces the old pairs (newest/oldest, A–Z/Z–A).
+// Sorting (v46): "Al contrario" replaces the old pairs (newest/oldest, A–Z/Z–A). v47: it opens inside the panel.
 const SORT_BASES = ['new', 'az', 'quick', 'active', 'fewest', 'cooked', 'recent', 'kcal', 'protein'];
 function sortBase() { const k = sortKey(); return k === 'old' ? 'new' : k === 'za' ? 'az' : k; }
 function sortReversed() { const k = sortKey(); return k === 'old' || k === 'za' || (!['new', 'az'].includes(k) && Boolean(state.settings.sortRev)); }
@@ -463,21 +467,12 @@ function setSort(base, rev) {
   if (base === 'az') return saveSettings({ sort: rev ? 'za' : 'az', sortRev: false });
   return saveSettings({ sort: base, sortRev: Boolean(rev) });
 }
-function openSortMenu() {
-  const draw = () => {
-    const base = sortBase(); const rev = sortReversed();
-    return `<div class="sheet-head"><h2>${esc(t('sortBy'))}</h2><button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}" formnovalidate value="cancel">✕</button></div>
-      <div class="sort-list" role="radiogroup" aria-label="${esc(t('sortBy'))}">${SORT_BASES.map((k) => `<button type="button" class="sort-opt ${k === base ? 'on' : ''}" role="radio" aria-checked="${k === base}" data-sort="${k}"><span class="dot" aria-hidden="true"></span><span>${esc(t(`sortBase_${k}`))}</span></button>`).join('')}</div>
-      <button type="button" class="sort-rev ${rev ? 'on' : ''}" role="switch" aria-checked="${rev}" data-sort-rev="1"><span>${esc(t('sortReversed'))}</span><small>${esc(t(`sortRevHint_${base}`))}</small><span class="sw-btn ${rev ? 'on' : ''}" aria-hidden="true"><span></span></span></button>`;
-  };
-  openModal(`<div id="sort-menu">${draw()}</div>`, () => {}, { sheet: true });
-  modal.onclick = (e) => {
-    if (e.target === modal) { modal.close(); return; }
-    if (e.target.closest('[data-action=sheet-close]')) { modal.close(); return; }
-    const o = e.target.closest('[data-sort]');
-    if (o) { setSort(o.dataset.sort, sortReversed() && o.dataset.sort === sortBase()).then(() => { modal.close(); render(); }); return; }
-    if (e.target.closest('[data-sort-rev]')) setSort(sortBase(), !sortReversed()).then(() => { modal.querySelector('#sort-menu').innerHTML = draw(); render(); });
-  };
+function sortBox() {
+  const base = sortBase(); const rev = sortReversed();
+  return `<div class="sort-box">
+    <div class="sort-list" role="radiogroup" aria-label="${esc(t('sortBy'))}">${SORT_BASES.map((k) => `<button type="button" class="sort-opt ${k === base ? 'on' : ''}" role="radio" aria-checked="${k === base}" data-action="sort-pick" data-value="${k}"><span class="dot" aria-hidden="true"></span><span>${esc(t(`sortBase_${k}`))}</span></button>`).join('')}</div>
+    <button type="button" class="sort-rev ${rev ? 'on' : ''}" role="switch" aria-checked="${rev}" data-action="sort-rev"><span>${esc(t('sortReversed'))}</span><small>${esc(t(`sortRevHint_${base}`))}</small><span class="sw-btn ${rev ? 'on' : ''}" aria-hidden="true"><span></span></span></button>
+  </div>`;
 }
 
 // ---------- sheets (v33): panels that slide up from the bottom; the view's own handlers work inside ----------
@@ -500,7 +495,7 @@ function openSheet(kind) {
 function sheetHtml(kind) {
   if (kind === 'list') return listSheetHtml();
   if (kind === 'pantry') return pantrySheetHtml();
-  return kind === 'add' ? addSheetHtml() : filterSheetHtml();
+  return kind === 'add' ? addSheetHtml() : '';
 }
 
 function refreshSheet() {
@@ -510,38 +505,6 @@ function refreshSheet() {
   const top = body.scrollTop;
   body.innerHTML = sheetHtml(ui.sheet);
   body.scrollTop = top;
-}
-
-function pantrySection() {
-  const f = filters();
-  const on = withPantry();
-  return `<section class="f-sec pantry-sec ${on ? 'on' : ''}">
-    <div class="switch-row">
-      <span><strong>🍳 ${esc(t('withPantry'))}</strong><small>${esc(t('withPantryHint'))}</small></span>
-      <button type="button" class="sw-btn ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-action="pantry-toggle" aria-label="${esc(t('withPantry'))}"><span></span></button>
-    </div>
-    ${on ? `<div class="f-chips">${SUGGEST_SORTS.map((k) => chip(t(`suggest_${k}`), 'suggest-sort', k, k === suggestSort())).join('')}</div>` : ''}
-    <div class="f-chips">${chip(t('readyNow'), 'f-ready', 'all', f.ready === 'all')}${chip(t('missingAtMost2'), 'f-ready', 'two', f.ready === 'two')}</div>
-    <label class="check"><input type="checkbox" id="basics-sheet" ${state.settings.basics !== false ? 'checked' : ''}> ${esc(t('basicsAlways'))}</label>
-  </section>`;
-}
-
-function filterSheetHtml() {
-  const { list } = recipeList();
-  const on = withPantry();
-  return `
-  <div class="sheet-head"><h2>${esc(t('filtersTitle'))}</h2>${filterCount() ? `<button type="button" class="link-btn f-reset" data-action="f-clear">${esc(t('clearFilters'))}</button>` : ''}<button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}">✕</button></div>
-  <section class="f-sec pantry-sec ${on ? 'on' : ''}">
-    <div class="switch-row">
-      <span><strong>🍳 ${esc(t('withPantry'))}</strong><small>${esc(t('withPantryHint'))}</small></span>
-      <button type="button" class="sw-btn ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-action="pantry-toggle" aria-label="${esc(t('withPantry'))}"><span></span></button>
-    </div>
-    <div class="f-chips">${chip(t('readyNow'), 'f-ready', 'all', filters().ready === 'all')}${chip(t('missingAtMost2'), 'f-ready', 'two', filters().ready === 'two')}</div>
-  </section>
-  ${filterPanel()}
-  <div class="sheet-foot">
-    <button type="button" class="btn primary" data-action="sheet-close">${esc(t('showNRecipes', list.length))}</button>
-  </div>`;
 }
 
 function addSheetHtml() {
@@ -727,11 +690,11 @@ const DIET_TAGS = ['veg', 'vegan', 'meat', 'fish'];
 const TAGS_SHOWN = 8;
 
 function filterPanel() {
+  if (!filtersOpen()) return '';
   const f = filters();
   const tags = allTags();
   const editing = ui.pinEdit;
-  const pins = pinnedTags();
-  const open = (ui.fOpen ||= {});
+  const pins = pinnedTags().filter((tg) => tagCount().has(tg));
   const tagChip = ([tg, n]) => editing
     ? `<button type="button" class="chip pin-chip ${pins.includes(tg) ? 'on' : ''}" data-action="pin-toggle" data-value="${esc(tg)}" aria-pressed="${pins.includes(tg)}">${pins.includes(tg) ? '📌 ' : ''}${esc(tagLabel(tg))}</button>`
     : chip(tagLabel(tg), 'f-tag', tg, f.tags.includes(tg), ` <small>${n}</small>`);
@@ -742,42 +705,69 @@ function filterPanel() {
     if (id && isOriginTag(id)) return 'origin';
     return 'other';
   };
-  const byKind = (k) => tags.filter(([tg]) => kind(tg) === k);
-  const group = (label, list, extra = '', cls = '') => (list.length || extra ? `<div class="f-group ${cls}"><div class="f-sub">${esc(label)}</div><div class="f-chips">${list.map(tagChip).join('')}${extra}</div></div>` : '');
+  // pinned tags live in the quick switches, so their section doesn't repeat them (except while choosing them)
+  const byKind = (k) => tags.filter(([tg]) => kind(tg) === k && (editing || !pins.includes(tg)));
+  const grid = state.settings.recipeView === 'grid';
+  const n = recipeList().list.length;
+
+  const head = `<div class="fp-row">
+      ${withPantry() ? `<span class="fp-note">🍳 ${esc(t('sortedByPantry'))}</span>` : `<button type="button" class="fp-sort" data-action="sort-open" aria-expanded="${Boolean(ui.sortOpen)}">${SORT_SVG}<span>${esc(sortLabel())}</span><span class="chev" aria-hidden="true">⌄</span></button>`}
+      <button type="button" class="fp-view" data-action="rview" data-value="${grid ? 'list' : 'grid'}">${grid
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>'}<span>${esc(t(grid ? 'viewList' : 'viewGrid'))}</span></button>
+    </div>
+    ${ui.sortOpen && !withPantry() ? sortBox() : ''}`;
+
   if (editing) {
-    return `<div class="filter-panel pin-editing"><section class="f-sec">
+    const group = (label, l) => (l.length ? `<div class="f-group"><div class="f-sub">${esc(label)}</div><div class="f-chips">${l.map(tagChip).join('')}</div></div>` : '');
+    return `<div class="fpanel pin-editing" id="fpanel">
       <div class="f-head-row"><h4 class="f-head">📌 ${esc(t('pinTags'))}</h4><button type="button" class="link-btn" data-action="pin-edit" aria-pressed="true">✓ ${esc(t('done'))}</button></div>
       <p class="hint small">${esc(t('pinHintBar'))}</p>
       ${group(t('tagGroupCourse'), byKind('course'))}${group(t('tagGroupDiet'), byKind('diet'))}${group(t('tagGroupOrigin'), byKind('origin'))}${group(t('tagGroupOther'), byKind('other'))}
-    </section></div>`;
+    </div>`;
   }
-  // Origine: the four you'd most likely pick (chosen ones first, then the biggest), the rest one tap away
-  const origins = [...byKind('origin')].sort(([a, na], [b, nb]) => (f.tags.includes(b) - f.tags.includes(a)) || nb - na);
-  const originShown = open.origin ? origins : origins.filter(([tg], i) => i < 4 || f.tags.includes(tg));
-  const originMore = origins.length > 4 ? `<button type="button" class="chip more" data-action="f-open" data-value="origin">${esc(open.origin ? t('showLess') : t('allN', origins.length))}</button>` : '';
-  const other = byKind('other');
-  const fold = (key, label, value, body) => `<div class="f-fold ${open[key] ? 'open' : ''}">
-      <button type="button" class="f-fold-head" data-action="f-open" data-value="${key}" aria-expanded="${Boolean(open[key])}"><span>${esc(label)}</span><small>${esc(value)}</small><span class="chev" aria-hidden="true">›</span></button>
-      ${open[key] ? `<div class="f-fold-body">${body}</div>` : ''}</div>`;
-  const limits = [f.maxActive && `🔪 ≤ ${f.maxActive} min`, f.maxKcal && `≤ ${f.maxKcal} kcal`, f.minProt && `≥ ${f.minProt} g`].filter(Boolean).join(', ');
+
+  const quick = `<div class="f-chips fp-quick">
+      ${chip(`🍳 ${t('withPantry')}`, 'pantry-toggle', '', withPantry())}
+      ${[15, 30, 60].map((m) => chip(`≤ ${m} min`, 'f-time', m, f.maxTime === m)).join('')}
+      ${pins.map((tg) => `<button type="button" class="chip pin-q ${f.tags.includes(tg) ? 'on' : ''}" data-action="f-tag" data-value="${esc(tg)}" aria-pressed="${f.tags.includes(tg)}">${esc(tagLabel(tg))}</button>`).join('')}
+    </div>`;
+
+  const picked = (l) => l.filter(([tg]) => f.tags.includes(tg)).map(([tg]) => tagLabel(tg));
+  const tagSection = (id, label, l) => (l.length ? { id, label, picked: picked(l), body: `<div class="f-chips">${l.map(tagChip).join('')}</div>` } : null);
+  const g = (label, body) => `<div class="f-group"><div class="f-sub">${esc(label)}</div><div class="f-chips">${body}</div></div>`;
   const src = { web: t('srcWeb'), book: t('srcBook'), note: t('srcNote') };
-  const otherOn = other.filter(([tg]) => f.tags.includes(tg)).map(([tg]) => tagLabel(tg));
-  return `<div class="filter-panel">
+  const morePicked = [f.maxActive && `🔪 ≤ ${f.maxActive} min`, f.maxKcal && `≤ ${f.maxKcal} kcal`, f.minProt && `≥ ${f.minProt} g`, f.source && src[f.source], f.ready && t(f.ready === 'all' ? 'readyNow' : 'missingAtMost2'), f.archived && t('archivedOnly')].filter(Boolean);
+  const sections = [
+    tagSection('course', t('tagGroupCourse'), byKind('course')),
+    tagSection('diet', t('tagGroupDiet'), byKind('diet')),
+    tagSection('origin', t('tagGroupOrigin'), byKind('origin')),
+    tagSection('other', t('tagGroupOther'), byKind('other')),
+    { id: 'more', label: t('moreFilters'), picked: morePicked, body: [
+      g(`🔪 ${t('activeTimeLabel')}`, [10, 20, 30].map((m) => chip(`≤ ${m} min`, 'f-active', m, f.maxActive === m)).join('')),
+      g(`🔥 ${t('calories')} · ${t('perPerson')}`, [400, 600, 800].map((k) => chip(`≤ ${k} kcal`, 'f-kcal', k, f.maxKcal === k)).join('')),
+      g(`💪 ${t('protein')} · ${t('perPerson')}`, [15, 25, 35].map((x) => chip(`≥ ${x} g`, 'f-prot', x, f.minProt === x)).join('')),
+      g(t('sourceLabel'), [['web', `🌐 ${t('srcWeb')}`], ['book', `📖 ${t('srcBook')}`], ['note', `✍️ ${t('srcNote')}`]].map(([v, l]) => chip(l, 'f-source', v, f.source === v)).join('')),
+      g(`🍳 ${t('readyGroup')}`, chip(t('readyNow'), 'f-ready', 'all', f.ready === 'all') + chip(t('missingAtMost2'), 'f-ready', 'two', f.ready === 'two')),
+      g(t('archivedOnly'), chip(t('archivedShow'), 'f-archived', '1', f.archived)),
+    ].join('') },
+  ].filter(Boolean);
+  const open = ui.fSec;
+  const folds = sections.map((x) => `<div class="f-fold ${open === x.id ? 'open' : ''}" data-sec="${x.id}">
+      <button type="button" class="f-fold-head" data-action="f-sec" data-value="${x.id}" aria-expanded="${open === x.id}"><span>${esc(x.label)}</span><small class="${x.picked.length ? 'set' : ''}">${esc(x.picked.join(', ') || t(x.id === 'more' ? 'noLimit' : 'anySource'))}</small><span class="chev" aria-hidden="true">›</span></button>
+      ${open === x.id ? `<div class="f-fold-body">${x.body}</div>` : ''}</div>`).join('');
+
+  return `<div class="fpanel" id="fpanel">
+    ${head}
+    ${quick}
     ${!tags.length ? `<p class="hint small">${esc(t('noTagsYet'))}</p>` : ''}
-    <section class="f-sec"><div class="f-group"><div class="f-sub">⏱ ${esc(t('totalTimeLabel'))}</div>
-      <div class="seg f-seg" role="radiogroup">${[0, 15, 30, 60].map((m) => `<button type="button" role="radio" aria-checked="${f.maxTime === m}" class="seg-btn ${f.maxTime === m ? 'on' : ''}" data-action="f-time-set" data-value="${m}">${esc(m ? `≤ ${m}` : t('anyTime'))}</button>`).join('')}</div></div>
-      ${group(t('tagGroupCourse'), byKind('course'), '', 'scroll')}
-      ${group(t('tagGroupDiet'), byKind('diet'))}
-      ${group(t('tagGroupOrigin'), originShown, originMore)}
-    </section>
-    <section class="f-sec f-folds">
-      ${other.length ? fold('other', t('tagGroupOther'), otherOn.join(', ') || other.slice(0, 3).map(([tg]) => tagLabel(tg)).join(', ') + (other.length > 3 ? '…' : ''), `<div class="f-chips">${other.map(tagChip).join('')}</div>`) : ''}
-      ${fold('limits', t('limitsRow'), limits || t('noLimit'), `<div class="f-group"><div class="f-sub">🔪 ${esc(t('activeTimeLabel'))}</div><div class="f-chips">${[10, 20, 30].map((m) => chip(`≤ ${m} min`, 'f-active', m, f.maxActive === m)).join('')}</div></div>
-        <div class="f-group"><div class="f-sub">🔥 ${esc(t('calories'))} · ${esc(t('perPerson'))}</div><div class="f-chips">${[400, 600, 800].map((k) => chip(`≤ ${k} kcal`, 'f-kcal', k, f.maxKcal === k)).join('')}</div></div>
-        <div class="f-group"><div class="f-sub">💪 ${esc(t('protein'))} · ${esc(t('perPerson'))}</div><div class="f-chips">${[15, 25, 35].map((g) => chip(`≥ ${g} g`, 'f-prot', g, f.minProt === g)).join('')}</div></div>`)}
-      ${fold('source', t('sourceLabel'), f.source ? src[f.source] : t('anySource'), `<div class="f-chips">${[['web', `🌐 ${t('srcWeb')}`], ['book', `📖 ${t('srcBook')}`], ['note', `✍️ ${t('srcNote')}`]].map(([v, l]) => chip(l, 'f-source', v, f.source === v)).join('')}</div>`)}
-      ${fold('archived', t('archivedOnly'), f.archived ? t('archivedShown') : t('archivedHidden'), `<div class="f-chips">${chip(t('archivedOnly'), 'f-archived', '1', f.archived)}</div>`)}
-    </section>
+    <div class="f-folds">${folds}</div>
+    <div class="fp-foot">
+      <span class="fp-count">${esc(t('nRecipes', n))}</span>
+      ${globalPeople() ? `<a class="fp-people" href="#/settings/recipes">👥 ${esc(t('people', globalPeople()))}</a>` : ''}
+      ${filterCount() ? `<button type="button" class="link-btn f-reset" data-action="f-clear">${esc(t('clearFilters'))}</button>` : ''}
+      <button type="button" class="btn small ghost" data-action="filters-toggle">${esc(t('close'))}</button>
+    </div>
     ${tags.length ? `<p class="f-pin-link"><button type="button" class="link-btn" data-action="pin-edit" aria-pressed="false">📌 ${esc(t('pinTagsBar'))}</button></p>` : ''}
   </div>`;
 }
@@ -3320,7 +3310,6 @@ function onViewClick(e) {
     case 'pa-scan': putAwayScan(); break;
     case 'dept-jump': document.getElementById(`dept-${btn.dataset.value}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
     case 'seg': if (!btn.dataset.keep) ui.search = ''; saveSettings({ recipeSeg: btn.dataset.value }).then(() => { if (route().name !== 'recipes') location.hash = '#/recipes'; else render(); }); break;
-    case 'open-filters': openSheet('filters'); break;
     case 'pantry-toggle': ui.withPantry = !ui.withPantry; if (route().name !== 'recipes' && route().name !== 'folder') location.hash = '#/recipes'; else render(); break;
     case 'open-add': openSheet('add'); break;
     case 'recipes-q-clear': ui.search = ''; render(); break;
@@ -3335,11 +3324,13 @@ function onViewClick(e) {
     case 'receipt-putaway': startReceiptPutAway(id); break;
     case 'receipt-remove': undoableRemove('queue', id, () => render()); break;
     case 'es-type': document.getElementById('add-pantry-input')?.focus(); break;
+    case 'open-filters': case 'filters-toggle': ui.filtersOpen = !filtersOpen(); ui.sortOpen = false; if (!ui.filtersOpen) ui.pinEdit = false; render(); break;
+    case 'sort-open': ui.sortOpen = !ui.sortOpen; render(); break;
+    case 'sort-pick': { const v = btn.dataset.value; setSort(v, v === sortBase() && sortReversed()).then(() => { ui.sortOpen = false; render(); }); break; }
+    case 'sort-rev': setSort(sortBase(), !sortReversed()).then(render); break;
+    case 'f-sec': ui.fSec = ui.fSec === btn.dataset.value ? null : btn.dataset.value; ui.sortOpen = false; render(); break;
     case 'sheet-close': if (modal.open) modal.close(); break;
     case 'sort': saveSettings({ sort: btn.dataset.value, sortRev: false }).then(render); break;
-    case 'sort-menu': openSortMenu(); break;
-    case 'f-open': { const o = (ui.fOpen ||= {}); o[btn.dataset.value] = !o[btn.dataset.value]; render(); break; }
-    case 'f-time-set': filters().maxTime = +btn.dataset.value; render(); break;
     case 'rview': saveSettings({ recipeView: btn.dataset.value }).then(render); break;
     case 'f-archived': { const f = filters(); f.archived = !f.archived; render(); break; }
     case 'f-x': {

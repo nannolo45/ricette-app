@@ -996,15 +996,6 @@ p.center { text-align: center; }
 .shop-trip { margin-left: 6px; color: var(--accent); font-weight: 600; }
 
 /* ---------- v46: quick chips, sort panel, compact filters ---------- */
-.active-chips.quick-row { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 10px -18px 8px; padding: 0 18px 2px; -webkit-overflow-scrolling: touch; }
-.active-chips.quick-row::-webkit-scrollbar { display: none; }
-.quick-row .chip { flex: none; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; text-decoration: none; }
-.quick-row .sort-chip { background: var(--surface); font-weight: 600; }
-.quick-row .sort-chip.set { border-color: var(--accent); color: var(--accent); }
-.quick-row .sort-chip svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.quick-row .sort-chip .caret { font-size: .7rem; opacity: .7; }
-.quick-row .ghost-chip { color: var(--muted); }
-.searchbar .view-btn { color: var(--muted); background: transparent; min-width: 40px; padding: 0 6px; }
 .sort-list { display: flex; flex-direction: column; margin: 4px 0 8px; }
 .sort-opt { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .sort-opt .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); flex: none; display: grid; place-items: center; }
@@ -1016,10 +1007,6 @@ p.center { text-align: center; }
 .sort-rev small { grid-column: 1; color: var(--muted); }
 .sort-rev .sw-btn { grid-column: 2; grid-row: 1 / 3; pointer-events: none; }
 .sheet-head .f-reset { margin-left: auto; margin-right: 6px; font-size: .9rem; }
-.seg.f-seg { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
-.f-group.scroll .f-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -18px; padding-right: 18px; }
-.f-group.scroll .f-chips::-webkit-scrollbar { display: none; }
-.f-group.scroll .chip { flex: none; }
 .f-folds { padding-top: 0; }
 .f-fold { border-top: 1px solid var(--line); }
 .f-fold:last-child { border-bottom: 1px solid var(--line); }
@@ -1030,3 +1017,39 @@ p.center { text-align: center; }
 .f-fold.open .chev { transform: rotate(90deg); }
 .f-fold-body { padding: 0 2px 12px; }
 .f-pin-link { margin: 10px 0 0; }
+
+/* v47: Filtri panel under the search (as in Everyday) — toggled, sections open in place, chips wrap */
+.search-row { display: flex; gap: 8px; align-items: stretch; margin: 0 0 10px; }
+.search-row .searchbar { flex: 1; min-width: 0; margin: 0; }
+.f-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; flex: none; }
+.f-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.f-toggle.open { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.f-toggle .f-count { min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: var(--accent); color: var(--bg, #1c1916); font-size: .72rem; font-weight: 700; display: inline-grid; place-items: center; }
+.f-closed { margin: 0 0 12px; }
+.f-sortline { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .82rem; cursor: pointer; }
+.f-sortline svg, .fp-sort svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.fpanel { display: flex; flex-direction: column; gap: 10px; padding: 12px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--surface) 70%, var(--bg, #1c1916)); }
+.fp-row { display: flex; gap: 8px; align-items: center; }
+.fp-sort { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.fp-sort > span:nth-child(2) { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-sort .chev { color: var(--muted); transition: transform .15s; }
+.fp-sort[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.fp-note { flex: 1; color: var(--muted); font-size: .88rem; }
+.fp-view { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; flex: none; }
+.fp-view svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.sort-box { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.sort-box .sort-list { margin: 0; }
+.sort-box .sort-opt { border-radius: 0; min-height: 44px; padding: 0 12px; }
+.sort-box .sort-rev { padding: 10px 12px; }
+.fpanel .f-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fpanel .f-folds { padding: 0; }
+.fpanel .f-fold:last-child { border-bottom: 0; }
+.fpanel .f-fold-head { min-height: 46px; }
+.fpanel .f-fold-head small.set { color: var(--accent); font-weight: 600; }
+.fpanel .f-fold-body { display: flex; flex-direction: column; gap: 10px; }
+.fpanel .f-group { margin: 0; }
+.fp-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 10px; }
+.fp-count { flex: 1; color: var(--muted); font-size: .88rem; }
+.fp-people { color: var(--muted); font-size: .85rem; text-decoration: none; }
+.fpanel .f-pin-link { margin: 0; }
+.fpanel.pin-editing .f-group + .f-group { margin-top: 4px; }

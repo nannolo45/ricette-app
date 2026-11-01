@@ -118,6 +118,12 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Filter panel (v47, Nov 2):** copy the contents of `app/` to the top of ricette-app. *Filtri* next to the search now
+  opens a panel right under it, as in Everyday, instead of a sheet: order (with *Al contrario*) and list/grid at the
+  top, then Con la dispensa, ≤ 15 / 30 / 60 min and your pinned tags, then Portata, Alimentazione, Origine, Altri tag
+  and *Lavoro, calorie, fonte*, which open in place one at a time. Chips wrap onto new lines; nothing scrolls sideways.
+  Closed, only the filters in use stay visible under the search, each with ✕, plus the current order. Replaces
+  v46's sideways chip row, the separate order sheet and the list/grid icon by the search.
 - **Quicker filters (v46, Nov 1):** copy the contents of `app/` to the top of ricette-app. *Vista e filtri* is split
   up: under the search, a row of switches you can scroll sideways (⇅ order, Con la dispensa, ≤ 30 min, your pinned
   tags, and any other filter in use with ✕); the order has its own short list with *Al contrario* instead of pairs
