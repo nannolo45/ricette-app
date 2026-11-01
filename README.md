@@ -118,6 +118,82 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Ingredient groups (v41, Nov 1):** replace the `app/` folder (ricette-app) **and** in the data repo copy
+  `scripts/import-recipes.mjs` and `scripts/lib/recipe-text.js`. Recipes can split their ingredients into groups
+  ("Per la frolla", "Per il ripieno"): in the editor, a line ending with ":" starts a group; the recipe page shows a
+  heading for each. Pasted text, photos, books and recipe sites that have such sub-headings keep them. Older recipes
+  that had "(per la crema)" at the end of several lines get proper groups after the next syncs, and recipes stored as
+  plain text lines are tidied into their parsed form.
+- **Which food is it: stored and correctable (v40, Nov 1):** replace the `app/` and `tools/` folders (ricette-app;
+  `app/js/lang-food.js` is gone, delete it if your upload tool doesn't), **and** in the data repo copy
+  `scripts/import-recipes.mjs` and `scripts/lib/foods.js` (and delete `scripts/lib/lang-food.js`, no longer used).
+  List items, pantry products and recipe ingredients now remember which food they are (filled in for existing data a
+  batch at a time after each sync). If Ricette gets one wrong, tap **Non è questo** in the item's or product's panel
+  and pick the right food, say it's none, or make a new one: the name is then recognised that way everywhere, in
+  Everyday too (new file `data/foods.json`). **Settings → Ingredienti e cibi** lists the names nothing recognises, your
+  own foods and the names you've added. Once, departments saved on list items by older versions are cleared where the
+  dictionary now knows better; departments you picked yourself stay.
+- **One food dictionary (v39, Nov 1):** replace the `app/` folder (ricette-app; new files `app/js/foods.js` and
+  `app/js/kitchen.js`; `lang-food.js`, `categories.js`, `depts.js`, `recipe-tools.js`, `nutrition.js` changed) **and**
+  copy `ricette-data/scripts/lib/` into the data repo (new `foods.js`, changed `lang-food.js`: the importer translates
+  titles with them). Every "is this the same food?" and "which aisle?" now goes through one dictionary of about 490
+  foods, household and personal-care items included, in it/de/en. What you'll notice: departments no longer depend on
+  the language you type in (*Blumenkohl* goes to Frutta e verdura like *cavolfiore*); *uova* and *uovo* are the same
+  for the recipe page, "Aggiungi alla spesa" and "L'ho cucinata"; *latte di cocco* no longer merges into *latte* on the
+  list. New list items no longer store a department; it's worked out when shown, unless you pick one.
+  The dictionary's sources are in `tools/foods/` (new folder in ricette-app; see its README). They aren't part of the website.
+- **Pantry staples: C'è / Poca / Finita (v38, Nov 1):** replace the `app/` folder (ricette-app; `app/js/shoplist-ui.js`
+  and `app/css/shoplist.css` changed, so Everyday gets them again). Nothing to do in the data repo. The pantry has the
+  list's layout: scan and ⋯ in the title, the view button in the search bar (views + all four filters), two summary
+  chips (in scadenza, in esaurimento) and *Cosa posso cucinare?*. Products can be counted as **C'è / Poca / Finita**
+  instead of a quantity (new optional fields `track: 'level'`, `level`): Poca/Finita put them on the list with no
+  quantity, cooking leaves them alone, putting them away sets them back to C'è. The app suggests it once for products
+  with no expiry and no threshold (⋯ → Scorte or Settings → Dispensa to change it later). The product panel now looks
+  like the list's item panel. In the shared item panel, Enter in a field saves instead of deleting.
+- **Settings in pages, a short guide in the app (v37, Nov 1):** replace the `app/` folder (ricette-app; new file
+  `app/js/guide.js`). Nothing to do in the data repo. Settings (the gear) opens on an index with the sync status and
+  seven pages: Collegamento GitHub, Spesa e negozi, Dispensa e promemoria, Ricette (people, tags, origin, photos, web
+  ideas), Lingua, Backup, Guida. Tag groups fold away. The pantry with staples (planned as "v36") ships next as v38, once Everyday v37 is out.
+- **New shopping list, shared with Everyday (v35, Nov 1):** replace the `app/` folder (ricette-app; new files
+  `app/js/shoplist-ui.js` and `app/css/shoplist.css`; `app/js/shoplist.js` and `app/js/recipe-tools.js` changed).
+  Nothing to do in the data repo. The list is built from the same pieces Everyday will use: rows without × or drag
+  handles (⠿ only in *Mio ordine* or after ⋯ → *Riordina*), a search bar with the view button, a "Vista e filtri" panel
+  (views + filters: one shop, running low), an item panel with − / + and shop chips, a cart bar at the bottom
+  (*Nel carrello · 3* opens the cart, *Metti in dispensa*), and ⋯ for Condividi, Seleziona, Riordina, Svuota carrello.
+  The folder `per-everyday/` in the zip holds the shared files for Everyday's repository (see the handoff).
+- **Recipe page for cooking, "Con la dispensa" (v34, Oct 31):** replace the `app/` folder (ricette-app; new files
+  `app/js/ui/format.js` and `app/js/views/recipe.js`). Nothing to do in the data repo. The recipe page is now for
+  reading and cooking: ☆ star for favourites, each ingredient says *in casa* / *manca* / *ne hai 2* / *sempre*, people
+  next to the ingredients, calories on one line, and a bar at the bottom with **🛒 N alla spesa**, **L'ho cucinata** and
+  **⋯** (Modifica, Sposta, Condividi, Elimina). Tags are edited in Modifica. "Cosa cucino?" became the **Con la
+  dispensa** switch in View and filters (Ho quasi tutto / Scade prima, ideas from the web below); *Cosa posso
+  cucinare?* on the Pantry tab turns it on.
+- **Recipe stages and the new Recipes tab (v33, Oct 31):** replace the `app/` folder (ricette-app; new file
+  `app/js/recipe-stage.js`) **and** `scripts/import-recipes.mjs` and `scripts/book.mjs` in the data repo (new
+  imports are marked "to try"). Every recipe now has a stage: **Preferita**, **Provata**, **Da provare** or
+  **Archiviata**. After the first sync, recipes from before get one automatically, once for all devices: from a book
+  → Da provare, cooked at least once → Preferita, everything else → Provata. Recipes opens on Preferite · Da provare ·
+  Tutte; one search bar (typing finds a recipe anywhere) with a "View and filters" panel (order, list or grid, people
+  for all recipes, tags, time, nutrition, pantry, archived). The Import tab became the **+** button; what's being
+  imported shows at the top of Da provare. Three tabs at the bottom; Settings is the gear at the top. Cooking a recipe
+  that was "to try" asks *Com'era?*.
+- **Faster sync, Undo, data sizes (v32, Oct 31):** replace the `app/` folder (ricette-app; new files
+  `app/js/shell.js` and `app/js/ui/dialogs.js`). Nothing to do in the data repo. A sync now checks which data files
+  changed (one folder listing) and downloads only those. Deleting a recipe, folder, list item or pantry product
+  happens at once with **Annulla** (Undo) in the message at the bottom; the remaining questions use the app's own
+  box instead of the browser's. Settings → GitHub shows how big each data file is.
+- **Switching repositories safely, "Empty this device" (Oct 31):** replace the `app/` folder (ricette-app). Nothing
+  to do in the data repo.
+- **Pantry laid out like the shopping list (Oct 30, evening):** replace the `app/` folder (ricette-app). Nothing to
+  do in the data repo.
+- **Dishwasher things are household (Oct 30, evening):** replace the `app/` folder (ricette-app). The same
+  `depts.js` goes into Everyday (`app/js/depts.js`), so both apps keep deciding alike.
+- **Shopping list like Everyday's (Oct 30, evening):** replace the `app/` folder (ricette-app; new files
+  `app/js/shoplist.js` and `app/js/depts.js`, both Everyday's, copied unchanged). Nothing to do in the data repo.
+- **Item dialog like Everyday's, new "Household & cleaning" department (Oct 30):** replace the `app/` folder
+  (ricette-app). Nothing to do in the data repo.
+- **Tap an item's name to edit it; "Ricette" at the top goes home (Oct 30):** replace the `app/` folder (ricette-app).
+  Nothing to do in the data repo.
 - **Shops for several items at once (Oct 30):** replace the `app/` folder (ricette-app). Nothing to do in the data repo.
 - **Shops (Oct 30):** replace the `app/` folder (new files `app/js/shops.js`, Everyday's file copied unchanged, and
   `app/js/shop-status.js`). Nothing to do in the data repo: `data/shops.json` is created when you add the first shop.
@@ -270,9 +346,33 @@ home-screen app has its own storage, so make sure everything is synced first and
 
 ## Good to know
 
+- **Another person, another repository.** Each person needs their own **empty** data repository (create a new one;
+  not a fork, template or copy of yours, or it starts with your recipes) and their own token. On a device that was
+  used with another repository, changing owner or repository in Settings asks first: **Start empty here** (for
+  another person, or a fresh start) or **Keep this device's data and merge it into the new repository**. Changing
+  only the token or branch doesn't ask. **Settings → Sync → Empty this device** removes recipes, pantry, list and
+  photos from that device only; nothing is deleted in the repository, and the next sync brings back what the
+  connected repository holds. Useful when handing a device over or when it shows something odd.
+
+- **Pantry:** laid out like the shopping list. Under the add field there are **Scansiona** and **Cosa posso
+  cucinare?**, then a search field (name, brand, department, barcode) and the **⇅** view menu: Reparti (with the
+  department shortcuts and the "In scadenza" box), Scadenza (expired / expiring / later / no date), Scorte (out /
+  running low / plenty), A–Z and Aggiunti di recente. The view is remembered on each device. Filter chips with
+  counts: In scadenza, Scaduti, In esaurimento, Finiti; tap one again to show everything. Rows, −/+ and the
+  product dialog work as before.
+- **Shopping list (same as Everyday's):** Everyday reads and writes the same list, so the two apps share their
+  logic files unchanged (`shoplist.js` for views, grouping and search; `depts.js` for departments; `shops.js` for
+  shops) and look alike. Under the add field: a search pill (name, note, recipe and shop names; accents ignored; also
+  finds ticked items) and the **⇅** view menu: Reparti, Ricette, Negozi, Mio ordine, A–Z, Aggiunti di recente,
+  Aggiunti per primi. Reparti, Ricette and Mio ordine are shared through `data/prefs.json`; the others are remembered
+  per device. Departments include 🧽 Casa e pulizia and 🧴 Cura della persona; new items get their department and the
+  date they were added straight away. In the Negozi view each item sits under its own first shop, and items without a
+  shop are under 🛒 Qualsiasi negozio, last. ⠿ dragging works in Reparti, Ricette, Negozi and Mio ordine, but not
+  while searching.
 - **Shops:** Settings → Negozi: add your shops with opening hours (by weekday, several time ranges a day, or a
-  single date), visit length, address and link; drag them into your order of preference. On the shopping list, ✎ on
-  an item picks the shops that sell it, in order of preference (none = any shop). For several items at once, tap
+  single date), visit length, address and link; drag them into your order of preference. On the shopping list, tapping
+  an item's name opens it, laid out like Everyday's (name, quantity and unit, department, notes, shops, and a field
+  to add a new shop on the spot); the box ticks it. There you pick the shops that sell it, in order of preference (none = any shop). For several items at once, tap
   **Seleziona** under the list, tick the items (or *Tutte* on a group header), then **Negozi**: add the shops to what
   each item already has, replace them, or set them back to any shop. The **Negozi** view of the list
   shows the fewest shops that sell everything, each with its items and whether it's open now ("aperto fino alle

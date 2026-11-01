@@ -7,11 +7,11 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { GUIDE } from './guide.js';
 
-const APP_VERSION = 'v38';
+const APP_VERSION = 'v41';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
-  parseIngredient, formatQty, scaleQty, convert, addQuantities, namesMatch, normalizeName, tidy,
+  parseIngredient, formatQty, scaleQty, convert, addQuantities, normalizeName, tidy,
   UNITS, stepFor, setDecimalSeparator,
 } from './parse.js';
 import { t, setLang, getLang, LANGS, unitLabel, unitOptionLabel, detectLang } from './i18n.js';
@@ -19,7 +19,7 @@ import { addPhoto, addScan, addUpload, hydrate, prefetchAll, coverOf, isRepoPhot
 import { daysUntil, expiryState, todayStr } from './expiry.js';
 import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
-import { parseRecipeText, detectLang as textLang } from './recipe-text.js';
+import { parseRecipeText, detectLang as textLang, groupLines } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
 import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
 import { originOf, flagOf, CONTINENTS, CONTINENT_ICON } from './geo.js';
@@ -33,6 +33,9 @@ import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from '
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
 import { nutritionOf, estimateNutrition } from './nutrition.js';
+import { createKitchen, LEVELS, isLevel, levelOf, atHome, lowInfo, ingredientsOf } from './kitchen.js';
+import { sameFood, foodOf, foodFields, refood, setUserFoods, searchFoods, foodName, food as foodRec, allFoods, foodDept, simple as simpleName } from './foods.js';
+import { keywordDept } from './depts.js';
 import { recipeTimes, formatMinutes } from './times.js';
 import { photoCandidates, creditFor, testKey, mealdbSearch, rankOnline, searchTerms } from './online.js';
 
@@ -62,8 +65,23 @@ function photoTag(src, { fallback = '', cls = '' } = {}) {
 // ---------- helpers ----------
 
 
-function ingredientsOf(r) {
-  return (r.ingredients || []).map((i) => (i.name == null ? parseIngredient(i.raw || '') : i));
+const kitchen = createKitchen({ live, get, upsert, remove, uid, all: (c) => state[c] });
+// the user's own foods and corrections (data/foods.json) take part in every match
+function refreshUserFoods() { setUserFoods(live('foods')); }
+// ingredient lines [{ raw, group? }] → parsed ingredients, keeping the group (v41)
+function parseIngs(list) {
+  return (list || []).map((i) => {
+    const raw = typeof i === 'string' ? i : i?.raw || '';
+    return { ...parseIngredient(raw), ...(i && i.group ? { group: i.group } : {}) };
+  });
+}
+// food ids for a recipe's ingredients (v40): resolved from the name, a person's choice kept
+function withFoods(ingredients, prev = []) {
+  const pinned = new Map(prev.filter((i) => i && i.foodPinned).map((i) => [simpleName(i.name), i]));
+  return ingredients.map((i) => {
+    const { food: _f, foodPinned: _p, ...rest } = i;
+    return { ...rest, ...foodFields(i.name, pinned.get(simpleName(i.name))) };
+  });
 }
 
 // A pantry item can carry several barcodes (e.g. two brands of milk).
@@ -72,7 +90,7 @@ function hasCode(p, code) { return codesOf(p).includes(code); }
 function withCode(p, code) { const codes = [...new Set([...codesOf(p), code])]; return { barcode: codes[0], barcodes: codes }; }
 function pantryByCode(code) { return live('pantry').find((p) => hasCode(p, code)); }
 
-function findPantry(name) { return live('pantry').find((p) => namesMatch(p.name, name)); }
+const findPantry = (nameOrItem) => kitchen.findPantry(nameOrItem);
 
 // Delete one record now, with "Undo" in the toast instead of asking first.
 function undoableRemove(collection, id, after = () => {}) {
@@ -150,42 +168,7 @@ function folderHref(id) { return id ? `#/folder/${encodeURIComponent(id)}` : '#/
 
 // ---------- shopping / pantry logic ----------
 
-function addToShopping({ name, qty, unit, note, shops }, source) {
-  const existing = live('shopping').find((s) => !s.checked && !s.auto && namesMatch(s.name, name)
-    && addQuantities(s, { qty, unit }) !== null);
-  if (existing) {
-    const sum = addQuantities(existing, { qty, unit });
-    const sources = [...new Set([...(existing.sources || []), source].filter(Boolean))];
-    // merged: the union of both items' shops, the first item's order first
-    const merged = [...new Set([...(existing.shops || []), ...(shops || [])])];
-    upsert('shopping', { ...existing, qty: sum.qty == null ? null : round(sum.qty), unit: sum.unit, sources, ...(merged.length ? { shops: merged } : {}), addedAt: Math.min(addedOf(existing) || Date.now(), Date.now()) }, { silent: true });
-  } else {
-    upsert('shopping', {
-      id: uid(), name, qty: qty == null ? null : round(qty), unit: unit || '', note: note || '',
-      checked: false, sources: source ? [source] : [], addedAt: Date.now(), cat: newItemCat(name), ...(shops && shops.length ? { shops } : {}),
-    }, { silent: true });
-  }
-}
-
-// Staples (contract v1): track 'level' = counted as C'è / Poca / Finita instead of a quantity.
-const LEVELS = ['ok', 'low', 'out'];
-const isLevel = (p) => p?.track === 'level';
-const levelOf = (p) => (LEVELS.includes(p?.level) ? p.level : 'ok');
-// at home: ok or low for staples (qty ignored), qty > 0 otherwise
-const atHome = (p) => (isLevel(p) ? levelOf(p) !== 'out' : (num(p.qty) || 0) > 0);
-
-function lowInfo(p) {
-  // staples: low/out go on the list with no quantity
-  if (isLevel(p)) return levelOf(p) === 'ok' ? null : { buy: null };
-  const min = num(p.min);
-  if (min == null) return null;
-  const qty = num(p.qty) || 0;
-  if (qty > min) return null;
-  const tgt = num(p.target);
-  const target = tgt != null && tgt > min ? tgt : Math.max(min * 2, min + stepFor(p.unit));
-  return { buy: round(target - qty) };
-}
-
+function addToShopping(item, source) { return kitchen.addToShopping(item, source); }
 function remindDefault() {
   const d = num(state.settings.remindDays);
   return d == null ? 3 : d;
@@ -220,22 +203,7 @@ function updatePantryBadge() {
   b.textContent = n;
 }
 
-function ensureLowItems() {
-  for (const p of state.pantry) {
-    const id = `low_${p.id}`;
-    const cur = state.shopping.find((s) => s.id === id);
-    const low = p.deleted ? null : lowInfo(p);
-    if (low) {
-      if (!cur || cur.deleted) {
-        upsert('shopping', { id, name: p.name, qty: low.buy, unit: low.buy == null ? '' : p.unit || '', checked: false, auto: true, pantryId: p.id, sources: [], addedAt: Date.now(), cat: categoryOf(p) }, { silent: true });
-      } else if (!cur.checked && (cur.qty ?? null) !== low.buy || cur.name !== p.name || cur.unit !== (low.buy == null ? '' : p.unit || '')) {
-        upsert('shopping', { ...cur, name: p.name, qty: low.buy, unit: low.buy == null ? '' : p.unit || '' }, { silent: true });
-      }
-    } else if (cur && !cur.deleted && !cur.checked) {
-      remove('shopping', id);
-    }
-  }
-}
+function ensureLowItems() { kitchen.ensureLowItems(); }
 
 function setChecked(id, checked) {
   const it = get('shopping', id);
@@ -252,44 +220,11 @@ function setChecked(id, checked) {
   changed();
 }
 
-function planForRecipe(r, n, usePantry) {
-  const base = r.servings || 4;
-  return ingredientsOf(r).map((ing, idx) => {
-    const need = scaleQty(ing.qty, base, n);
-    let buy = need; let covered = false; let have = null;
-    if (usePantry) {
-      const p = findPantry(ing.name);
-      if (p && isLevel(p)) {
-        have = p;
-        covered = atHome(p);
-        if (covered) buy = 0;
-      } else if (p) {
-        have = p;
-        const pq = num(p.qty) || 0;
-        if (need == null) covered = pq > 0;
-        else {
-          const avail = convert(pq, p.unit, ing.unit);
-          if (avail != null) { buy = Math.max(0, need - avail); covered = buy <= 1e-9; }
-        }
-      }
-    }
-    return { idx, name: ing.name, unit: ing.unit, note: ing.note, need, buy, covered, have };
-  });
-}
+const planForRecipe = (r, n, usePantry) => kitchen.planForRecipe(r, n, usePantry);
 
 function cook(r, n) {
-  const base = r.servings || 4;
-  let count = 0;
   upsert('recipes', { ...r, cookedCount: (r.cookedCount || 0) + 1, lastCooked: Date.now() }, { silent: true });
-  for (const ing of ingredientsOf(r)) {
-    if (ing.qty == null) continue;
-    const p = findPantry(ing.name);
-    if (!p || isLevel(p)) continue; // staples: you say when they run low
-    const sub = convert(scaleQty(ing.qty, base, n), ing.unit, p.unit);
-    if (sub == null) continue;
-    upsert('pantry', { ...p, qty: Math.max(0, round((num(p.qty) || 0) - sub)) }, { silent: true });
-    count++;
-  }
+  const count = kitchen.usePantryFor(r, n);
   ensureLowItems();
   changed();
   toast(t('pantryUpdated', count));
@@ -297,6 +232,7 @@ function cook(r, n) {
 
 // After a sync: parse freshly imported recipes, tidy the import queue.
 function postSync() {
+  refreshUserFoods();
   migrateStages();
   // the data contract with Everyday: Ricette sets the marker (Everyday only reads it)
   if (!pref('contract') && !state.meta.contractNewer) { setPref('contract', CONTRACT); changed(); }
@@ -306,7 +242,7 @@ function postSync() {
       const q = state.queue.find((x) => x.recipeId === r.id || `r_${x.id}` === r.id);
       upsert('recipes', {
         ...r, parsed: true, folderId: r.folderId || q?.folderId || null,
-        ingredients: (r.ingredients || []).map((i) => parseIngredient(i.raw || '')),
+        ingredients: withFoods(parseIngs(r.ingredients)),
       }, { silent: true });
       imported++;
     }
@@ -322,9 +258,83 @@ function postSync() {
     upsert('queue', { id: `ap${uid().slice(0, 8)}`, type: 'autophoto', status: 'pending', addedAt: Date.now() }, { silent: true });
   }
   ensureLowItems();
+  backfillFoods();
   if (imported) toast(t('importedN', imported));
   prefetchAll();
   if (live('pantry').some((p) => p.lookupPending)) resolvePendingProducts();
+}
+
+// v40: store food ids on records that don't have one yet, a batch at a time after each sync. Only records not
+// changed since that sync are touched, so a newer edit from another device (or Everyday) is never overwritten by
+// a stale copy. Once: a department stored by the old "save it at creation" workaround is cleared when it equals the
+// old keyword guess and the dictionary now says something else (a department a person chose differs from the guess).
+// v41: recipes stored from stored data. Older imports kept a sub-heading as a suffix on each line
+// ("200 g zucchero (per la crema)"): a suffix shared by two or more lines becomes their `group`.
+// Lines stored as text only get parsed; ingredients that resolve get their food id. null = nothing to change.
+const GROUP_SUFFIX = /\s\(((?:per|für|for)\s[^()]{1,40})\)\s*$/i;
+function normalizeIngredients(ings) {
+  const count = new Map();
+  for (const i of ings) { const m = !i?.group && String(i?.raw || '').match(GROUP_SUFFIX); if (m) count.set(m[1].toLowerCase(), (count.get(m[1].toLowerCase()) || 0) + 1); }
+  let changed = false;
+  const out = ings.map((i) => {
+    if (!i) return i;
+    let x = i;
+    const m = !x.group && String(x.raw || '').match(GROUP_SUFFIX);
+    if (m && count.get(m[1].toLowerCase()) >= 2) {
+      const raw = x.raw.replace(GROUP_SUFFIX, '').trim();
+      const keep = { ...(x.food ? { food: x.food } : {}), ...(x.foodPinned ? { foodPinned: true } : {}) };
+      x = { ...parseIngredient(raw), ...keep, group: m[1].charAt(0).toUpperCase() + m[1].slice(1) };
+    } else if (x.name == null) {
+      x = { ...x, ...parseIngredient(x.raw || '') };
+    }
+    if (x.name && !x.food && !x.foodPinned) { const f = foodFields(x.name); if (f.food) x = { ...x, ...f }; }
+    if (x !== i) changed = true;
+    return x;
+  });
+  return changed ? out : null;
+}
+const BACKFILL_BATCH = 50;
+function backfillFoods() {
+  const since = state.meta.lastSync || 0;
+  if (!since || state.meta.contractNewer) return;
+  const unchanged = (r) => (r.updatedAt || 0) <= since;
+  const open = (i) => i && i.name && !i.food && !i.foodPinned;
+  let n = 0;
+  // first, so the food backfill below doesn't make these records look newer than the sync
+  if (!pref('catCleanV1')) {
+    for (const r of live('shopping')) {
+      if (!r.cat || !unchanged(r)) continue;
+      const d = foodDept(r);
+      if (d && d !== r.cat && r.cat === keywordDept(r.name)) {
+        const { cat: _c, ...rest } = r;
+        upsert('shopping', rest, { silent: true });
+        n++;
+      }
+    }
+    setPref('catCleanV1', Date.now());
+    n++;
+  }
+  for (const c of ['shopping', 'pantry']) {
+    let k = 0;
+    for (const r of live(c)) {
+      if (k >= BACKFILL_BATCH) break;
+      if (!open(r) || !unchanged(r)) continue;
+      const f = foodFields(r.name);
+      if (!f.food) continue;
+      upsert(c, { ...r, ...f }, { silent: true });
+      k++; n++;
+    }
+  }
+  let k = 0;
+  for (const r of live('recipes')) {
+    if (k >= BACKFILL_BATCH) break;
+    if (!unchanged(r)) continue;
+    const next = normalizeIngredients(r.ingredients || []);
+    if (!next) continue;
+    upsert('recipes', { ...r, ingredients: next }, { silent: true });
+    k++; n++;
+  }
+  if (n) changed();
 }
 
 // ---------- sync scheduling ----------
@@ -910,7 +920,7 @@ function nutritionBox(r, n) {
 }
 
 function nutritionPreview(servings, text) {
-  const ingredients = String(text || '').split('\n').map((x) => x.trim()).filter(Boolean).map((raw) => parseIngredient(raw));
+  const ingredients = parseIngs(groupLines(String(text || '').split('\n')));
   const nu = estimateNutrition({ servings: Math.max(1, Number(servings) || 4), ingredients });
   if (!nu) return `🔥 ${esc(t('nutriNone'))}`;
   return `🔥 ≈ <strong>${kcalText(nu.perServing.kcal)} kcal</strong> · <strong>${protText(nu.perServing.protein)} g</strong> ${esc(t('protein'))} ${esc(t('perPerson'))}${nu.partial ? ` <small class="warn">(${esc(t('nutriUnknownShort', nu.unknown.length))})</small>` : ''}`;
@@ -1137,7 +1147,15 @@ function viewEdit(id) {
     ui.edit = { route: id, id: isNew ? uid() : id, photos: [...(r.photos || [])], busy: false, imageCredit: r.imageCredit || null };
     if (isNew && ui.prefillSource?.findImageFor) lookForDishPhoto(ui.edit, ui.prefillSource.findImageFor, ui.prefillSource.lang);
   }
-  const ingText = ingredientsOf(r).map((i) => i.raw || [formatQty(i.qty, i.unit), unitLabel(i.unit, i.qty), i.name].filter(Boolean).join(' ')).join('\n');
+  // groups as heading lines ("Per la crema:"), the way they're typed
+  let lastGroup = '';
+  const ingText = ingredientsOf(r).flatMap((i) => {
+    const line = i.raw || [formatQty(i.qty, i.unit), unitLabel(i.unit, i.qty), i.name].filter(Boolean).join(' ');
+    const g = i.group || '';
+    const head = g && g !== lastGroup ? [`${g}:`] : [];
+    lastGroup = g;
+    return [...head, line];
+  }).join('\n');
   return `
   <a class="back" href="${isNew ? folderHref(ui.newFolder) : `#/recipe/${encodeURIComponent(id)}`}">← ${esc(t('back'))}</a>
   <h1>${esc(t(isNew ? 'newRecipe' : 'editRecipe'))}</h1>
@@ -1171,6 +1189,7 @@ function viewEdit(id) {
     </div>
     <p class="hint small">${esc(t('timesEditHint'))}</p>`; })()}
     <label>${esc(t('ingredients'))}<textarea name="ingredients" rows="10" placeholder="${esc(t('ingredientsHelp'))}">${esc(ingText)}</textarea></label>
+    <p class="hint small">${esc(t('ingGroupsHint'))}</p>
     <p class="nutri-preview" id="nutri-preview" aria-live="polite">${nutritionPreview(r.servings || 4, ingText)}</p>
     <label>${esc(t('steps'))}<textarea name="steps" rows="8" placeholder="${esc(t('stepsHelp'))}">${esc((r.steps || []).join('\n'))}</textarea></label>
     <label>${esc(t('notes'))}<textarea name="notes" rows="3">${esc(r.notes || '')}</textarea></label>
@@ -1353,13 +1372,15 @@ function onSorted({ kind, group, keys }) {
   }
 }
 
+const singular = (s) => normalizeName(s).replace(/(?:es|s|e|i)$/, '');
+
 function bestRowFor(productName, rows) {
   const words = (x) => normalizeName(x).split(' ').filter((w) => w.length >= 4);
   let best = -1, bestScore = 0;
   rows.forEach((r, i) => {
     if (r.barcode) return;
     let score = 0;
-    if (namesMatch(r.name, productName)) score = 3;
+    if (sameFood(r.name, productName)) score = 3;
     else if (words(productName).some((w) => words(r.name).map(singular).includes(singular(w)))) score = 1;
     if (score > bestScore) { best = i; bestScore = score; }
   });
@@ -1381,7 +1402,7 @@ async function putAwayScan() {
     r.include = true;
   } else {
     const known = pantryByCode(code);
-    if (known) idx = rows.findIndex((r) => !r.barcode && (r.pantryId === known.id || normalizeName(r.name) === normalizeName(known.name) || namesMatch(r.name, known.name)));
+    if (known) idx = rows.findIndex((r) => !r.barcode && (r.pantryId === known.id || normalizeName(r.name) === normalizeName(known.name) || sameFood(r.name, known.name)));
     let product = null;
     if (!known && navigator.onLine) { try { product = await lookupProduct(code, getLang()); } catch { product = null; } }
     if (ui.putaway !== P) return;
@@ -1413,41 +1434,7 @@ function commitPutAway() {
   if (!P) return;
   let n = 0;
   for (const r of P.rows.filter((x) => x.include && x.name.trim())) {
-    const tg = pantryTargetFor(r);
-    const qty = num(r.qty);
-    const unit = r.unit || '';
-    if (tg && isLevel(tg)) {
-      // a staple bought again: back to "C'è"; qty stays as it was
-      upsert('pantry', {
-        ...tg, level: 'ok',
-        expires: r.expires || tg.expires || null,
-        ...(r.barcode ? withCode(tg, r.barcode) : {}),
-        brand: tg.brand || r.brand || '', cat: tg.cat || r.cat || null,
-      }, { silent: true });
-    } else if (tg) {
-      const before = num(tg.qty) || 0;
-      const wasEmpty = before <= 0;
-      let newQty = before;
-      let newUnit = tg.unit || '';
-      if (!r.stocked && qty != null) {
-        const add = convert(qty, unit, newUnit);
-        if (add != null) newQty = round(before + add);
-        else if (wasEmpty) { newQty = qty; newUnit = unit; }
-      }
-      upsert('pantry', {
-        ...tg, qty: newQty, unit: newUnit,
-        expires: r.expires ? (wasEmpty ? r.expires : earlier(tg.expires, r.expires)) : (wasEmpty ? null : tg.expires || null),
-        ...(r.barcode ? withCode(tg, r.barcode) : {}),
-        brand: tg.brand || r.brand || '', packQty: tg.packQty || r.packQty || null, packUnit: tg.packQty ? tg.packUnit : (r.packUnit || null),
-        cat: tg.cat || r.cat || null,
-      }, { silent: true });
-    } else {
-      upsert('pantry', {
-        id: uid(), name: r.name.trim(), qty: qty ?? 1, unit, expires: r.expires || null, min: null, target: null, addedAt: Date.now(),
-        ...(r.barcode ? { barcode: r.barcode, barcodes: [r.barcode] } : {}), brand: r.brand || '', packQty: r.packQty || null, packUnit: r.packUnit || null,
-        cat: r.cat || null, lookupPending: Boolean(r.lookupPending), nameFromCode: Boolean(r.nameFromCode),
-      }, { silent: true });
-    }
+    kitchen.putAwayRow(r);
     if (r.itemId) remove('shopping', r.itemId);
     n++;
   }
@@ -1460,12 +1447,6 @@ function commitPutAway() {
 
 // The department of a list item: its own `cat`, else the shared rules (depts.js; household and personal care too)
 function shopCat(i) { return deptOf(i); }
-// A new item's department: the pantry's department for things you keep, else the shared rules
-function newItemCat(name) {
-  const p = live('pantry').find((x) => normalizeName(x.name) === normalizeName(name));
-  return p && p.cat ? categoryOf(p) : deptOf({ name });
-}
-
 function groupByDept(items, catOf) {
   const groups = new Map(deptOrder().map((c) => [c, []]));
   for (const i of items) groups.get(catOf(i)).push(i);
@@ -1474,20 +1455,11 @@ function groupByDept(items, catOf) {
 
 // ---------- putting the shopping away ----------
 
-const singular = (s) => normalizeName(s).replace(/(?:es|s|e|i)$/, '');
-
-function pantryTargetFor(row) {
-  const pantry = live('pantry');
-  return (row.pantryId && get('pantry', row.pantryId))
-    || (row.barcode && pantry.find((p) => hasCode(p, row.barcode)))
-    || pantry.find((p) => normalizeName(p.name) === normalizeName(row.name))
-    || pantry.find((p) => singular(p.name) === singular(row.name))
-    || null;
-}
+const pantryTargetFor = (row) => kitchen.pantryTarget(row);
 
 function startPutAway() {
   const rows = live('shopping').filter((i) => i.checked).map((i) => {
-    const row = { itemId: i.id, include: true, name: i.name, qty: i.qty, unit: i.unit || '', expires: '', pantryId: i.pantryId || null, stocked: Boolean(i.stocked) };
+    const row = { itemId: i.id, include: true, name: i.name, qty: i.qty, unit: i.unit || '', expires: '', pantryId: i.pantryId || null, stocked: Boolean(i.stocked), ...foodFields(i.name, i) };
     if (row.qty == null) {
       const tg = pantryTargetFor(row);
       if (tg?.packQty) { row.qty = tg.packQty; row.unit = tg.packUnit || ''; } else { row.qty = 1; row.unit = tg?.unit || ''; }
@@ -1777,8 +1749,8 @@ function fileSizesBlock() {
 
 // ---------- settings (v37): an index and one page per topic ----------
 
-const SETTINGS_PAGES = ['sync', 'list', 'pantry', 'recipes', 'language', 'backup', 'guide'];
-const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', language: '🌐', backup: '💾', guide: '📖' };
+const SETTINGS_PAGES = ['sync', 'list', 'pantry', 'recipes', 'foods', 'language', 'backup', 'guide'];
+const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', backup: '💾', guide: '📖' };
 
 function settingsSummary(page) {
   const s = state.settings;
@@ -1787,6 +1759,7 @@ function settingsSummary(page) {
     case 'list': return `${t(`listMode_${listMode()}`)} · ${t('nShops', shopsSorted().length)}`;
     case 'pantry': return `${t(pushOn() ? 'notifyOnShort' : 'notifyOffShort')} · ${t('remindDaysShort', remindDefault())}`;
     case 'recipes': return t('recipesSettingsSummary');
+    case 'foods': { const n = unknownFoodNames().length; return n ? t('foodsUnknownN', n) : t('foodsAllKnown'); }
     case 'language': return LANGS[getLang()];
     case 'backup': return t('exportData');
     case 'guide': return t('guideSummary');
@@ -1837,6 +1810,7 @@ function settingsPage(page) {
   <p class="hint small">${esc(t('peopleAllHint'))}</p>
   ${tagSettings()}
   ${onlineSettings()}`;
+    case 'foods': return foodsSettings();
     case 'language': return `
   <form class="form" id="lang-form">
     <label>${esc(t('language'))}
@@ -2099,7 +2073,7 @@ function saveOnlineRecipe(key) {
   upsert('recipes', {
     id, title: r.title, servings: r.servings || 4, time: r.time || '', url: r.url,
     image: r.image || '', photos: [], imageCredit: credit ? { ...credit, photo: r.image } : null,
-    ingredients: (r.ingredients || []).map((raw) => parseIngredient(typeof raw === 'string' ? raw : raw.raw || '')),
+    ingredients: withFoods(parseIngs(groupLines(r.ingredients || []))),
     steps: r.steps || [], notes: '', cuisine: r.area && !/unknown/i.test(r.area) ? r.area : (r.cuisine || ''), source: null, folderId: folderOf(state.settings.importFolder) ? state.settings.importFolder : null,
     parsed: true, review: false, createdAt: Date.now(), photoTried: Date.now(), stage: 'try',
   }, { silent: true });
@@ -2392,17 +2366,25 @@ function openItemEdit(id) {
   const origin = it.auto ? t('itemFromPantry') : (it.sources || []).length ? t('forRecipes', it.sources.join(', ')) : '';
   const shopList = () => shopsSorted().map((x) => ({ id: x.id, name: x.name }));
   // the shared item sheet (shoplist-ui.js), the same as Everyday's
+  const fst = foodState(it);
   openModal(itemSheetHtml({ item: it, labels: listLabels(), units, depts: DEPTS.map((c) => ({ id: c.id, label: `${c.icon} ${t(`cat_${c.id}`)}` })), cat: startCat, shops: shopList(), picked, origin }), (form, action) => {
     if (action === 'delete') { undoableRemove('shopping', id); return; }
     const raw = form.qty.value.trim().replace(',', '.');
     const qty = raw === '' ? null : Number(raw);
     const cur = get('shopping', id) || it;
     // every other field (Everyday's too) stays as it is; the department only changes if you changed it
-    const next = { ...cur, name: form.name.value.trim() || it.name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value, note: form.note.value.trim(), shops: picked };
+    const name = form.name.value.trim() || it.name;
+    let next = { ...cur, name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value, note: form.note.value.trim(), shops: picked };
     if (form.cat.value !== startCat) next.cat = form.cat.value;
+    next = applyFoodChoice(next, fst, name, form.cat.value, cur.name);
     upsert('shopping', next, { silent: true });
     changed();
   }, { sheet: true });
+  // which food (Ricette only; Everyday's sheet doesn't show it): after the note
+  modal.querySelector('.sl-sheet input[name=note]').closest('.sl-field').insertAdjacentHTML('afterend', foodFieldHtml(fst, it.name));
+  const ff = modal.querySelector('#food-field');
+  const itemName = () => modal.querySelector('input[name=name]').value.trim() || it.name;
+  wireFoodField(ff, fst, itemName);
   const refreshChips = () => {
     const box = modal.querySelector('#sl-shop-chips');
     const keep = box.querySelector('.sl-newshop');
@@ -2434,6 +2416,7 @@ function openItemEdit(id) {
     input.value = nextQ ? String(nextQ) : '';
   };
   modal.onclick = (e) => {
+    if (foodFieldClick(e, fst, ff, itemName)) return;
     const b = e.target.closest('[data-action]');
     if (!b) return;
     if (b.dataset.action === 'sl-new-shop') addShop();
@@ -2447,6 +2430,152 @@ function openItemEdit(id) {
   };
   // Enter in the new-shop field adds the shop instead of saving the item
   modal.querySelector('#sl-new-shop-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addShop(); } });
+}
+
+// ---------- Settings → Ingredienti: names nothing recognises, your own foods, extra names ----------
+
+function unknownFoodNames() {
+  const seen = new Map();
+  const add = (x, where) => {
+    if (!x || !x.name || (x.foodPinned && !x.food)) return;
+    if (x.food && foodRec(x.food)) return;
+    if (foodOf(x.name)) return;
+    const k = simpleName(x.name);
+    if (!k) return;
+    const e = seen.get(k) || { name: String(x.name).trim(), n: 0, where: new Set() };
+    e.n++; e.where.add(where);
+    seen.set(k, e);
+  };
+  for (const r of live('recipes')) for (const i of ingredientsOf(r)) add(i, 'recipes');
+  for (const p of live('pantry')) add(p, 'pantry');
+  for (const i of live('shopping')) add(i, 'list');
+  return [...seen.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, getLang()));
+}
+
+function foodsSettings() {
+  const unknown = unknownFoodNames();
+  const own = live('foods').filter((f) => f.id.startsWith('u_'));
+  const extra = live('foods').filter((f) => !f.id.startsWith('u_') && (f.alt || []).length && foodRec(f.id));
+  const where = (w) => [...w].map((x) => t(`foodsIn_${x}`)).join(', ');
+  return `
+  <p class="hint">${esc(t('foodsPageHint'))}</p>
+  <h2>${esc(t('foodsUnknown'))} <small>${unknown.length}</small></h2>
+  ${unknown.length ? `<ul class="list food-unknown">${unknown.slice(0, 150).map((u) => `<li><span class="fu-name">${esc(u.name)} <small>${u.n > 1 ? `×${u.n} · ` : ''}${esc(where(u.where))}</small></span>
+    <span class="fu-acts"><button type="button" class="btn small" data-action="fu-link" data-value="${esc(u.name)}">${esc(t('foodsLink'))}</button><button type="button" class="btn small ghost" data-action="fu-new" data-value="${esc(u.name)}">${esc(t('foodsNew'))}</button></span></li>`).join('')}</ul>`
+    : `<p class="empty">${esc(t('foodsAllKnownLong'))}</p>`}
+  <h2>${esc(t('foodsOwn'))} <small>${own.length}</small></h2>
+  ${own.length ? `<ul class="list food-own">${own.map((f) => `<li><span>${deptIcon(f.dept || 'other')} ${esc(foodName(f.id, getLang()) || f.it || f.de || f.en)}${(f.alt || []).length ? ` <small>${esc(f.alt.join(', '))}</small>` : ''}</span><button type="button" class="icon" data-action="fu-del" data-id="${esc(f.id)}" aria-label="${esc(t('delete'))}">✕</button></li>`).join('')}</ul>` : `<p class="hint small">${esc(t('foodsOwnNone'))}</p>`}
+  <h2>${esc(t('foodsExtra'))} <small>${extra.reduce((n, f) => n + f.alt.length, 0)}</small></h2>
+  ${extra.length ? `<ul class="list food-extra">${extra.map((f) => `<li><span>${deptIcon(foodRec(f.id).dept)} ${esc(foodName(f.id, getLang()))}</span><span class="tags">${f.alt.map((a, i) => `<span class="tag">${esc(a)}<button type="button" class="tag-x" data-action="fu-alt-x" data-id="${esc(f.id)}" data-i="${i}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}</span></li>`).join('')}</ul>` : `<p class="hint small">${esc(t('foodsExtraNone'))}</p>`}`;
+}
+
+/** "Collega a…": which food a name is, from now on everywhere (an extra name in data/foods.json). */
+function openFoodLink(name) {
+  const st = { food: null, pinned: false, choice: null };
+  openModal(`<h2>${esc(name)}</h2><p class="hint small">${esc(t('foodsLinkHint'))}</p>${foodFieldHtml(st, name)}
+    <div class="button-row"><button class="btn primary" value="ok">${esc(t('save'))}</button><button class="btn ghost" value="cancel" formnovalidate>${esc(t('cancel'))}</button></div>`, () => {
+    if (st.choice === 'pick') addFoodName(st.food, name);
+    else if (st.choice === 'new') newUserFood(name, categorize(name));
+    changed();
+    render();
+  }, { sheet: true });
+  const ff = modal.querySelector('#food-field');
+  ff.querySelector('[data-ff=none]').remove();
+  wireFoodField(ff, st, () => name);
+  modal.onclick = (e) => { foodFieldClick(e, st, ff, () => name); };
+  ff.querySelector('[data-ff=open]').click();
+}
+
+/** A food of your own, named in up to three languages. */
+function openNewFood(name) {
+  const lang = getLang();
+  openModal(`<h2>✨ ${esc(t('foodsNew'))}</h2>
+    ${['it', 'de', 'en'].map((l) => `<label>${esc(LANGS[l])}<input name="n_${l}" value="${l === lang ? esc(name) : ''}" ${l === lang ? 'required' : ''} autocomplete="off"></label>`).join('')}
+    <label>${esc(t('department'))}<select name="dept">${DEPTS.map((c) => `<option value="${c.id}" ${c.id === deptOf({ name }) ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
+    <p class="hint small">${esc(t('foodsNewHint'))}</p>
+    <div class="button-row"><button class="btn primary" value="ok">${esc(t('save'))}</button><button class="btn ghost" value="cancel" formnovalidate>${esc(t('cancel'))}</button></div>`, (form) => {
+    const id = `u_${uid().slice(0, 8)}`;
+    const rec = { id, dept: form.dept.value, alt: [] };
+    for (const l of ['it', 'de', 'en']) { const v = form[`n_${l}`].value.trim(); if (v) rec[l] = v; }
+    upsert('foods', rec, { silent: true });
+    refreshUserFoods();
+    changed();
+    render();
+  }, { sheet: true });
+}
+
+// ---------- which food: the "Non è questo" field (item sheet, product sheet, Ingredienti) ----------
+
+// st: { food, pinned, choice: null | 'pick' | 'none' | 'new' }
+function foodState(rec) { return { food: rec ? (rec.foodPinned && !rec.food ? null : foodOfItemSafe(rec)) : null, pinned: Boolean(rec?.foodPinned), choice: null }; }
+function foodOfItemSafe(rec) { const id = rec.food && foodRec(rec.food) ? foodRec(rec.food).id : (rec.foodPinned ? null : foodOf(rec.name)); return id; }
+function foodLabelHtml(id) {
+  if (!id) return `<span class="ff-none">${esc(t('unknownFood'))}</span>`;
+  const r = foodRec(id);
+  return `${deptIcon(r.dept)} ${esc(foodName(id, getLang()))}`;
+}
+function foodFieldHtml(st, name) {
+  return `<div class="sl-field food-field" id="food-field"><span>${esc(t('foodLabel'))}</span>
+    <div class="ff-row"><span class="ff-cur">${foodLabelHtml(st.food)}${st.pinned || st.choice ? ' <small>📌</small>' : ''}</span>
+      <button type="button" class="ff-btn link-btn" data-ff="open">${esc(t('notThis'))}</button></div>
+    <div class="ff-pick" hidden>
+      <input class="ff-q" id="ff-q" placeholder="${esc(t('searchFoodPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchFoodPh'))}">
+      <ul class="ff-res"></ul>
+      <div class="ff-more"><button type="button" class="sl-chip" data-ff="none">${esc(t('noFood'))}</button><button type="button" class="sl-chip dashed" data-ff="new">${esc(t('newFood', name || ''))}</button></div>
+    </div></div>`;
+}
+function foodResultsHtml(q) {
+  const lang = getLang();
+  return searchFoods(q, lang, 12).map((r) => `<li><button type="button" data-ff="pick" data-id="${esc(r.id)}">${deptIcon(r.dept)} ${esc(foodName(r.id, lang))} <small>${esc([r.it, r.de, r.en].filter((x) => x && x !== foodName(r.id, lang)).join(' · '))}</small></button></li>`).join('')
+    || `<li class="hint small">${esc(t('noFoodMatch'))}</li>`;
+}
+/** Handles clicks inside the food field; true when the click was its own. */
+function foodFieldClick(e, st, root, getName) {
+  const b = e.target.closest('[data-ff]');
+  if (!b || !root.contains(b)) return false;
+  const pick = root.querySelector('.ff-pick');
+  const act = b.dataset.ff;
+  if (act === 'open') {
+    pick.hidden = !pick.hidden;
+    if (!pick.hidden) { const q = pick.querySelector('.ff-q'); q.value = getName(); pick.querySelector('.ff-res').innerHTML = foodResultsHtml(q.value); q.focus(); q.select(); }
+    return true;
+  }
+  if (act === 'pick') { st.food = b.dataset.id; st.choice = 'pick'; }
+  if (act === 'none') { st.food = null; st.choice = 'none'; }
+  if (act === 'new') { st.food = null; st.choice = 'new'; st.newName = getName(); }
+  root.querySelector('.ff-cur').innerHTML = st.choice === 'new'
+    ? `✨ ${esc(t('newFoodShort', st.newName))} <small>📌</small>`
+    : `${foodLabelHtml(st.food)} <small>📌</small>`;
+  pick.hidden = true;
+  return true;
+}
+function wireFoodField(root, st, getName) {
+  const q = root.querySelector('.ff-q');
+  q.addEventListener('input', () => { root.querySelector('.ff-res').innerHTML = foodResultsHtml(q.value); });
+  q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); root.querySelector('.ff-res [data-ff=pick]')?.click(); } });
+}
+/** The name as an extra name of a food (data/foods.json), so it's recognised everywhere, in both apps. */
+function addFoodName(id, name) {
+  const n = String(name || '').trim();
+  if (!id || !n || foodOf(n) === id) return;
+  const rec = get('foods', id) || { id, alt: [] };
+  if ((rec.alt || []).some((a) => simpleName(a) === simpleName(n))) return;
+  upsert('foods', { ...rec, alt: [...(rec.alt || []), n] }, { silent: true });
+  refreshUserFoods();
+}
+function newUserFood(name, dept) {
+  const id = `u_${uid().slice(0, 8)}`;
+  upsert('foods', { id, [getLang()]: String(name).trim(), dept: dept && dept !== 'other' ? dept : 'other', alt: [] }, { silent: true });
+  refreshUserFoods();
+  return id;
+}
+/** The record with the food the person chose in the field (or, without a choice, refreshed after a rename). */
+function applyFoodChoice(rec, st, newName, dept, oldName = rec.name) {
+  const out = { ...rec };
+  if (st.choice === 'pick') { out.food = st.food; out.foodPinned = true; addFoodName(st.food, newName); return out; }
+  if (st.choice === 'none') { delete out.food; out.foodPinned = true; return out; }
+  if (st.choice === 'new') { out.food = newUserFood(st.newName || newName, dept); out.foodPinned = true; return out; }
+  return newName !== oldName ? refood(out, newName) : out;
 }
 
 // ---------- tag settings ----------
@@ -2692,7 +2821,7 @@ function openAddToList(r) {
     let count = 0;
     for (const p of plan) {
       if (!form[`i${p.idx}`]?.checked) continue;
-      addToShopping({ name: p.name, qty: p.covered ? p.need : p.buy, unit: p.unit, note: p.note }, r.title);
+      addToShopping({ name: p.name, qty: p.covered ? p.need : p.buy, unit: p.unit, note: p.note, food: p.food, foodPinned: p.foodPinned }, r.title);
       count++;
     }
     changed();
@@ -2713,10 +2842,12 @@ function openPantryEdit(p) {
   const codesHtml = () => `${codes.map((c, i) => `<span class="tag">🏷️ ${esc(c)}<button type="button" class="tag-x" data-action="code-remove" data-i="${i}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}
     <button type="button" class="btn small" data-action="code-add">📷 ${esc(t('linkBarcode'))}</button>`;
   const radio = (name, value, label, on) => `<label class="lvl ${on ? 'on' : ''}"><input type="radio" name="${name}" value="${value}" ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
+  const fst = foodState(p);
   openModal(`
     <h2 class="sl-title">${esc(p.name)}</h2>
     <div class="sl-sheet p-sheet">
       <label class="sl-field">${esc(t('name'))}<input name="name" required value="${esc(p.name)}" autocomplete="off"></label>
+      ${foodFieldHtml(fst, p.name)}
       <div class="sl-field"><span>${esc(t('trackLabel'))}</span>
         <div class="lvl-seg track-seg" role="radiogroup" aria-label="${esc(t('trackLabel'))}">${radio('track', 'qty', t('track_qty'), !level)}${radio('track', 'level', t('track_level'), level)}</div>
         <small class="sl-hint">${esc(t('trackHint'))}</small></div>
@@ -2765,6 +2896,7 @@ function openPantryEdit(p) {
     if (track === 'level') next = { ...(level ? next : setTrack(next, 'level')), level: form.querySelector('input[name=level]:checked')?.value || 'ok' };
     else if (level) next = setTrack(next, 'qty');
     if (track === 'qty') Object.assign(next, { qty: num(form.qty.value) ?? 0, unit: form.unit.value, min: num(form.min.value), target: num(form.target.value) });
+    next = applyFoodChoice(next, fst, form.name.value.trim(), form.cat.value, p.name);
     upsert('pantry', {
       ...next, name: form.name.value.trim(),
       cat: form.cat.value === categorize(form.name.value) && !p.cat ? null : form.cat.value,
@@ -2786,7 +2918,11 @@ function openPantryEdit(p) {
       modal.querySelector('.p-qty-fields').hidden = el.value === 'level';
     }
   };
+  const ff = modal.querySelector('#food-field');
+  const prodName = () => modal.querySelector('input[name=name]').value.trim() || p.name;
+  wireFoodField(ff, fst, prodName);
   modal.onclick = async (e) => {
+    if (foodFieldClick(e, fst, ff, prodName)) return;
     const st = e.target.closest('[data-action=pq-dec],[data-action=pq-inc]');
     if (st) {
       const f = modal.querySelector('input[name=qty]');
@@ -2838,7 +2974,7 @@ function onViewSubmit(e) {
       ensureLowItems();
       changed();
     } else {
-      const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now() }, { silent: true });
+      const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now(), ...foodFields(ing.name) }, { silent: true });
       changed();
       openPantryEdit(p);
     }
@@ -3152,6 +3288,14 @@ function onViewClick(e) {
     case 'pantry-menu': openPantryMenu(); break;
     case 'staples-pick': openStaplesPicker(btn.dataset.value === 'suggest'); break;
     case 'staples-no': setPref('staplesAsked', Date.now()); changed(); render(); break;
+    case 'fu-link': openFoodLink(btn.dataset.value); break;
+    case 'fu-new': openNewFood(btn.dataset.value); break;
+    case 'fu-del': undoableRemove('foods', id, () => { refreshUserFoods(); render(); }); break;
+    case 'fu-alt-x': {
+      const f = get('foods', id);
+      if (f) { const alt = (f.alt || []).filter((_, i) => i !== Number(btn.dataset.i)); if (alt.length || f.id.startsWith('u_')) upsert('foods', { ...f, alt }, { silent: true }); else remove('foods', f.id); refreshUserFoods(); changed(); render(); }
+      break;
+    }
     case 'shop-q-clear': {
       ui.listQ = '';
       const f = document.getElementById('shop-q');
@@ -3374,7 +3518,7 @@ function openParsedText(text, kind, form, c) {
   ui.newFolder = targetFolderId();
   ui.prefillSource = {
     title: r.title, servings: r.servings, time: r.time, notes: r.notes, steps: r.steps,
-    ingredients: r.ingredients.map((i) => parseIngredient(i.raw)),
+    ingredients: parseIngs(r.ingredients),
     source: { type: kind, book: kind === 'book' ? form.book.value.trim() : '', page: kind === 'book' ? form.page.value.trim() : '' },
     sourcePhotos: [...c.scans],
     findImageFor: r.title, lang: r.lang,
@@ -3519,7 +3663,7 @@ function linkCandidates(name, code) {
   const pw = words(name);
   return live('pantry')
     .filter((p) => !hasCode(p, code))
-    .map((p) => ({ p, score: namesMatch(p.name, name) ? 3 : words(p.name).filter((w) => pw.includes(w)).length }))
+    .map((p) => ({ p, score: sameFood(p.name, name) ? 3 : words(p.name).filter((w) => pw.includes(w)).length }))
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score || (codesOf(a.p).length - codesOf(b.p).length))
     .slice(0, 3)
@@ -3578,7 +3722,7 @@ function openScanNew(code) {
     } else {
       upsert('pantry', {
         id: uid(), name, brand: form.brand.value || '', qty, unit, packQty: qty, packUnit: unit, barcode: code, barcodes: [code], addedAt: Date.now(),
-        expires, min: num(form.min.value), target: null, lookupPending: pending, nameFromCode: !nameTyped, cat: info.cat || null,
+        expires, min: num(form.min.value), target: null, lookupPending: pending, nameFromCode: !nameTyped, cat: info.cat || null, ...foodFields(name),
       }, { silent: true });
       toast(t('addedToPantry', name));
     }
@@ -3627,7 +3771,7 @@ async function resolvePendingProducts() {
       if (r.found && cur.nameFromCode) {
         const unitOk = !cur.unit && r.unit;
         upsert('pantry', {
-          ...cur, name: r.name, brand: r.brand || cur.brand || '', lookupPending: false, nameFromCode: false,
+          ...refood(cur, r.name), name: r.name, brand: r.brand || cur.brand || '', lookupPending: false, nameFromCode: false,
           ...(unitOk ? { qty: round((num(cur.qty) || 1) * r.qty), unit: r.unit, packQty: r.qty, packUnit: r.unit } : {}),
         }, { silent: true });
       } else {
@@ -3798,7 +3942,7 @@ function saveRecipe(form) {
     prepMin: form.prepMin.value.trim() === '' ? undefined : Math.max(0, Math.round(+form.prepMin.value)),
     waitMin: form.waitMin.value.trim() === '' ? undefined : Math.max(0, Math.round(+form.waitMin.value)),
     image: form.image.value.trim(),
-    ingredients: lines(form.ingredients.value).map(parseIngredient),
+    ingredients: withFoods(parseIngs(groupLines(lines(form.ingredients.value))), prev.ingredients || []),
     steps: lines(form.steps.value),
     notes: form.notes.value.trim(),
     cuisine: form.cuisine ? form.cuisine.value.trim() : prev.cuisine,
@@ -3849,7 +3993,7 @@ async function wipeLocalData() {
 
 async function deviceHasData() {
   // the app's own bookkeeping (stagesV1) doesn't make a device "hold data"
-  return COLLECTIONS.some((c) => live(c).filter((x) => !(c === 'prefs' && ['stagesV1', 'contract', 'staplesAsked'].includes(x.id))).length > 0) || (await kvKeys('img:')).length > 0;
+  return COLLECTIONS.some((c) => live(c).filter((x) => !(c === 'prefs' && ['stagesV1', 'contract', 'staplesAsked', 'catCleanV1'].includes(x.id))).length > 0) || (await kvKeys('img:')).length > 0;
 }
 
 async function saveGithub(form) {
@@ -3949,6 +4093,7 @@ async function autoConfigure() {
 async function start() {
   setupRecipeView({ ui, modal, stageOfR, tagDefs, tagLabel, nutritionOf, nutritionBox, folderHref, recipeFolderId, folderOf, coverOf, photoTag, timesLine, sourceLabel, ingredientsOf, servingsFor, openModal, changed, setStage, deleteRecipeUndoable, folderOptions });
   await load();
+  refreshUserFoods();
   await autoConfigure();
   applyLang(state.settings.lang);
   renderShell();

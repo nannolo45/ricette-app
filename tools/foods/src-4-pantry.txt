@@ -1,0 +1,169 @@
+# oils and fats
+olive-oil|condiments|olio d'oliva|Olivenöl|olive oil|olio;olio di oliva;olio extravergine;olio extra vergine;olio extravergine d oliva;olio evo;evo;extravergine;extra virgin olive oil;olivenol|olio|basic
+seed-oil|condiments|olio di semi|Sonnenblumenöl|sunflower oil|olio di girasole;olio di arachidi;olio di mais;vegetable oil;canola oil;rapeseed oil;rapsol;rapsöl;sonnenblumenol;pflanzenol;pflanzenöl;speiseol;speiseöl;neutrales ol;neutrales öl;öl;ol;oil;frying oil;olio per friggere;bratol;bratöl|olio|basic
+sesame-oil|condiments|olio di sesamo|Sesamöl|sesame oil|sesamol|olio|
+coconut-oil|condiments|olio di cocco|Kokosöl|coconut oil|kokosol|olio|
+lard|dairy|strutto|Schmalz|lard|schweineschmalz|strutto|
+# seasonings
+salt|condiments|sale|Salz|salt|sale fino;sale grosso;meersalz;sea salt;fleur de sel;kosher salt;sale marino;sale iodato;sale e pepe;salt and pepper;salz und pfeffer|sale|basic
+pepper|condiments|pepe|Pfeffer|pepper|pepe nero;black pepper;schwarzer pfeffer;pepe bianco;white pepper;weisser pfeffer;weißer pfeffer;pepe macinato;ground pepper;pfefferkorner;pfefferkörner;peppercorns;pepe in grani;pepe rosa;pink pepper|pepe|basic
+cinnamon|condiments|cannella|Zimt|cinnamon|stecca di cannella;cinnamon stick;zimtstange;zimtstangen;cannella in polvere|cannella|
+nutmeg|condiments|noce moscata|Muskatnuss|nutmeg|muskat|cannella|
+cloves|condiments|chiodi di garofano|Gewürznelken|cloves|chiodo di garofano;nelken;gewurznelken|cannella|
+curry|condiments|curry|Currypulver|curry powder|currypulver;curry in polvere|cannella|
+turmeric|condiments|curcuma|Kurkuma|turmeric||cannella|
+cumin|condiments|cumino|Kreuzkümmel|cumin|kreuzkummel;ground cumin;semi di cumino|cannella|
+caraway|condiments|cumino dei prati|Kümmel|caraway|kummel;caraway seeds|cannella|
+ground-coriander|condiments|coriandolo in polvere|Koriander gemahlen|ground coriander|semi di coriandolo;coriander seeds|cannella|
+paprika|condiments|paprika|Paprikapulver|paprika|paprika dolce;paprika affumicata;smoked paprika;sweet paprika;paprika edelsuss;paprika edelsüß;rosenpaprika|cannella|
+chilli-powder|condiments|peperoncino in polvere|Chilipulver|chilli powder|chili powder;cayenne;cayennepfeffer;peperoncino secco;chili flakes;chiliflocken;red pepper flakes;peperoncino macinato|cannella|
+saffron|condiments|zafferano|Safran|saffron|pistilli di zafferano;bustina di zafferano|cannella|
+star-anise|condiments|anice stellato|Sternanis|star anise||cannella|
+anise|condiments|anice|Anis|anise|semi di anice|cannella|
+cardamom|condiments|cardamomo|Kardamom|cardamom||cannella|
+fennel-seeds|condiments|semi di finocchio|Fenchelsamen|fennel seeds||cannella|
+spice-mix|condiments|spezie|Gewürze|spices|gewurze;gewürz;gewurz;garam masala;ras el hanout;zatar;za atar;za'atar;sumac;sumach;lebkuchengewurz;lebkuchengewürz;spekulatiusgewurz;spekulatiusgewürz;cinque spezie;hefeflocken;lievito alimentare;nutritional yeast|cannella|
+juniper|condiments|bacche di ginepro|Wacholderbeeren|juniper berries|juniper;wacholder;ginepro|cannella|
+allspice|condiments|pimento|Piment|allspice||cannella|
+garlic-powder|condiments|aglio in polvere|Knoblauchpulver|garlic powder||cannella|
+onion-powder|condiments|cipolla in polvere|Zwiebelpulver|onion powder||cannella|
+stock|condiments|brodo|Brühe|stock|broth;bruhe;fond;bouillon;consomme;kraftbruhe;kraftbrühe|brodo|
+vegetable-stock|condiments|brodo vegetale|Gemüsebrühe|vegetable stock|vegetable broth;gemusebruhe;brodo di verdure|brodo|of:stock
+chicken-stock|condiments|brodo di pollo|Hühnerbrühe|chicken stock|chicken broth;huhnerbruhe;hühnerbrühe|brodo|of:stock
+beef-stock|condiments|brodo di carne|Rinderbrühe|beef stock|rinderbruhe;fleischbruhe;fleischbrühe;brodo di manzo|brodo|of:stock
+fish-stock|condiments|brodo di pesce|Fischfond|fish stock|fischfond;fumetto;fumetto di pesce|brodo|of:stock
+stock-cube|condiments|dado|Brühwürfel|stock cube|dado da brodo;bouillon cube;bruhwurfel;suppenwurfel;suppenwürfel;granulare;brodo granulare;gemusebruhe pulver;instant bruhe;dado vegetale;vegetable stock cube;chicken stock cube|dado|
+vinegar|condiments|aceto|Essig|vinegar|aceto di vino;wine vinegar;weinessig;white wine vinegar;red wine vinegar;aceto bianco;white vinegar;branntweinessig;aceto di vino bianco;aceto di vino rosso|aceto|
+cider-vinegar|condiments|aceto di mele|Apfelessig|apple cider vinegar|apfelessig;cider vinegar|aceto|
+rice-vinegar|condiments|aceto di riso|Reisessig|rice vinegar|reisessig|aceto|
+balsamic|condiments|aceto balsamico|Balsamico|balsamic vinegar|balsamic;balsamessig;glassa di aceto balsamico;balsamic glaze;balsamicocreme;crema di balsamico|aceto balsamico|
+soy-sauce|condiments|salsa di soia|Sojasauce|soy sauce|soja sauce;shoyu;tamari;salsa di soia scura;dark soy sauce;light soy sauce|salsa di soia|
+mustard|condiments|senape|Senf|mustard|dijon;senape di digione;dijon mustard;dijonsenf;grainy mustard;senape in grani;mittelscharfer senf;scharfer senf;susser senf;süßer senf;kremser senf;english mustard;senape in polvere;mustard powder|senape|
+ketchup|condiments|ketchup|Ketchup|ketchup|tomato ketchup;tomatenketchup|ketchup|
+mayonnaise|condiments|maionese|Mayonnaise|mayonnaise|mayo;majonase|maionese|
+pesto|condiments|pesto|Pesto|pesto|pesto alla genovese;pesto genovese;basil pesto;basilikumpesto;pesto di basilico|pesto|
+red-pesto|condiments|pesto rosso|rotes Pesto|red pesto|pesto di pomodori secchi|pesto|
+worcestershire|condiments|salsa Worcester|Worcestersauce|worcestershire sauce|worcestershire;worcester|worcestershire|
+hot-sauce|condiments|salsa piccante|scharfe Soße|hot sauce|tabasco;sriracha;sambal;sambal oelek;harissa;scharfe sauce;chilisauce;chili sauce|worcestershire|
+fish-sauce|condiments|salsa di pesce|Fischsauce|fish sauce|fischsauce|worcestershire|
+oyster-sauce|condiments|salsa d'ostrica|Austernsauce|oyster sauce|salsa ostrica;austernsauce|worcestershire|
+asian-sauce|condiments|salsa hoisin|Hoisinsauce|hoisin sauce|hoisin;teriyaki;salsa teriyaki;teriyakisauce|worcestershire|
+bbq-sauce|condiments|salsa barbecue|Grillsauce|barbecue sauce|bbq sauce;grillsauce;barbecuesauce|worcestershire|
+miso|condiments|miso|Miso|miso|pasta di miso|worcestershire|
+curry-paste|condiments|pasta di curry|Currypaste|curry paste|rote currypaste;grune currypaste;grüne currypaste;red curry paste;green curry paste;gochujang|worcestershire|
+wasabi|condiments|wasabi|Wasabi|wasabi||worcestershire|
+sauce|condiments|salsa|Soße|sauce|sosse;sugo;dressing;condimento;vinaigrette;salsa verde;aioli;salsa tonnata|salsa|
+bechamel|dairy|besciamella|Béchamelsauce|béchamel|bechamel;bechamelsauce;white sauce;besciamella pronta|salsa|
+hollandaise|condiments|salsa olandese|Sauce Hollandaise|hollandaise|sauce hollandaise|salsa|
+ragu|other|ragù|Bolognese|bolognese sauce|ragu;bolognese;sugo alla bolognese;bolognesesauce|salsa|
+hummus|other|hummus|Hummus|hummus|houmous|salsa|
+guacamole|other|guacamole|Guacamole|guacamole||salsa|
+tzatziki|dairy|tzatziki|Tsatsiki|tzatziki|zaziki;tsatsiki|salsa|
+# sweets
+biscuits|sweets|biscotti|Kekse|biscuits|cookies;keks;frollini;butterkekse;digestive;digestive biscuits;cookie;biscuit|biscotti|
+ladyfingers|sweets|savoiardi|Löffelbiskuits|ladyfingers|lady fingers;loffelbiskuit;löffelbiskuit;biscotti savoiardi|savoiardi|
+amaretti|sweets|amaretti|Amaretti|amaretti|amaretto biscuits|amaretti|
+dark-chocolate|sweets|cioccolato fondente|Zartbitterschokolade|dark chocolate|cioccolato extra fondente;bittersweet chocolate;semisweet chocolate;bitterschokolade;herbe schokolade;plain chocolate;cioccolato;chocolate;schokolade;kuvertüre;kuverture;couverture;cioccolato da copertura|cioccolato fondente|
+chocolate-chips|sweets|gocce di cioccolato|Schokotropfen|chocolate chips|chocolate chunks;schokostuckchen;schokostückchen;scaglie di cioccolato;schokoraspeln|cioccolato fondente|of:dark-chocolate
+milk-chocolate|sweets|cioccolato al latte|Vollmilchschokolade|milk chocolate|milchschokolade|cioccolato al latte|
+white-chocolate|sweets|cioccolato bianco|weiße Schokolade|white chocolate|weisse schokolade|cioccolato al latte|
+chocolate-spread|sweets|crema spalmabile|Nuss-Nougat-Creme|chocolate spread|nutella;crema di nocciole;nuss nougat creme;nougatcreme;hazelnut spread|nutella|
+meringues|sweets|meringhe|Baiser|meringues|meringa;baisers;meringue|meringhe|
+panettone|sweets|panettone|Panettone|panettone|colomba|panettone|
+pandoro|sweets|pandoro|Pandoro|pandoro||panettone|
+stollen|sweets|stollen|Christstollen|stollen|christstollen|panettone|
+crisps|sweets|patatine|Chips|crisps|chips;patatine in busta;potato chips|biscotti|
+snacks|sweets|merendine|Süßigkeiten|snacks|snack;merendina;caramelle;candy;sweets;gummibarchen;gummibärchen;riegel;wafer|biscotti|
+ice-cream|frozen|gelato|Eis|ice cream|speiseeis;eiscreme;vanilleeis;vanilla ice cream;gelato alla vaniglia|gelato|
+# drinks
+water|drinks|acqua|Wasser|water|acqua minerale;mineral water;mineralwasser;acqua naturale;leitungswasser;acqua calda;acqua fredda;hot water;cold water;eiswasser|acqua|basic
+sparkling-water|drinks|acqua frizzante|Sprudelwasser|sparkling water|acqua gassata;soda water;club soda;sprudel;seltz;selz;acqua di seltz;soda|acqua|
+ice|frozen|ghiaccio|Eiswürfel|ice|ice cubes;eiswurfel;cubetti di ghiaccio;ghiaccio tritato;crushed ice;crushed eis|ghiaccio|basic
+wine|drinks|vino|Wein|wine|vino da cucina;cooking wine|vino|
+white-wine|drinks|vino bianco|Weißwein|white wine|weisswein;dry white wine;trockener weisswein;trockener weißwein;vino bianco secco|vino|of:wine
+red-wine|drinks|vino rosso|Rotwein|red wine|rotwein;vino rosso secco|vino|of:wine
+rose-wine|drinks|vino rosato|Roséwein|rosé wine|rosewein;rosato|vino|
+mulled-wine|drinks|vin brulé|Glühwein|mulled wine|gluhwein;vin brule;sangria|vino|
+sparkling-wine|drinks|prosecco|Sekt|sparkling wine|spumante;champagne;champagner;cava;franciacorta;cremant;crémant;schaumwein;frizzante;prosecco|prosecco|
+beer|drinks|birra|Bier|beer|lager;pils;weissbier;weißbier;weizenbier;stout;helles;dunkelbier;radler|birra|
+marsala|drinks|marsala|Marsala|marsala|marsala secco;marsala dolce|marsala|
+port|drinks|porto|Portwein|port|portwein;vino porto|marsala|
+sherry|drinks|sherry|Sherry|sherry|madeira|marsala|
+dessert-wine|drinks|vino da dessert|Dessertwein|dessert wine|vin santo;moscato;passito|marsala|
+vermouth|drinks|vermut|Wermut|vermouth|vermouth;martini rosso;martini bianco;martini dry;lillet;noilly prat;carpano;punt e mes|vermouth|
+amaro|drinks|amaro|Kräuterlikör|amaro|amari;cynar;averna;jagermeister;jägermeister;krauterlikor|vermouth|
+aperitif|drinks|aperitivo|Aperitif|aperitif|aperol;campari;campari bitter;bitter campari;aperol spritz|campari|
+gin|drinks|gin|Gin|gin||gin|
+vodka|drinks|vodka|Wodka|vodka|wodka|gin|
+rum|drinks|rum|Rum|rum|rhum;cachaca;cachaça|gin|
+whisky|drinks|whisky|Whisky|whisky|whiskey;bourbon;scotch|gin|
+grappa|drinks|grappa|Grappa|grappa|acquavite;schnaps;obstbrand;kirsch;kirschwasser;korn|gin|
+brandy|drinks|brandy|Weinbrand|brandy|cognac;calvados;armagnac;pisco|gin|
+tequila|drinks|tequila|Tequila|tequila|mezcal|gin|
+liqueur|drinks|liquore|Likör|liqueur|likor;cointreau;triple sec;grand marnier;baileys;kahlua;maraschino;sambuca;frangelico;eierlikor;eierlikör;creme de cassis;st germain;elderflower liqueur;holunderblutenlikor;alchermes;nocino|liquore|
+amaretto|drinks|amaretto|Amaretto|amaretto|liquore all amaretto|liquore|
+limoncello|drinks|limoncello|Limoncello|limoncello||liquore|
+syrup|drinks|sciroppo|Sirup|syrup|sirup;sciroppo di sambuco;elderflower syrup;holundersirup;holunderblutensirup;grenadine;granatine;sciroppo di menta;orgeat;orzata;sciroppo d orzata;simple syrup;sugar syrup;sciroppo di zucchero;sambuco|sciroppo di zucchero|
+tonic|drinks|acqua tonica|Tonic Water|tonic water|tonic;tonica|acqua tonica|
+soft-drink|drinks|bibita|Limonade|soft drink|limonata;lemonade;limonade;aranciata;cola;coca cola;gazzosa;sprite;bitter lemon;chinotto;spezi;ginger ale;ginger beer;bibite|acqua tonica|
+juice|drinks|succo di frutta|Fruchtsaft|fruit juice|succo;juice;saft;fruchtsaft;nettare;nektar;succo d ananas;pineapple juice;ananassaft;cranberry juice;succo di mirtillo;traubensaft;grape juice;succo di pompelmo;grapefruit juice;grapefruitsaft|succo|
+apple-juice|drinks|succo di mela|Apfelsaft|apple juice|apfelsaft|succo|
+tomato-juice|drinks|succo di pomodoro|Tomatensaft|tomato juice|tomatensaft|succo|
+plant-milk|drinks|latte vegetale|Pflanzenmilch|plant milk|pflanzenmilch;bevanda vegetale|latte di soia|
+soy-milk|drinks|latte di soia|Sojamilch|soy milk|soya milk;sojamilch;sojadrink;bevanda di soia|latte di soia|
+oat-milk|drinks|latte d'avena|Hafermilch|oat milk|latte di avena;hafermilch;haferdrink;bevanda d avena|latte di soia|
+almond-milk|drinks|latte di mandorla|Mandelmilch|almond milk|mandelmilch;mandeldrink;latte di mandorle|latte di soia|
+rice-milk|drinks|latte di riso|Reismilch|rice milk|reismilch;reisdrink|latte di soia|
+coffee|drinks|caffè|Kaffee|coffee|caffe;espresso;caffe espresso;caffè espresso;caffe forte;strong coffee;starker kaffee;cold brew;filterkaffee;caffè macinato|caffe|
+tea|drinks|tè|Tee|tea|te;tee;bustina di te;bustina di tè;teebeutel;tea bag;tea bags;te nero;black tea;schwarzer tee;chai|te|
+green-tea|drinks|tè verde|grüner Tee|green tea|te verde;gruner tee;matcha|te|of:tea
+herbal-tea|drinks|tisana|Kräutertee|herbal tea|infuso;krautertee;camomilla;chamomile;kamillentee|te|
+# frozen
+frozen-veg|frozen|verdure surgelate|Tiefkühlgemüse|frozen vegetables|minestrone surgelato;gemüsemischung tk|piselli|
+fish-fingers|frozen|bastoncini di pesce|Fischstäbchen|fish fingers|fischstabchen;fish sticks|merluzzo|
+frozen-pizza|frozen|pizza surgelata|Tiefkühlpizza|frozen pizza|tk pizza;pizza|pasta per pizza|
+# household
+dish-soap|household|detersivo per piatti|Spülmittel|washing-up liquid|detersivo piatti;sapone per i piatti;sapone piatti;spulmittel;dish soap;washing up liquid|
+dishwasher-tabs|household|pastiglie lavastoviglie|Spülmaschinentabs|dishwasher tablets|detersivo lavastoviglie;spultabs;spültabs;geschirrspültabs;dishwasher tabs|
+rinse-aid|household|brillantante|Klarspüler|rinse aid|klarspuler|
+dishwasher-salt|household|sale per lavastoviglie|Regeneriersalz|dishwasher salt|spulmaschinensalz;spülmaschinensalz;regeneriersalz|
+laundry-detergent|household|detersivo lavatrice|Waschmittel|laundry detergent|detersivo bucato;detersivo per lavatrice;sapone per il bucato;laundry;waschpulver|
+fabric-softener|household|ammorbidente|Weichspüler|fabric softener|weichspuler;softener|
+bleach|household|candeggina|Bleiche|bleach|varechina;amuchina|
+cleaner|household|detersivo multiuso|Allzweckreiniger|all-purpose cleaner|sgrassatore;detergente;detersivo pavimenti;anticalcare;putzmittel;reiniger;cleaner;glasreiniger;wc reiniger|
+descaler|household|decalcificante|Entkalker|descaler|anticalcare macchina caffè|
+sponges|household|spugne|Schwämme|sponges|spugna;spugnette;schwamm;sponge|
+cloths|household|panni|Putztücher|cloths|panno;panni microfibra;stracci;lappen;cloth;spugne panno|
+toilet-paper|household|carta igienica|Toilettenpapier|toilet paper|klopapier;toilettenpapier|
+kitchen-roll|household|carta da cucina|Küchenrolle|kitchen roll|scottex;rotoloni;kuchenrolle;paper towel;paper towels|
+napkins|household|tovaglioli|Servietten|napkins|tovaglioli di carta;servietten;paper napkins|
+tissues|household|fazzoletti|Taschentücher|tissues|fazzoletti di carta;taschentucher;kleenex|
+bin-bags|household|sacchi della spazzatura|Müllbeutel|bin bags|sacchetti spazzatura;sacchi per la spazzatura;mullbeutel;trash bags;bin liners|
+cling-film|household|pellicola|Frischhaltefolie|cling film|pellicola trasparente;frischhaltefolie;plastic wrap|
+foil|household|carta stagnola|Alufolie|aluminium foil|alluminio;carta alluminio;alufolie;foil;tin foil|
+baking-paper|household|carta forno|Backpapier|baking paper|carta da forno;backpapier;parchment paper|
+freezer-bags|household|sacchetti gelo|Gefrierbeutel|freezer bags|sacchetti per alimenti;gefrierbeutel;zip bags|
+light-bulb|household|lampadina|Glühbirne|light bulb|lampadine;gluhbirne;leuchtmittel|
+batteries|household|pile|Batterien|batteries|batterie;pila;batterien|
+# personal care
+shampoo|care|shampoo|Shampoo|shampoo||
+conditioner|care|balsamo per capelli|Spülung|conditioner|balsamo capelli;spulung|
+shower-gel|care|bagnoschiuma|Duschgel|shower gel|docciaschiuma;doccia schiuma|
+soap|care|sapone|Seife|soap|sapone liquido;sapone mani;seife;hand soap|
+toothpaste|care|dentifricio|Zahnpasta|toothpaste|zahncreme|
+toothbrush|care|spazzolino|Zahnbürste|toothbrush|spazzolini;zahnburste|
+floss|care|filo interdentale|Zahnseide|dental floss|floss|
+mouthwash|care|collutorio|Mundspülung|mouthwash|mundspulung|
+deodorant|care|deodorante|Deo|deodorant|deo;deospray|
+hand-cream|care|crema mani|Handcreme|hand cream|crema corpo;body lotion;crema viso;face cream;lotion;bodylotion|
+sun-cream|care|crema solare|Sonnencreme|sun cream|sunscreen;sonnenschutz|
+razors|care|rasoi|Rasierer|razors|lamette;rasoio;rasierklingen;razor blades;razor|
+shaving-foam|care|schiuma da barba|Rasierschaum|shaving foam|rasierschaum;shaving gel|
+sanitary-pads|care|assorbenti|Binden|sanitary pads|assorbente;binden;pads|
+tampons|care|tamponi|Tampons|tampons|assorbenti interni|
+cotton-buds|care|cotton fioc|Wattestäbchen|cotton buds|bastoncini cotonati;wattestabchen;q-tips|
+cotton-pads|care|dischetti di cotone|Wattepads|cotton pads|dischetti struccanti;wattepads|
+plasters|care|cerotti|Pflaster|plasters|cerotto;band-aid;band aids|
+nappies|care|pannolini|Windeln|nappies|pannolino;windeln;diapers|
+wet-wipes|care|salviettine umidificate|Feuchttücher|wet wipes|salviette;feuchttucher;wipes|
+make-up-remover|care|struccante|Abschminktücher|make-up remover|latte detergente;abschminktucher|

@@ -2,8 +2,10 @@
 // TheMealDB (free test key "1", no signup). Everything here runs in the browser; the recipe
 // sites (GialloZafferano, Cucchiaio, Chefkoch, BBC Good Food) are searched by the GitHub job.
 import { findDishImages, wikiCredit } from './dish-image.js';
-import { translateFood, sameFood } from './lang-food.js';
-import { parseIngredient, namesMatch } from './parse.js';
+import { foodOf, foodName, sameFood } from './foods.js';
+
+const translateFood = (name, lang) => { const id = foodOf(name); return (id && foodName(id, lang)) || String(name || '').trim(); };
+import { parseIngredient } from './parse.js';
 import { pantryCoverage } from './recipe-tools.js';
 
 const LOCALE = { it: 'it-IT', de: 'de-DE', en: 'en-US' };
@@ -174,7 +176,7 @@ export async function mealdbSearch(selected, { http = fetch, max = 12 } = {}) {
  */
 export function rankOnline(results, { pantry = [], selected = [], maxMissing = 3, basics = true } = {}) {
   const stock = pantry.filter((p) => (Number(p.qty) || 0) > 0);
-  const extra = selected.filter((s) => !stock.some((p) => namesMatch(p.name, s) || sameFood(p.name, s))).map((s, i) => ({ id: `sel-${i}`, name: s, qty: 1, unit: '' }));
+  const extra = selected.filter((s) => !stock.some((p) => sameFood(p, s))).map((s, i) => ({ id: `sel-${i}`, name: s, qty: 1, unit: '' }));
   const avail = [...stock, ...extra];
   const seen = new Set();
   const ranked = [];
@@ -185,7 +187,7 @@ export function rankOnline(results, { pantry = [], selected = [], maxMissing = 3
     const ings = (r.ingredients || []).map((raw) => parseIngredient(typeof raw === 'string' ? raw : raw.raw || ''));
     // quantities from abroad (cups, lb…) aren't compared: having the ingredient is enough
     const c = pantryCoverage({ servings: r.servings || 4, ingredients: ings.map((i) => ({ ...i, qty: null })) }, avail, { basics });
-    const usesSelected = selected.filter((s) => ings.some((i) => namesMatch(i.name, s) || sameFood(i.name, s)));
+    const usesSelected = selected.filter((s) => ings.some((i) => sameFood(i, s)));
     ranked.push({ ...r, c, usesSelected });
   }
   ranked.sort((a, b) => b.usesSelected.length - a.usesSelected.length || a.c.missing.length - b.c.missing.length || b.c.ratio - a.c.ratio);

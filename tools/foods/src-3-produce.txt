@@ -1,0 +1,139 @@
+# vegetables
+tomato|produce|pomodori|Tomaten|tomatoes|pomodoro;tomato;tomate;pomodori ramati;pomodori maturi;san marzano;cuore di bue;fleischtomate;fleischtomaten;strauchtomaten;rispentomaten|pomodoro|
+cherry-tomato|produce|pomodorini|Kirschtomaten|cherry tomatoes|pomodori ciliegini;ciliegini;datterini;pomodori datterini;pachino;cherry tomato;grape tomatoes;cocktailtomaten;cherrytomaten;datteltomaten|pomodorini|of:tomato
+onion|produce|cipolle|Zwiebeln|onions|cipolla;onion;zwiebel;cipolla rossa;cipolla bianca;cipolla dorata;red onion;white onion;yellow onion;rote zwiebel;cipolla di tropea;cipolle rosse|cipolla|
+spring-onion|produce|cipollotti|Frühlingszwiebeln|spring onions|cipollotto;spring onion;scallion;scallions;green onions;fruhlingszwiebel;fruhlingszwiebeln;frühlingszwiebel;lauchzwiebel;lauchzwiebeln;cipolline|cipollotto|
+shallot|produce|scalogno|Schalotten|shallots|scalogni;shallot;schalotte|scalogno|
+leek|produce|porri|Lauch|leeks|porro;leek;porree|porro|
+garlic|produce|aglio|Knoblauch|garlic|spicchio d'aglio;spicchi d'aglio;spicchio d aglio;spicchi d aglio;garlic clove;garlic cloves;knoblauchzehe;knoblauchzehen;aglio fresco|aglio|
+carrot|produce|carote|Karotten|carrots|carota;carrot;karotte;mohre;mohren;möhre;möhren;ruebli;rüebli|carota|
+celery|produce|sedano|Sellerie|celery|staudensellerie;stangensellerie;costa di sedano;coste di sedano;celery stalk;celery stalks;selleriestange;selleriestangen|sedano|
+celeriac|produce|sedano rapa|Knollensellerie|celeriac||sedano rapa|
+potato|produce|patate|Kartoffeln|potatoes|patata;potato;kartoffel;erdapfel;erdäpfel;patate novelle;new potatoes;drillinge;festkochende kartoffeln;mehligkochende kartoffeln;patate a pasta gialla|patata|
+sweet-potato|produce|patate dolci|Süßkartoffeln|sweet potatoes|patata dolce;patata americana;patate americane;sweet potato;susskartoffel;susskartoffeln;süßkartoffel;batata|patata dolce|
+courgette|produce|zucchine|Zucchini|courgettes|zucchina;zucchino;zucchini;courgette;zucchine romanesche|zucchina|
+aubergine|produce|melanzane|Auberginen|aubergines|melanzana;aubergine;eggplant;eggplants;egg plants|melanzana|
+bell-pepper|produce|peperoni|Paprikaschoten|peppers|peperone;peppers;bell pepper;bell peppers;red pepper;green pepper;yellow pepper;red peppers;paprikaschote;peperone rosso;peperone giallo;peperoni rossi;spitzpaprika;rote paprika;gelbe paprika;grüne paprika;grune paprika;paprika rot;paprika gelb|peperone|
+chilli|produce|peperoncino|Chili|chilli|peperoncini;chili;chilis;chillies;chilischote;chilischoten;jalapeno;jalapenos;peperoncino fresco;red chili;red chilli;green chilli;pfefferoni|peperoncino|
+spinach|produce|spinaci|Spinat|spinach|spinatblatter;spinatblätter;baby spinach;babyspinat;blattspinat;spinacini|spinaci|
+chard|produce|bietole|Mangold|chard|bietola;biete;swiss chard;erbette|bietola|
+cabbage|produce|cavolo|Kohl|cabbage|weisskohl;weißkohl;cavolo cappuccio;cappuccio;weisskraut;spitzkohl|cavolo|
+red-cabbage|produce|cavolo rosso|Rotkohl|red cabbage|rotkohl;blaukraut;rotkraut;cavolo cappuccio rosso|cavolo|of:cabbage
+savoy-cabbage|produce|verza|Wirsing|savoy cabbage|cavolo verza;wirsing|cavolo|of:cabbage
+chinese-cabbage|produce|cavolo cinese|Chinakohl|chinese cabbage|chinakohl;pak choi;bok choy;pak choy|cavolo|
+kale|produce|cavolo nero|Grünkohl|kale|grunkohl;cavolo riccio;palmkohl|cavolo nero|
+cauliflower|produce|cavolfiore|Blumenkohl|cauliflower|karfiol;cavolo romanesco;romanesco|cavolfiore|
+broccoli|produce|broccoli|Brokkoli|broccoli|broccolo;stangenbrokkoli;broccolini|broccoli|
+turnip-tops|produce|cime di rapa|Stängelkohl|turnip tops|broccoletti;friarielli;rapini;broccoli rabe|broccoli|
+brussels-sprouts|produce|cavolini di Bruxelles|Rosenkohl|brussels sprouts|kohlsprossen|cavolini di bruxelles|
+lettuce|produce|lattuga|Salat|lettuce|insalata;kopfsalat;romana;lattuga romana;romaine;insalata verde;green salad;blattsalat;little gem lettuce;lollo;pflucksalat;pflücksalat;misticanza;mixed salad;gemischter salat;insalatina;cespo di lattuga|lattuga|
+iceberg|produce|lattuga iceberg|Eisbergsalat|iceberg lettuce|iceberg;eisbergsalat|lattuga|of:lettuce
+lambs-lettuce|produce|valerianella|Feldsalat|lamb's lettuce|feldsalat;lamb s lettuce;songino;soncino|lattuga|
+endive|produce|indivia|Endivie|endive|endivie;scarola;frisee;frisée;indivia riccia|lattuga|
+rocket|produce|rucola|Rucola|rocket|arugula;rauke;ruchetta|rucola|
+radicchio|produce|radicchio|Radicchio|radicchio|radicchio rosso;trevisano;radicchio di treviso|radicchio|
+chicory|produce|cicoria|Chicorée|chicory|chicoree;catalogna;puntarelle|radicchio|
+fennel|produce|finocchio|Fenchel|fennel|finocchi;fennel bulb|finocchio|
+artichoke|produce|carciofi|Artischocken|artichokes|carciofo;artichoke;artischocke;cuori di carciofo;artichoke hearts|carciofo|
+asparagus|produce|asparagi|Spargel|asparagus|asparago;grune spargel;grüner spargel;weisser spargel;weißer spargel;green asparagus;white asparagus|asparagi|
+mushrooms|produce|funghi|Pilze|mushrooms|fungo;mushroom;pilz;champignon;champignons;funghi champignon;prataioli;chiodini;pioppini;cardoncelli;chestnut mushroom;chestnut mushrooms;wild mushrooms;portobello;brown mushrooms;egerlinge;funghi misti|funghi|
+porcini|produce|funghi porcini|Steinpilze|porcini|porcini mushrooms;steinpilz;porcino|funghi|of:mushrooms
+chanterelles|produce|finferli|Pfifferlinge|chanterelles|gallinacci;pfifferling;kraterellen|funghi|of:mushrooms
+shiitake|produce|funghi shiitake|Shiitake|shiitake|shiitake mushrooms|funghi|of:mushrooms
+oyster-mushrooms|produce|funghi pleurotus|Austernpilze|oyster mushrooms|pleurotus;austernpilz|funghi|of:mushrooms
+dried-mushrooms|staples|funghi secchi|getrocknete Pilze|dried mushrooms|porcini secchi;funghi porcini secchi;dried porcini;getrocknete steinpilze|funghi secchi|
+peas|produce|piselli|Erbsen|peas|pisellini;garden peas;green peas;erbschen;petits pois;frozen peas|piselli|
+green-beans|produce|fagiolini|grüne Bohnen|green beans|french beans;string beans;grune bohnen;prinzessbohnen;buschbohnen;stangenbohnen;cornetti|fagiolini|
+snow-peas|produce|taccole|Zuckerschoten|snow peas|mangetout;kaiserschoten;sugar snap peas|fagiolini|
+broad-beans|produce|fave|Saubohnen|broad beans|fava beans;dicke bohnen;favette|fave|
+sweetcorn|produce|mais|Mais|sweetcorn|corn;sweet corn;zuckermais;corn kernels;maiskorner;maiskörner;mais in scatola|mais|
+corn-on-the-cob|produce|pannocchia|Maiskolben|corn on the cob|pannocchie;maiskolben|mais|
+cucumber|produce|cetrioli|Gurke|cucumber|cetriolo;cucumbers;gurken;salatgurke|cetriolo|
+pumpkin|produce|zucca|Kürbis|pumpkin|squash;butternut;butternut squash;kurbis;hokkaido;hokkaidokurbis;butternusskurbis;zucca mantovana;delica|zucca|
+beetroot|produce|barbabietole|Rote Bete|beetroot|barbabietola;beet;beets;rote beete;rande;randen;barbabietole cotte|barbabietola|
+radish|produce|ravanelli|Radieschen|radishes|ravanello;radish;rettich;daikon|ravanelli|
+kohlrabi|produce|cavolo rapa|Kohlrabi|kohlrabi|cavolorapa|rapa|
+turnip|produce|rapa|Steckrübe|turnip|rape;turnips;steckrube|rapa|
+parsnip|produce|pastinaca|Pastinake|parsnips|pastinache;parsnip;pastinaken;petersilienwurzel|pastinaca|
+avocado|produce|avocado|Avocado|avocado|avocados|avocado|
+sprouts|produce|germogli|Sprossen|sprouts|bean sprouts;sojasprossen;mungbohnensprossen;germogli di soia|germogli|
+ginger|produce|zenzero|Ingwer|ginger|zenzero fresco;fresh ginger;ingwerwurzel|zenzero|
+edamame|frozen|edamame|Edamame|edamame||edamame|
+tofu|other|tofu|Tofu|tofu|tofu naturale;firm tofu;naturtofu;räuchertofu;raucher tofu;seidentofu;silken tofu|tofu|
+tempeh|other|tempeh|Tempeh|tempeh||tempeh|
+seitan|other|seitan|Seitan|seitan||seitan|
+# herbs (fresh)
+basil|produce|basilico|Basilikum|basil|fresh basil;basil leaves;foglie di basilico;basilikumblatter;basilikumblätter|basilico|
+parsley|produce|prezzemolo|Petersilie|parsley|chopped parsley;prezzemolo tritato;flat-leaf parsley|basilico|
+rosemary|produce|rosmarino|Rosmarin|rosemary|rametto di rosmarino|basilico|
+sage|produce|salvia|Salbei|sage|foglie di salvia;sage leaves|basilico|
+thyme|produce|timo|Thymian|thyme|fresh thyme|basilico|
+oregano|condiments|origano|Oregano|oregano|dried oregano;origano secco|basilico|
+marjoram|condiments|maggiorana|Majoran|marjoram||basilico|
+mint|produce|menta|Minze|mint|pfefferminze;foglie di menta;mint leaves|basilico|
+chives|produce|erba cipollina|Schnittlauch|chives||basilico|
+dill|produce|aneto|Dill|dill||basilico|
+coriander|produce|coriandolo|Koriander|coriander|cilantro;coriander leaves;coriandolo fresco|basilico|
+tarragon|produce|dragoncello|Estragon|tarragon||basilico|
+bay-leaves|condiments|alloro|Lorbeer|bay leaves|bay leaf;foglie di alloro;foglia di alloro;lorbeerblatt;lorbeerblatter;lorbeerblätter|basilico|
+lemongrass|produce|citronella|Zitronengras|lemongrass||basilico|
+chervil|produce|cerfoglio|Kerbel|chervil||basilico|
+mixed-herbs|condiments|erbe aromatiche|Kräuter|herbs|krauter;kraeuter;erbe;mazzetto di erbe;bouquet garni;italienische krauter;italienische kräuter;herbes de provence;krauter der provence;kräuter der provence;mixed herbs;levistico;borragine;melissa;sambuco fiori;fiori di sambuco;liebstockel;liebstöckel;lemon balm;zitronenmelisse|basilico|
+# fruit
+apple|produce|mele|Äpfel|apples|mela;apfel;apple;apfeln;mela golden;mele renette;renetta;boskop;bramley apples;braeburn apples|mela|
+pear|produce|pere|Birnen|pears|pera;birne;pear|pera|
+banana|produce|banane|Bananen|bananas|banana;banane|banana|
+lemon|produce|limoni|Zitronen|lemons|limone;zitrone;lemon;limone non trattato|limone|
+lime|produce|lime|Limetten|limes|limetta;limette;lime|limone|
+lemon-juice|condiments|succo di limone|Zitronensaft|lemon juice|succo di mezzo limone|succo di limone|
+lime-juice|condiments|succo di lime|Limettensaft|lime juice||succo di limone|
+zest|produce|scorza di limone|Zitronenschale|lemon zest|scorza grattugiata;buccia di limone;zest;grated zest;zitronenabrieb;abrieb;buccia grattugiata;scorza di un limone|scorza di limone|
+orange-zest|produce|scorza d'arancia|Orangenschale|orange zest|scorza di arancia|scorza di limone|
+orange|produce|arance|Orangen|oranges|arancia;orange;apfelsine|arancia|
+mandarin|produce|mandarini|Mandarinen|mandarins|mandarino;mandarin;clementine;clementinen;clementines|arancia|
+grapefruit|produce|pompelmo|Grapefruit|grapefruit|pompelmi|arancia|
+orange-juice|drinks|succo d'arancia|Orangensaft|orange juice|succo di arancia;spremuta;spremuta d arancia;o saft|succo d arancia|
+strawberries|produce|fragole|Erdbeeren|strawberries|fragola;strawberry;erdbeere|fragole|
+raspberries|produce|lamponi|Himbeeren|raspberries|lampone;raspberry;himbeere|lamponi|
+blueberries|produce|mirtilli|Heidelbeeren|blueberries|mirtillo;blueberry;blaubeeren|mirtilli|
+cranberries|produce|mirtilli rossi|Preiselbeeren|cranberries|cranberry;cranberries essiccati|mirtilli|
+blackberries|produce|more|Brombeeren|blackberries|more di rovo;blackberry|frutti di bosco|
+currants|produce|ribes|Johannisbeeren|currants|redcurrants;ribes rosso|frutti di bosco|
+berries|produce|frutti di bosco|Beeren|berries|mixed berries;beerenmischung;waldbeeren;frutti rossi|frutti di bosco|
+peach|produce|pesche|Pfirsiche|peaches|pesca;peach;pfirsich;percoche|pesca|
+nectarine|produce|nettarine|Nektarinen|nectarines|nettarina;nectarine;nektarine|pesca|
+apricot|produce|albicocche|Aprikosen|apricots|albicocca;apricot;aprikose;marille;marillen|albicocca|
+dried-apricots|staples|albicocche secche|getrocknete Aprikosen|dried apricots||albicocche secche|
+prunes|staples|prugne secche|Trockenpflaumen|prunes||albicocche secche|
+dried-figs|staples|fichi secchi|getrocknete Feigen|dried figs||albicocche secche|
+cherries|produce|ciliegie|Kirschen|cherries|ciliegia;cherry;kirsche|ciliegie|
+sour-cherries|produce|amarene|Sauerkirschen|sour cherries|amarene sciroppate;sauerkirschen|ciliegie|
+grapes|produce|uva|Trauben|grapes|weintrauben;uva bianca;uva nera;acini;acini d uva|uva|
+raisins|staples|uvetta|Rosinen|raisins|uva sultanina;uva passa;sultanas;sultaninen|uvetta|
+pineapple|produce|ananas|Ananas|pineapple||ananas|
+mango|produce|mango|Mango|mango|mangos;mangoes|mango|
+kiwi|produce|kiwi|Kiwi|kiwi|kiwis|kiwi|
+figs|produce|fichi|Feigen|figs|fico;fig;feige|fichi|
+plums|produce|prugne|Pflaumen|plums|prugna;susine;plum;zwetschgen;zwetschken|prugne|
+melon|produce|melone|Melone|melon|melone cantalupo;cantaloupe;honeydew;honigmelone|melone|
+watermelon|produce|anguria|Wassermelone|watermelon|cocomero|melone|
+pomegranate|produce|melograno|Granatapfel|pomegranate|chicchi di melograno;pomegranate seeds;granatapfelkerne|melograno|
+dates|staples|datteri|Datteln|dates|dattero;medjool|datteri|
+# nuts and seeds
+almonds|staples|mandorle|Mandeln|almonds|mandorla;almond;mandel;mandorle pelate;mandorle a lamelle;flaked almonds;sliced almonds;mandelblattchen;mandelblättchen;mandelstifte|mandorle|
+hazelnuts|staples|nocciole|Haselnüsse|hazelnuts|nocciola;hazelnut;haselnusse;haselnuss;haselnusskerne;gemahlene haselnusse;nocciole tostate;hazlenuts|nocciole|
+walnuts|staples|noci|Walnüsse|walnuts|noce;walnut;walnusse;walnuss;walnusskerne;gherigli di noce|noci|
+pecans|staples|noci pecan|Pekannüsse|pecans|pecan;pecannusse|noci|
+pine-nuts|staples|pinoli|Pinienkerne|pine nuts||pinoli|
+pistachios|staples|pistacchi|Pistazien|pistachios|pistacchio;pistachio;granella di pistacchio|pistacchi|
+peanuts|staples|arachidi|Erdnüsse|peanuts|noccioline;peanut;erdnusse;erdnuss;erdnusskerne|arachidi|
+cashews|staples|anacardi|Cashewkerne|cashews|cashew;cashewnusse;cashewnüsse|anacardi|
+macadamia|staples|noci di macadamia|Macadamianüsse|macadamia nuts|macadamia|anacardi|
+sunflower-seeds|staples|semi di girasole|Sonnenblumenkerne|sunflower seeds||semi di girasole|
+pumpkin-seeds|staples|semi di zucca|Kürbiskerne|pumpkin seeds|pepitas;kurbiskerne|semi di zucca|
+sesame|staples|sesamo|Sesam|sesame seeds|semi di sesamo;sesame;sesamsamen|sesamo|
+chia|staples|semi di chia|Chiasamen|chia seeds|chia|semi di chia|
+linseed|staples|semi di lino|Leinsamen|linseed|lino;flax;flaxseed;flaxseeds|semi di lino|
+tahini|condiments|tahina|Tahin|tahini|tahin;crema di sesamo;sesampaste|tahina|
+peanut-butter|staples|burro di arachidi|Erdnussbutter|peanut butter|erdnussmus|burro di arachidi|
+nut-butter|staples|burro di mandorle|Mandelmus|almond butter|nut butter;mandelmus|burro di arachidi|

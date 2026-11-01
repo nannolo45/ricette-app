@@ -1,0 +1,101 @@
+# id | dept | it | de | en | other names (;) | nutrition key | extra
+# pasta, grains, bread, baking
+pasta|grains|pasta|Nudeln|pasta|teigwaren;pasta secca;makkaroni;maccheroni;noodles|pasta|
+spaghetti|grains|spaghetti|Spaghetti|spaghetti|spaghettini|pasta|
+penne|grains|penne|Penne|penne|penne rigate|pasta|
+fusilli|grains|fusilli|Fusilli|fusilli||pasta|
+rigatoni|grains|rigatoni|Rigatoni|rigatoni|paccheri;mezze maniche|pasta|
+linguine|grains|linguine|Linguine|linguine|bucatini;vermicelli;tagliolini|pasta|
+short-pasta|grains|pasta corta|kurze Nudeln|short pasta|farfalle;orecchiette;trofie;ditalini|pasta|
+tagliatelle|grains|tagliatelle|Bandnudeln|tagliatelle|fettuccine;pappardelle|pasta|
+lasagne|grains|lasagne|Lasagneplatten|lasagne sheets|lasagna;lasagne sheet;sfoglie per lasagne|pasta|
+fresh-pasta|grains|pasta fresca|frische Nudeln|fresh pasta|pasta all uovo;eiernudeln;egg noodles|pasta fresca|
+filled-pasta|grains|pasta ripiena|gefüllte Pasta|filled pasta|tortellini;ravioli;cappelletti;agnolotti;tortelloni;maultaschen|tortellini|
+gnocchi|grains|gnocchi|Gnocchi|gnocchi|gnocchetti;schupfnudeln|gnocchi|
+spaetzle|grains|spätzle|Spätzle|spaetzle|spatzle;knopfle;knöpfle|spatzle|
+rice|grains|riso|Reis|rice|riso carnaroli;riso arborio;carnaroli;arborio;vialone nano;risottoreis;basmati;basmati rice;jasmine rice;riso basmati;milchreis;riso per risotto;vialone|riso|
+couscous|grains|couscous|Couscous|couscous|cous cous|couscous|
+bulgur|grains|bulgur|Bulgur|bulgur||bulgur|
+quinoa|grains|quinoa|Quinoa|quinoa||quinoa|
+barley|grains|orzo|Graupen|barley|orzo perlato;pearl barley;perlgraupen|orzo|
+spelt|grains|farro|Dinkel|spelt|grunkern;grünkern;farro perlato|farro|
+oats|grains|fiocchi d'avena|Haferflocken|oats|avena;rolled oats;porridge oats;oatmeal;porridge|fiocchi d avena|
+cornflakes|grains|cornflakes|Cornflakes|cornflakes|corn flakes|cornflakes|
+cereal|grains|cereali|Müsli|cereal|muesli;müsli;granola;cereali per colazione|cornflakes|
+polenta|grains|polenta|Polenta|polenta|farina di mais;cornmeal;maisgriess;maismehl;bramata;maisgrieß|farina di mais|
+semolina|grains|semola|Grieß|semolina|semolino;semola di grano duro;hartweizengriess;hartweizengrieß;griess|semola|
+flour|staples|farina|Mehl|flour|plain flour;all purpose flour;all-purpose flour;white flour;weizenmehl;manitoba;farina 0;farina tipo 0|farina|
+flour-00|staples|farina 00|Mehl Type 405|flour type 00|farina tipo 00;tipo 00;00 flour|farina|of:flour
+wholemeal-flour|staples|farina integrale|Vollkornmehl|wholemeal flour|whole wheat flour;vollkornweizenmehl|farina integrale|of:flour
+spelt-flour|staples|farina di farro|Dinkelmehl|spelt flour|dinkelmehl type 630|farina|of:flour
+rice-flour|staples|farina di riso|Reismehl|rice flour||farina di riso|
+chickpea-flour|staples|farina di ceci|Kichererbsenmehl|chickpea flour|gram flour|farina di ceci|
+almond-flour|staples|farina di mandorle|gemahlene Mandeln|ground almonds|almond flour;mandelmehl|farina di mandorle|
+breadcrumbs|bakery|pangrattato|Semmelbrösel|breadcrumbs|pan grattato;bread crumbs;paniermehl;panko;semmelbrosel|pangrattato|
+bread|bakery|pane|Brot|bread|baguette;ciabatta;weissbrot;weißbrot;pane casereccio;filone;pagnotta|pane|
+bread-roll|bakery|panini|Brötchen|bread rolls|panino;rosetta;semmel;semmeln;brotchen;bun;buns;roll;rolls;burger buns|pane|
+toast-bread|bakery|pancarrè|Toastbrot|sliced bread|pan carre;pancarre;pane in cassetta;toast;toastbrot|pane|
+wholemeal-bread|bakery|pane integrale|Vollkornbrot|wholemeal bread|whole wheat bread;schwarzbrot;roggenbrot;rye bread;pane di segale|pane integrale|
+stale-bread|bakery|pane raffermo|altbackenes Brot|stale bread|knodelbrot;knödelbrot|pane raffermo|of:bread
+rusks|bakery|fette biscottate|Zwieback|rusks||fette biscottate|
+crackers|bakery|cracker|Cracker|crackers|crackers salati;knäckebrot;knackebrot|crackers|
+breadsticks|bakery|grissini|Grissini|breadsticks|grissino|crackers|
+taralli|bakery|taralli|Taralli|taralli|tarallini;friselle|crackers|
+piadina|bakery|piadina|Piadina|piadina|piadine|tortilla|
+tortilla|bakery|tortillas|Tortillas|tortillas|tortilla;wraps;wrap;tortilla wraps|tortilla|
+focaccia|bakery|focaccia|Focaccia|focaccia|schiacciata|pane|
+pizza-dough|staples|pasta per pizza|Pizzateig|pizza dough|impasto per pizza;base pizza|pasta per pizza|
+puff-pastry|staples|pasta sfoglia|Blätterteig|puff pastry|sfoglia;blatterteig;rotolo di pasta sfoglia|pasta sfoglia|
+shortcrust|staples|pasta frolla|Mürbeteig|shortcrust pastry|shortcrust;murbeteig;pasta brisee;pasta brisée;brisee;pate brisee|pasta frolla|
+filo-pastry|staples|pasta fillo|Filoteig|filo pastry|phyllo;yufka;strudelteig;pasta phyllo|pasta fillo|
+fresh-yeast|staples|lievito di birra|Hefe|yeast|lievito di birra fresco;lievito fresco;fresh yeast;frischhefe;germ;lievito|lievito di birra|
+dry-yeast|staples|lievito secco|Trockenhefe|dry yeast|lievito di birra secco;instant yeast;active dry yeast|lievito secco|
+baking-powder|staples|lievito per dolci|Backpulver|baking powder|lievito vanigliato;lievito chimico;lievito in polvere|lievito|
+baking-soda|staples|bicarbonato|Natron|baking soda|bicarbonato di sodio;bicarbonate of soda;speisenatron|lievito|
+sugar|staples|zucchero|Zucker|sugar|zucchero semolato;caster sugar;granulated sugar;kristallzucker;feinzucker;white sugar|zucchero|
+brown-sugar|staples|zucchero di canna|brauner Zucker|brown sugar|rohrzucker;demerara;demerara sugar;muscovado;muscovado sugar;zucchero integrale;zucchero di canna integrale|zucchero|
+icing-sugar|staples|zucchero a velo|Puderzucker|icing sugar|powdered sugar;confectioners sugar;staubzucker|zucchero|
+vanilla-sugar|staples|zucchero vanigliato|Vanillezucker|vanilla sugar|vanillinzucker;bourbon vanillezucker;bustina di vanillina|zucchero|
+pearl-sugar|staples|granella di zucchero|Hagelzucker|pearl sugar|zucchero in granella|zucchero|
+jam-sugar|staples|zucchero gelificante|Gelierzucker|jam sugar|preserving sugar|zucchero|
+honey|staples|miele|Honig|honey|miele di acacia;millefiori|miele|
+maple-syrup|staples|sciroppo d'acero|Ahornsirup|maple syrup|sciroppo di acero|sciroppo d acero|
+agave-syrup|staples|sciroppo d'agave|Agavensirup|agave syrup|agave;sciroppo di agave|sciroppo d acero|
+golden-syrup|staples|golden syrup|Zuckersirup|golden syrup|melassa;molasses;treacle;zuckerrübensirup;sciroppo di glucosio;glucose;glucosio;reissirup;rice syrup|sciroppo d acero|
+jam|staples|marmellata|Marmelade|jam|confettura;marmalade;konfiture;konfitüre;preserves;gelee;composta;fruchtaufstrich;confettura di albicocche;apricot jam;aprikosenmarmelade;confettura extra|marmellata|
+cornstarch|staples|amido di mais|Speisestärke|cornstarch|maizena;corn starch;cornflour;maisstarke;maisstärke;speisestarke;starke;stärke;amido;corn flour|amido di mais|
+potato-starch|staples|fecola di patate|Kartoffelstärke|potato starch|fecola;kartoffelstarke;arrowroot|amido di mais|
+gelatine|staples|gelatina|Gelatine|gelatine|colla di pesce;gelatin;gelatine sheets;gelatine leafs;blattgelatine;fogli di gelatina;gelatina in fogli|gelatina|
+agar|staples|agar agar|Agar-Agar|agar agar|agar|gelatina|
+vanilla|staples|vaniglia|Vanille|vanilla|bacca di vaniglia;baccello di vaniglia;vanilla bean;vanilla pod;vanilleschote;estratto di vaniglia;vanilla extract;vanilleextrakt;vanillin;vanillina;aroma vaniglia;vanillearoma;semi di vaniglia|vaniglia|
+cocoa|staples|cacao|Kakao|cocoa|cacao amaro;cocoa powder;unsweetened cocoa;kakaopulver;backkakao;cacao in polvere|cacao|
+custard-powder|staples|preparato per budino|Puddingpulver|custard powder|budino;pudding;vanillepuddingpulver|budino|
+candied-peel|staples|canditi|Zitronat|candied peel|orangeat;frutta candita;candied fruit;cubetti di arancia candita|canditi|
+marzipan|staples|marzapane|Marzipan|marzipan|marzipanrohmasse;pasta di mandorle|marzapane|
+# legumes, tins, jars
+chickpeas|staples|ceci|Kichererbsen|chickpeas|chick peas;garbanzo;garbanzos;ceci lessati;ceci in scatola;canned chickpeas;cooked chickpeas|ceci|
+dried-chickpeas|staples|ceci secchi|getrocknete Kichererbsen|dried chickpeas||ceci secchi|of:chickpeas
+beans|staples|fagioli|Bohnen|beans|fagioli lessati;canned beans;fagioli in scatola;white beans;weisse bohnen;weiße bohnen;haricot beans|fagioli|
+borlotti|staples|fagioli borlotti|Borlotti-Bohnen|borlotti beans|borlotti|fagioli|of:beans
+cannellini|staples|fagioli cannellini|Cannellini-Bohnen|cannellini beans|cannellini|fagioli|of:beans
+kidney-beans|staples|fagioli rossi|Kidneybohnen|kidney beans|kidneybohnen;red kidney beans|fagioli|of:beans
+black-beans|staples|fagioli neri|schwarze Bohnen|black beans||fagioli|of:beans
+baked-beans|staples|fagioli in salsa|Baked Beans|baked beans||fagioli|
+dried-beans|staples|fagioli secchi|getrocknete Bohnen|dried beans||fagioli secchi|of:beans
+lentils|staples|lenticchie|Linsen|lentils|lenticchie secche;dried lentils;berglinsen;beluga linsen;tellerlinsen|lenticchie|
+red-lentils|staples|lenticchie rosse|rote Linsen|red lentils|lenticchie decorticate|lenticchie|of:lentils
+cooked-lentils|staples|lenticchie lessate|gekochte Linsen|cooked lentils|lenticchie in scatola;canned lentils;linsen aus der dose|lenticchie lessate|of:lentils
+split-peas|staples|piselli secchi|Spalterbsen|split peas|cicerchie|piselli secchi|
+canned-tomatoes|staples|pomodori pelati|Dosentomaten|canned tomatoes|pelati;chopped tomatoes;tinned tomatoes;crushed tomatoes;pomodori a pezzi;polpa di pomodoro;polpa;stuckige tomaten;stückige tomaten;geschalte tomaten;geschälte tomaten|pelati|
+passata|staples|passata di pomodoro|passierte Tomaten|passata|passata;tomato passata;passierte tomaten;tomatenpassata;salsa di pomodoro;sugo di pomodoro;tomato sauce;tomatensauce|pelati|
+tomato-paste|staples|concentrato di pomodoro|Tomatenmark|tomato paste|doppio concentrato;triplo concentrato;tomato puree;concentrato|concentrato di pomodoro|
+sun-dried-tomatoes|staples|pomodori secchi|getrocknete Tomaten|sun-dried tomatoes|sun dried tomatoes;sundried tomatoes;pomodori secchi sott olio|pomodori secchi|
+olives|staples|olive|Oliven|olives|black olives;green olives;olive nere;olive verdi;schwarze oliven;grune oliven;grüne oliven;olive taggiasche;kalamata;olive denocciolate|olive|
+capers|condiments|capperi|Kapern|capers|cucunci;capperi sotto sale|capperi|
+pickles|staples|sottaceti|Mixed Pickles|pickles|giardiniera;olive in salamoia;sottaceto;antipasto misto;carciofini sott olio|olive in salamoia|
+gherkins|staples|cetriolini sott'aceto|Gewürzgurken|gherkins|cornichons;cetriolini;gewurzgurken;essiggurken;cetrioli sott aceto|cetriolo|
+sauerkraut|staples|crauti|Sauerkraut|sauerkraut|kimchi|olive in salamoia|
+coconut-milk|staples|latte di cocco|Kokosmilch|coconut milk|crema di cocco;coconut cream;kokoscreme|latte di cocco|
+coconut|staples|cocco rapé|Kokosraspeln|desiccated coconut|cocco;cocco rape;cocco grattugiato;farina di cocco;coconut;shredded coconut;kokosflocken|cocco|
+tuna|meatfish|tonno|Thunfisch|tuna|tonno sott'olio;tonno in scatola;canned tuna;tuna in oil;thunfisch in öl|tonno|
+tuna-in-water|meatfish|tonno al naturale|Thunfisch naturell|tuna in water||tonno al naturale|of:tuna

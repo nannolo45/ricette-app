@@ -170,7 +170,36 @@ function servingsOf(t) {
   return null;
 }
 
-const lowerFirst = (g) => g.charAt(0).toLowerCase() + g.slice(1);
+const GROUP_LEAD = /^(?:per\s+(?:il|lo|la|l'|l’|i|gli|le)\b|für\s+(?:den|die|das)\b|for\s+the\b)/i;
+/**
+ * An ingredient sub-heading ("Per la crema:", "Für den Teig:", "For the sauce", "## Salsa"): its text, or null.
+ * Short, no quantity, and either ends with a colon, starts with "Per la / Für den / For the", or is a markdown heading.
+ */
+export function groupHeading(line) {
+  let t = String(line || '').trim();
+  const md = /^#{1,4}\s+/.test(t);
+  t = t.replace(/^#{1,4}\s+/, '').replace(/^[-–•*]\s*/, '').trim();
+  if (!t || t.length > 40 || /\d/.test(t)) return null;
+  const colon = /:$/.test(t);
+  const text = t.replace(/:$/, '').trim();
+  if (!text || text.split(/\s+/).length > 6) return null;
+  if (md || (colon && !isIngredientLike(text)) || (GROUP_LEAD.test(text) && !isIngredientLike(text))) return text.charAt(0).toUpperCase() + text.slice(1);
+  return null;
+}
+
+/** Ingredient lines with their sub-headings → [{ raw, group? }] (headings themselves dropped). */
+export function groupLines(lines) {
+  let group = '';
+  const out = [];
+  for (const l of lines || []) {
+    const raw = String(typeof l === 'string' ? l : l?.raw || '').trim();
+    if (!raw) continue;
+    const h = groupHeading(raw);
+    if (h) { group = h; continue; }
+    out.push(group ? { raw, group } : { raw });
+  }
+  return out;
+}
 
 function niceTitle(t) {
   t = t.replace(/[.:]+$/, '').trim();
@@ -311,7 +340,8 @@ export function parseRecipeText(input) {
         state = 'steps';
       } else {
         // sub-heading: "Per la crema:", "Für den Teig:", "For the sauce:"
-        if (/:$/.test(t) && t.length <= 40 && !isIngredientLike(t)) { group = t.replace(/:$/, '').trim(); return; }
+        const h = groupHeading(t);
+        if (h) { group = h; return; }
         const prev = ingredients[ingredients.length - 1];
         // Typesetting: a line wraps when its next word doesn't fit. If this short lowercase bit
         // would not have fitted after the line above, it is that line's tail ("3 1/2 tsp baking" + "powder").
@@ -319,16 +349,16 @@ export function parseRecipeText(input) {
         const wordW = l.w && t.length ? (l.w * firstWord.length) / t.length : 0;
         const ranToEdge = prev && prev.right && l.colRight && prev.right + (l.h || 20) * 0.5 + wordW > l.colRight;
         if (prev && ranToEdge && /^[a-zà-öø-ÿ]/.test(t) && parseIngredient(t).qty == null && !bulleted && !TO_TASTE.test(t) && t.split(' ').length <= 2) {
-          prev.raw = appendText(prev.raw.replace(/ \([^)]*\)$/, ''), t) + (group ? ` (${lowerFirst(group)})` : '');
+          prev.raw = appendText(prev.raw, t);
           prev.right = l.right;
           return;
         }
         // wrapped line: "1 cucchiaio di olio extravergine di" + "oliva"
         if (prev && CONTINUES.test(prev.raw.replace(/ \([^)]*\)$/, '')) && /^[a-zà-öø-ÿ(]/.test(t) && parseIngredient(t).qty == null && !bulleted && t.split(' ').length <= 4) {
-          prev.raw = appendText(prev.raw.replace(/ \([^)]*\)$/, ''), t) + (group ? ` (${lowerFirst(group)})` : '');
+          prev.raw = appendText(prev.raw, t);
           return;
         }
-        ingredients.push({ raw: group ? `${t} (${lowerFirst(group)})` : t, right: l.right });
+        ingredients.push({ raw: t, right: l.right, ...(group ? { group } : {}) });
         return;
       }
     }
@@ -372,7 +402,7 @@ export function parseRecipeText(input) {
     servings: servings || 4,
     servingsFound: servings != null,
     time,
-    ingredients: ingredients.map((x) => ({ raw: x.raw.replace(/\s+([,.;:])/g, '$1').trim() })).filter((x) => x.raw.length > 1),
+    ingredients: ingredients.map((x) => ({ raw: x.raw.replace(/\s+([,.;:])/g, '$1').trim(), ...(x.group ? { group: x.group } : {}) })).filter((x) => x.raw.length > 1),
     steps: steps.map((s) => s.replace(/\s+([,.;:!?])/g, '$1')),
     times,
     notes: noteText,

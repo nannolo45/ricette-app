@@ -1,0 +1,98 @@
+# dairy and eggs
+egg|dairy|uova|Eier|eggs|uovo;ei;egg;free-range eggs;uova intere;uova fresche;uova medie;uova grandi|uovo|
+egg-yolk|dairy|tuorli|Eigelb|egg yolks|tuorlo;eidotter;dotter;egg yolk;yolk;yolks|tuorlo|
+egg-white|dairy|albumi|Eiweiß|egg whites|albume;eiklar;eiweiss;egg white;chiara;chiare|albume|
+milk|dairy|latte|Milch|milk|latte intero;vollmilch;whole milk;latte fresco;frischmilch|latte|
+skim-milk|dairy|latte scremato|fettarme Milch|skimmed milk|latte parzialmente scremato;skim milk;semi skimmed milk;semi-skimmed milk;magermilch;low fat milk|latte scremato|of:milk
+cream|dairy|panna|Sahne|cream|panna fresca;panna liquida;panna da montare;heavy cream;whipping cream;double cream;schlagsahne;schlagobers;obers;rahm|panna|
+cooking-cream|dairy|panna da cucina|Kochsahne|cooking cream|single cream;light cream;cremefine|panna da cucina|
+sour-cream|dairy|panna acida|saure Sahne|sour cream|sauerrahm;schmand|panna acida|
+creme-fraiche|dairy|crème fraîche|Crème fraîche|crème fraîche|creme fraiche|creme fraiche|
+whipped-cream|dairy|panna montata|Schlagsahne geschlagen|whipped cream|sprühsahne;spruhsahne|panna montata|
+butter|dairy|burro|Butter|butter|unsalted butter;salted butter;burro chiarificato;ghee;butterschmalz;beurre;burro morbido|burro|
+margarine|dairy|margarina|Margarine|margarine|vegan butter;pflanzenmargarine;alsan|margarina|
+yogurt|dairy|yogurt|Joghurt|yogurt|yoghurt;jogurt;yogurt bianco;naturjoghurt;plain yogurt;yogurt naturale|yogurt|
+greek-yogurt|dairy|yogurt greco|griechischer Joghurt|greek yogurt|griechisches joghurt|yogurt greco|of:yogurt
+skyr|dairy|skyr|Skyr|skyr||skyr|
+quark|dairy|quark|Quark|quark|topfen;magerquark;speisequark|quark|
+mascarpone|dairy|mascarpone|Mascarpone|mascarpone||mascarpone|
+ricotta|dairy|ricotta|Ricotta|ricotta|ricotta vaccina;ricotta di pecora|ricotta|
+mozzarella|dairy|mozzarella|Mozzarella|mozzarella|fior di latte;mozzarella balls;mozzarella per pizza|mozzarella|
+buffalo-mozzarella|dairy|mozzarella di bufala|Büffelmozzarella|buffalo mozzarella|bufala|mozzarella di bufala|of:mozzarella
+burrata|dairy|burrata|Burrata|burrata|stracciatella|mozzarella di bufala|
+parmesan|dairy|parmigiano|Parmesan|parmesan|parmigiano reggiano;parmigiano-reggiano;parmesan cheese;parmesano;parmesankase;parmesankäse;grana;grana padano|parmigiano|
+pecorino|dairy|pecorino|Pecorino|pecorino|pecorino romano;romano|pecorino|
+gorgonzola|dairy|gorgonzola|Gorgonzola|gorgonzola|blue cheese;blauschimmelkäse;erborinato|gorgonzola|
+fontina|dairy|fontina|Fontina|fontina||fontina|
+emmental|dairy|emmental|Emmentaler|emmental|emmentaler;swiss cheese|emmentaler|
+gruyere|dairy|groviera|Greyerzer|gruyère|gruyere;bergkase;bergkäse;alpkase;alpkäse;appenzeller;raclette;raclettekase;raclettekäse|emmentaler|
+gouda|dairy|gouda|Gouda|gouda|edamer;edam;butterkase;butterkäse;tilsiter|gouda|
+cheddar|dairy|cheddar|Cheddar|cheddar|mature cheddar|gouda|
+asiago|dairy|asiago|Asiago|asiago|montasio|gouda|
+provolone|dairy|provolone|Provolone|provolone|caciocavallo|gouda|
+scamorza|dairy|scamorza|Scamorza|scamorza|scamorza affumicata;provola|gouda|
+taleggio|dairy|taleggio|Taleggio|taleggio||taleggio|
+brie|dairy|brie|Brie|brie||taleggio|
+camembert|dairy|camembert|Camembert|camembert||taleggio|
+stracchino|dairy|stracchino|Stracchino|stracchino|crescenza;robiola|taleggio|
+feta|dairy|feta|Feta|feta|schafskase;schafskäse;hirtenkase;hirtenkäse;feta cheese|feta|
+cream-cheese|dairy|formaggio spalmabile|Frischkäse|cream cheese|philadelphia;frischkase;doppelrahmfrischkase;doppelrahmfrischkäse|philadelphia|
+grated-cheese|dairy|formaggio grattugiato|Reibekäse|grated cheese|geriebener kase;geriebener käse;reibekase|formaggio grattugiato|of:cheese
+cheese|dairy|formaggio|Käse|cheese|kase;formaggio a pasta dura|formaggio|
+# meat
+minced-meat|meatfish|carne macinata|Hackfleisch|minced meat|macinato;macinato di manzo;macinato misto;ground beef;minced beef;ground meat;mince;rinderhack;gemischtes hack;faschiertes;hack;lean minced beef|carne macinata|
+beef|meatfish|manzo|Rindfleisch|beef|rind;polpa di manzo;bistecca;steak;filetto di manzo;beef fillet;roastbeef;brasato;spezzatino;rinderbraten;tafelspitz;rindergulasch;gulasch;goulash;stew meat;scamone;girello;beef brisket;rinderfilet|manzo|
+veal|meatfish|vitello|Kalbfleisch|veal|kalb;fesa di vitello;scaloppine;kalbsfilet;kalbsschnitzel;schnitzel;ossobuco;ossibuchi|vitello|
+pork|meatfish|maiale|Schweinefleisch|pork|schwein;lonza;lombo;arista;braciola;braciole;filetto di maiale;pork loin;pork chop;schweinefilet;kotelett;nackensteak;schweinebraten;costine;ribs;spareribs;rippchen|maiale|
+chicken|meatfish|pollo|Hähnchen|chicken|hahnchen;huhn;hendl;poulet;gallina;whole chicken;pollo intero;suppenhuhn|pollo|
+chicken-breast|meatfish|petto di pollo|Hähnchenbrust|chicken breast|hahnchenbrust;hahnchenbrustfilet;hähnchenbrustfilet;huhnerbrust;hühnerbrust;petti di pollo;chicken breasts;hahnchenfilet;chicken fillet;fesa di pollo|petto di pollo|
+chicken-thighs|meatfish|cosce di pollo|Hähnchenschenkel|chicken thighs|coscia di pollo;sovracosce;chicken thigh;chicken legs;drumsticks;hahnchenschenkel;hahnchenkeulen;hähnchenkeulen;fusi di pollo;keulen|cosce di pollo|
+turkey|meatfish|tacchino|Pute|turkey|pute;truthahn|tacchino|
+turkey-breast|meatfish|petto di tacchino|Putenbrust|turkey breast|fesa di tacchino;putenbrust;truthahnbrust;putenfilet|petto di pollo|of:turkey
+lamb|meatfish|agnello|Lammfleisch|lamb|lamm;lammfleisch;abbacchio;lamb chops;lammkoteletts;lamb leg;lamb shoulder;costolette di agnello|agnello|
+rabbit|meatfish|coniglio|Kaninchen|rabbit|hase|coniglio|
+duck|meatfish|anatra|Ente|duck|petto d'anatra;duck breast;entenbrust|anatra|
+liver|meatfish|fegato|Leber|liver|fegatini;chicken livers;fegatini di pollo|fegato|
+guanciale|meatfish|guanciale|Guanciale|guanciale||guanciale|
+pancetta|meatfish|pancetta|Bauchspeck|pancetta|pancetta tesa;pancetta affumicata;dadini di pancetta;speckwurfel;speckwürfel;lardons;bauchspeck|pancetta|
+bacon|meatfish|bacon|Frühstücksspeck|bacon|fruhstucksspeck;bacon rashers;streaky bacon|pancetta|
+lardo|meatfish|lardo|Lardo|lardo|lardo di colonnata|pancetta|
+speck|meatfish|speck|Speck|speck|south tyrolean speck;schinkenspeck|speck|
+prosciutto|meatfish|prosciutto crudo|Rohschinken|prosciutto|prosciutto di parma;parma ham;parmaschinken;serrano;culatello;coppa;crudo|prosciutto crudo|
+ham|meatfish|prosciutto cotto|Kochschinken|ham|cooked ham;schinken|prosciutto|
+sausage|meatfish|salsiccia|Bratwurst|sausages|salsicce;sausage;wurst;luganega;salamella;chipolata;italian fennel sausages;bratwürste|salsiccia|
+frankfurter|meatfish|würstel|Wiener Würstchen|frankfurters|wurstel;wurstchen;würstchen;wiener;wiener wurstchen;frankfurter;hot dog;hotdog;viennese|wurstel|
+salami|meatfish|salame|Salami|salami|salamino;soppressata;nduja;'nduja;chorizo;salame piccante|salame|
+mortadella|meatfish|mortadella|Mortadella|mortadella|fleischwurst;lyoner|mortadella|
+bresaola|meatfish|bresaola|Bresaola|bresaola||bresaola|
+meat|meatfish|carne|Fleisch|meat||carne|
+# fish
+salmon|meatfish|salmone|Lachs|salmon|lachsfilet;filetto di salmone;salmon fillet;salmon fillets|salmone|
+smoked-salmon|meatfish|salmone affumicato|Räucherlachs|smoked salmon|raucherlachs;graved lachs;gravlax|salmone affumicato|of:salmon
+cod|meatfish|merluzzo|Kabeljau|cod|dorsch;filetto di merluzzo;cod fillet;cod fillets|merluzzo|
+salt-cod|meatfish|baccalà|Stockfisch|salt cod|baccala;stoccafisso;stockfisch;klippfisch|merluzzo|
+hake|meatfish|nasello|Seehecht|hake||merluzzo|
+haddock|meatfish|eglefino|Schellfisch|haddock||merluzzo|
+plaice|meatfish|platessa|Scholle|plaice||merluzzo|
+sole|meatfish|sogliola|Seezunge|sole|sole fillets|merluzzo|
+pollock|meatfish|merluzzo d'Alaska|Seelachs|pollock|alaska seelachs;seelachsfilet|merluzzo|
+sea-bream|meatfish|orata|Dorade|sea bream|dorade royale|orata|
+sea-bass|meatfish|branzino|Wolfsbarsch|sea bass|spigola|orata|
+trout|meatfish|trota|Forelle|trout|saibling;salmerino|orata|
+perch|meatfish|persico|Barsch|perch|zander;filetto di persico|orata|
+fish|meatfish|pesce|Fisch|fish|white fish;white fish fillets;fischfilet;filetti di pesce;fish fillet;pesce bianco|orata|
+swordfish|meatfish|pesce spada|Schwertfisch|swordfish||pesce spada|
+fresh-tuna|meatfish|tonno fresco|frischer Thunfisch|fresh tuna|tuna steak;thunfischsteak;trancio di tonno|tonno al naturale|of:tuna
+mackerel|meatfish|sgombro|Makrele|mackerel||sgombro|
+herring|meatfish|aringa|Hering|herring|matjes|sgombro|
+sardines|meatfish|sardine|Sardinen|sardines|sarde;sardina;sardine sott olio|sgombro|
+anchovies|meatfish|acciughe|Sardellen|anchovies|alici;anchovy;sardellenfilets;filetti di acciuga;anchovy fillets;acciuga|acciughe|
+prawns|meatfish|gamberi|Garnelen|prawns|gamberetti;gamberoni;mazzancolle;scampi;shrimp;shrimps;prawn;krabben;crevetten;langostinos;code di gambero;king prawns;tiger prawns|gamberi|
+mussels|meatfish|cozze|Miesmuscheln|mussels|muscheln;cozza|cozze|
+clams|meatfish|vongole|Venusmuscheln|clams|lupini;vongole veraci|vongole|
+squid|meatfish|calamari|Tintenfisch|squid|calamaro;tintenfische;totani;calamaretti;baby squid;anelli di calamaro|calamari|
+cuttlefish|meatfish|seppie|Sepia|cuttlefish|seppia;moscardini;nero di seppia|calamari|
+octopus|meatfish|polpo|Oktopus|octopus|polipo;krake|polpo|
+crab|meatfish|granchio|Krebs|crab|polpa di granchio;krabbe|granchio|
+lobster|meatfish|astice|Hummer|lobster|aragosta|granchio|
+surimi|meatfish|surimi|Surimi|surimi|bastoncini di granchio;crab sticks|surimi|

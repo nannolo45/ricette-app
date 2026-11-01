@@ -872,3 +872,23 @@ details.tag-group[open] { padding-bottom: 10px; }
 .sl-title { margin: 0 0 8px; }
 [hidden] { display: none !important; }
 p.center { text-align: center; }
+
+/* ---------- v40: which food ("Non è questo"), Settings → Ingredienti ---------- */
+.food-field .ff-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.food-field .ff-cur { flex: 1; min-width: 0; }
+.food-field .ff-none { color: var(--muted); font-style: italic; }
+.food-field .ff-pick { display: grid; gap: 8px; margin-top: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.food-field .ff-res { list-style: none; margin: 0; padding: 0; max-height: 38vh; overflow: auto; }
+.food-field .ff-res button { width: 100%; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line); padding: 10px 4px; font: inherit; color: var(--ink); cursor: pointer; }
+.food-field .ff-res small { color: var(--muted); }
+.food-field .ff-more { display: flex; gap: 6px; flex-wrap: wrap; }
+.list.food-unknown li, .list.food-own li, .list.food-extra li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.list.food-unknown .fu-name { flex: 1; min-width: 40%; }
+.list.food-unknown .fu-name small, .list.food-own small { color: var(--muted); }
+.list.food-unknown .fu-acts { display: flex; gap: 6px; }
+.list.food-own li > span:first-child, .list.food-extra li > span:first-child { flex: 1; }
+.list.food-unknown li, .list.food-own li, .list.food-extra li { padding: 10px 14px; }
+
+/* ---------- v41: ingredient groups ---------- */
+.ingredients li.ing-group { display: block; border: 0; padding: 14px 14px 4px; font-weight: 700; font-size: .95rem; color: var(--accent); background: none; }
+.ingredients li.ing-group:first-child { padding-top: 10px; }

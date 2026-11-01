@@ -63,9 +63,11 @@ export function viewRecipe(id) {
   </div>
   ${n !== base ? `<p class="hint small srv-note">${esc(t('scaledFrom', base))}${c$.ui.servings[id] ? ` · <button type="button" class="link-btn" data-action="srv-reset" data-id="${esc(id)}">${esc(t('reset'))}</button>` : ''}</p>` : ''}
   <ul class="ingredients">
-    ${ings.map((i) => {
+    ${ings.map((i, k) => {
       const q = qtyText(scaleQty(i.qty, base, n), i.unit);
-      return `<li><span class="q">${esc(q)}</span><span class="ing-name">${esc(i.name)}${i.note ? ` <small>${esc(i.note)}</small>` : ''}</span>${status(i.name)}</li>`;
+      // a group heading ("Per la crema") where the group changes
+      const head = i.group && i.group !== ings[k - 1]?.group ? `<li class="ing-group">${esc(i.group)}</li>` : '';
+      return `${head}<li><span class="q">${esc(q)}</span><span class="ing-name">${esc(i.name)}${i.note ? ` <small>${esc(i.note)}</small>` : ''}</span>${status(i.name)}</li>`;
     }).join('')}
   </ul>
   ${(r.steps || []).length ? `<h2>${esc(t('steps'))}</h2><ol class="steps">${r.steps.map((x) => (/^[^.!?:]{3,60}:$/.test(x.trim()) ? `<li class="step-head">${esc(x)}</li>` : `<li>${esc(x)}</li>`)).join('')}</ol>` : ''}
@@ -129,7 +131,11 @@ export function openStageMenu(id) {
 function recipeText(r) {
   const n = c$.servingsFor(r);
   const base = r.servings || 4;
-  const ings = c$.ingredientsOf(r).map((i) => `- ${[qtyText(scaleQty(i.qty, base, n), i.unit), i.name].filter(Boolean).join(' ')}`);
+  const all = c$.ingredientsOf(r);
+  const ings = all.flatMap((i, k) => [
+    ...(i.group && i.group !== all[k - 1]?.group ? [`${i.group}:`] : []),
+    `- ${[qtyText(scaleQty(i.qty, base, n), i.unit), i.name].filter(Boolean).join(' ')}`,
+  ]);
   const steps = (r.steps || []).map((x, k) => `${k + 1}. ${x}`);
   return [r.title, t('people', n), '', `${t('ingredients')}:`, ...ings, '', `${t('steps')}:`, ...steps, ...(r.url ? ['', r.url] : [])].join('\n');
 }

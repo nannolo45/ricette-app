@@ -14,6 +14,8 @@ export const PATHS = {
   prefs: 'data/prefs.json',
   // shared with Everyday (same format): where things can be bought
   shops: 'data/shops.json',
+  // the user's own foods and extra names for built-in ones (v40): Ricette writes, Everyday reads
+  foods: 'data/foods.json',
 };
 const VAPID_PATH = 'push/vapid.json';
 
@@ -21,7 +23,7 @@ const VAPID_PATH = 'push/vapid.json';
 // The version is the prefs record {id: 'contract', value}. If another app raised it, this one keeps reading
 // but doesn't write the shared files until it's updated.
 export const CONTRACT = 1;
-const SHARED_FILES = ['shopping', 'shops', 'prefs', 'pantry'];
+const SHARED_FILES = ['shopping', 'shops', 'prefs', 'pantry', 'foods'];
 export function contractInData() {
   const rec = (state.prefs || []).find((p) => p && p.id === 'contract' && !p.deleted);
   return Number(rec?.value) || 0;
