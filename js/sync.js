@@ -1,6 +1,6 @@
 // Two-way sync of local collections with JSON files in a GitHub repository.
 import {
-  state, COLLECTIONS, mergeLists, purgeTombstones, serialize, replaceCollection, saveMeta, kvGet, kvSet, kvDel,
+  state, COLLECTIONS, mergeLists, purgeTombstones, serialize, replaceCollection, saveMeta, kvGet, kvSet, kvDel, kvKeys,
 } from './store.js';
 
 export const PATHS = {
@@ -16,6 +16,16 @@ export const PATHS = {
   shops: 'data/shops.json',
 };
 const VAPID_PATH = 'push/vapid.json';
+
+// Data contract with Everyday (handoff Nov 2026): the highest version of the shared files this app understands.
+// The version is the prefs record {id: 'contract', value}. If another app raised it, this one keeps reading
+// but doesn't write the shared files until it's updated.
+export const CONTRACT = 1;
+const SHARED_FILES = ['shopping', 'shops', 'prefs', 'pantry'];
+export function contractInData() {
+  const rec = (state.prefs || []).find((p) => p && p.id === 'contract' && !p.deleted);
+  return Number(rec?.value) || 0;
+}
 
 export function isConfigured() {
   const s = state.settings;
@@ -66,7 +76,7 @@ function b64encode(text) {
 async function getFile(path) {
   const ref = encodeURIComponent(branch());
   const res = await api(`contents/${path}?ref=${ref}`);
-  if (res.status === 404) return { sha: null, data: [] };
+  if (res.status === 404) return { sha: null, data: [], text: '[]', size: 0 };
   if (!res.ok) throw fail(res);
   const meta = await res.json();
   let text;
@@ -79,28 +89,79 @@ async function getFile(path) {
   }
   let data = [];
   try { data = JSON.parse(text); } catch { data = []; }
-  return { sha: meta.sha, data: Array.isArray(data) ? data : [] };
+  return { sha: meta.sha, data: Array.isArray(data) ? data : [], size: meta.size ?? text.length };
 }
 
+// Returns the new file's sha, or null when someone else wrote first.
 async function putFile(path, text, sha) {
   const body = { message: `app: update ${path}`, content: b64encode(text), branch: branch() };
   if (sha) body.sha = sha;
   const res = await api(`contents/${path}`, {
     method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' },
   });
-  if (res.status === 409 || res.status === 422) return false; // someone else wrote first
+  if (res.status === 409 || res.status === 422) return null; // someone else wrote first
   if (!res.ok) throw fail(res);
-  return true;
+  let out = {};
+  try { out = await res.json(); } catch { /* no body */ }
+  return out?.content?.sha || 'unknown';
 }
 
-async function syncCollection(c) {
+// What each data file looked like on GitHub at our last sync (sha + content), per repository and branch,
+// so a sync only downloads files whose sha changed. One directory listing per folder tells us the shas.
+const CACHE_PREFIX = 'gh:';
+function cacheKey(path) {
+  const s = state.settings;
+  return `${CACHE_PREFIX}${String(s.owner || '').trim().toLowerCase()}/${String(s.repo || '').trim().toLowerCase()}@${branch()}:${path}`;
+}
+export async function clearFileCache() {
+  for (const k of await kvKeys(CACHE_PREFIX)) await kvDel(k);
+}
+
+async function listFiles() {
+  const ref = encodeURIComponent(branch());
+  const dirs = [...new Set(Object.values(PATHS).map((p) => p.slice(0, p.lastIndexOf('/'))))];
+  const files = new Map();
+  const listed = new Set();
+  for (const dir of dirs) {
+    const res = await api(`contents/${dir}?ref=${ref}`);
+    if (res.status === 404) continue; // folder not there (yet): those files are fetched one by one
+    if (!res.ok) throw fail(res);
+    const list = await res.json();
+    if (!Array.isArray(list)) continue;
+    listed.add(dir);
+    for (const f of list) if (f && f.type === 'file') files.set(f.path, { sha: f.sha, size: f.size });
+  }
+  return { files, listed };
+}
+
+const byteLength = (text) => new TextEncoder().encode(text).length;
+
+async function syncCollection(c, listing, sizes, readOnly = false) {
+  const path = PATHS[c];
   for (let attempt = 0; attempt < 4; attempt++) {
-    const remote = await getFile(PATHS[c]);
+    let remote = null;
+    if (attempt === 0 && listing && listing.listed.has(path.slice(0, path.lastIndexOf('/')))) {
+      const info = listing.files.get(path);
+      if (!info) remote = { sha: null, data: [], size: 0 };
+      else {
+        const cached = await kvGet(cacheKey(path));
+        if (cached && cached.sha === info.sha) {
+          try { remote = { sha: info.sha, data: JSON.parse(cached.text), size: info.size, cached: true }; } catch { remote = null; }
+        }
+      }
+    }
+    if (!remote) remote = await getFile(path);
     const merged = purgeTombstones(mergeLists(remote.data, state[c]));
     const text = serialize(merged);
-    if (text !== serialize(remote.data)) {
-      const ok = await putFile(PATHS[c], text, remote.sha);
-      if (!ok) continue;
+    const remoteText = serialize(remote.data);
+    if (text !== remoteText && !readOnly) {
+      const sha = await putFile(path, text, remote.sha);
+      if (!sha) continue;
+      await kvSet(cacheKey(path), { sha, text });
+      sizes[path] = byteLength(text);
+    } else {
+      if (!remote.cached && remote.sha) await kvSet(cacheKey(path), { sha: remote.sha, text: remoteText });
+      if (remote.sha) sizes[path] = remote.size ?? byteLength(remoteText);
     }
     // Merge again with whatever changed locally while we were talking to GitHub.
     await replaceCollection(c, mergeLists(merged, state[c]));
@@ -158,9 +219,16 @@ export function syncNow() {
       do {
         again = false;
         await uploadPendingPhotos();
-        for (const c of COLLECTIONS) await syncCollection(c);
+        let listing = null;
+        try { listing = await listFiles(); } catch (e) { if (e instanceof SyncError && (e.code === 'auth' || e.code === 'forbidden')) throw e; listing = null; }
+        const sizes = {};
+        let newer = contractInData() > CONTRACT;
+        for (const c of COLLECTIONS) {
+          await syncCollection(c, listing, sizes, newer && SHARED_FILES.includes(c));
+          if (c === 'prefs') newer = contractInData() > CONTRACT; // the prefs just arrived: check again
+        }
         // still dirty if another sync was requested (local edit) meanwhile
-        await saveMeta({ dirty: again, lastSync: Date.now(), lastError: null });
+        await saveMeta({ dirty: again, lastSync: Date.now(), lastError: null, fileSizes: sizes, contractNewer: newer });
       } while (again);
       return { ok: true };
     } catch (e) {
