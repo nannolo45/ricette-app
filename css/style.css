@@ -858,6 +858,7 @@ details.tag-group[open] { padding-bottom: 10px; }
 .lvl-seg .lvl { min-height: 34px; min-width: 52px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; padding: 0 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
 .lvl-seg .lvl input { position: absolute; opacity: 0; pointer-events: none; }
 .lvl-seg .lvl.on { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.lvl-seg .lvl-ok.on, .lvl-seg label.lvl.on:has(input[value=ok]) { background: color-mix(in srgb, var(--green) 24%, transparent); color: var(--green); }
 .lvl-seg .lvl-low.on, .lvl-seg label.lvl.on:has(input[value=low]) { background: color-mix(in srgb, var(--warn) 22%, transparent); }
 .lvl-seg .lvl-out.on, .lvl-seg label.lvl.on:has(input[value=out]) { background: color-mix(in srgb, var(--danger) 18%, transparent); }
 .lvl-seg .lvl:focus-within, .lvl-seg .lvl:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -993,3 +994,39 @@ p.center { text-align: center; }
 .trip-card .tc-act { color: var(--accent); font-weight: 600; font-size: .85rem; white-space: nowrap; }
 .trip-card.on { border-color: var(--accent); background: var(--accent-soft); }
 .shop-trip { margin-left: 6px; color: var(--accent); font-weight: 600; }
+
+/* ---------- v46: quick chips, sort panel, compact filters ---------- */
+.active-chips.quick-row { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 10px -18px 8px; padding: 0 18px 2px; -webkit-overflow-scrolling: touch; }
+.active-chips.quick-row::-webkit-scrollbar { display: none; }
+.quick-row .chip { flex: none; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; text-decoration: none; }
+.quick-row .sort-chip { background: var(--surface); font-weight: 600; }
+.quick-row .sort-chip.set { border-color: var(--accent); color: var(--accent); }
+.quick-row .sort-chip svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.quick-row .sort-chip .caret { font-size: .7rem; opacity: .7; }
+.quick-row .ghost-chip { color: var(--muted); }
+.searchbar .view-btn { color: var(--muted); background: transparent; min-width: 40px; padding: 0 6px; }
+.sort-list { display: flex; flex-direction: column; margin: 4px 0 8px; }
+.sort-opt { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.sort-opt .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); flex: none; display: grid; place-items: center; }
+.sort-opt.on { background: var(--accent-soft); font-weight: 600; }
+.sort-opt.on .dot { border-color: var(--accent); }
+.sort-opt.on .dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.sort-rev { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-items: center; column-gap: 12px; width: 100%; padding: 12px 10px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.sort-rev > span:first-child { font-weight: 600; }
+.sort-rev small { grid-column: 1; color: var(--muted); }
+.sort-rev .sw-btn { grid-column: 2; grid-row: 1 / 3; pointer-events: none; }
+.sheet-head .f-reset { margin-left: auto; margin-right: 6px; font-size: .9rem; }
+.seg.f-seg { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.f-group.scroll .f-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -18px; padding-right: 18px; }
+.f-group.scroll .f-chips::-webkit-scrollbar { display: none; }
+.f-group.scroll .chip { flex: none; }
+.f-folds { padding-top: 0; }
+.f-fold { border-top: 1px solid var(--line); }
+.f-fold:last-child { border-bottom: 1px solid var(--line); }
+.f-fold-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 50px; padding: 0 2px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.f-fold-head > span:first-child { flex: 1; font-weight: 600; }
+.f-fold-head small { color: var(--muted); max-width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f-fold-head .chev { color: var(--muted); transition: transform .15s; }
+.f-fold.open .chev { transform: rotate(90deg); }
+.f-fold-body { padding: 0 2px 12px; }
+.f-pin-link { margin: 10px 0 0; }

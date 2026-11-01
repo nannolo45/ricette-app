@@ -118,6 +118,13 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Quicker filters (v46, Nov 1):** copy the contents of `app/` to the top of ricette-app. *Vista e filtri* is split
+  up: under the search, a row of switches you can scroll sideways (⇅ order, Con la dispensa, ≤ 30 min, your pinned
+  tags, and any other filter in use with ✕); the order has its own short list with *Al contrario* instead of pairs
+  like A–Z / Z–A; next to the search an icon switches list/grid; *Filtri* opens only filters, with the rarely used
+  ones (other tags, work/calories/protein, source, archived) folded and Origine showing the four most used. People
+  for all recipes is now only in Settings → Ricette (a 👥 chip shows when it's set).
+- **Green C'è (v45.1, Nov 1):** copy the contents of `app/` again: a staple that's at home now shows *C'è* in green (Poca amber, Finita red, as before).
 - **Everyday's trips on the list (v45, Nov 1):** copy the contents of `app/` to the top of ricette-app (nothing in
   the data repo beyond v44's files). When Everyday has planned grocery trips (*Pianifica la spesa*, Everyday v46),
   each item on Ricette's list says which trip it's on ("🛒 domani 10:00 · Esselunga"), a *Prossimo giro* card at the

@@ -6,6 +6,8 @@ const plural = (n, one, many) => (n === 1 ? one : many);
 
 const dict = {
   it: {
+    // v46 quick filters and sorting
+    filtersTitle: 'Filtri', sortBase_new: 'Aggiunte di recente', sortBase_az: 'Nome (A–Z)', sortBase_quick: 'Più veloci', sortBase_active: 'Meno lavoro', sortBase_fewest: 'Meno ingredienti', sortBase_cooked: 'Più cucinate', sortBase_recent: 'Cucinate di recente', sortBase_kcal: 'Meno calorie', sortBase_protein: 'Più proteine', sortReversed: 'Al contrario', sortReversedShort: 'al contrario', sortRevHint_new: 'prima le più vecchie', sortRevHint_az: 'dalla Z alla A', sortRevHint_quick: 'prima le più lunghe', sortRevHint_active: 'prima quelle con più lavoro', sortRevHint_fewest: 'prima quelle con più ingredienti', sortRevHint_cooked: 'prima quelle cucinate meno', sortRevHint_recent: 'prima quelle non cucinate da tempo', sortRevHint_kcal: 'prima le più caloriche', sortRevHint_protein: 'prima quelle con meno proteine', anyTime: 'Tutte', allN: (n) => `Tutte (${n})`, limitsRow: 'Lavoro, calorie, proteine', noLimit: 'nessun limite', anySource: 'tutte', archivedShown: 'solo quelle', archivedHidden: 'nascoste', pinTagsBar: 'Scegli i tag nella barra rapida', pinHintBar: 'I tag fissati compaiono come interruttori sotto la ricerca.',
     // v45 trips from Everyday
     tripToday: 'oggi', tripTomorrow: 'domani', nextTrip: 'Prossimo giro', tripAnyShop: 'spesa generica', nThings: (n) => (n === 1 ? '1 cosa' : `${n} cose`), showTrip: 'Mostra solo questo', showAllItems: 'Mostra tutto',
     // v44 receipts
@@ -218,6 +220,8 @@ const dict = {
     installHint: 'Suggerimento: aggiungi l\'app alla schermata Home per usarla come un\'app, anche offline.',
   },
   de: {
+    // v46 quick filters and sorting
+    filtersTitle: 'Filter', sortBase_new: 'Zuletzt hinzugefügt', sortBase_az: 'Name (A–Z)', sortBase_quick: 'Schnellste', sortBase_active: 'Wenigste Arbeit', sortBase_fewest: 'Wenigste Zutaten', sortBase_cooked: 'Am häufigsten gekocht', sortBase_recent: 'Zuletzt gekocht', sortBase_kcal: 'Wenigste Kalorien', sortBase_protein: 'Meiste Proteine', sortReversed: 'Umgekehrt', sortReversedShort: 'umgekehrt', sortRevHint_new: 'älteste zuerst', sortRevHint_az: 'von Z bis A', sortRevHint_quick: 'längste zuerst', sortRevHint_active: 'meiste Arbeit zuerst', sortRevHint_fewest: 'meiste Zutaten zuerst', sortRevHint_cooked: 'seltenste zuerst', sortRevHint_recent: 'lange nicht gekochte zuerst', sortRevHint_kcal: 'kalorienreichste zuerst', sortRevHint_protein: 'wenigste Proteine zuerst', anyTime: 'Alle', allN: (n) => `Alle (${n})`, limitsRow: 'Arbeit, Kalorien, Proteine', noLimit: 'keine Grenze', anySource: 'alle', archivedShown: 'nur diese', archivedHidden: 'ausgeblendet', pinTagsBar: 'Tags für die Schnellleiste wählen', pinHintBar: 'Angeheftete Tags erscheinen als Schalter unter der Suche.',
     // v45 trips from Everyday
     tripToday: 'heute', tripTomorrow: 'morgen', nextTrip: 'Nächster Einkauf', tripAnyShop: 'allgemeiner Einkauf', nThings: (n) => (n === 1 ? '1 Sache' : `${n} Sachen`), showTrip: 'Nur diesen zeigen', showAllItems: 'Alles zeigen',
     // v44 receipts
@@ -430,6 +434,8 @@ const dict = {
     installHint: 'Tipp: Füge die App zum Home-Bildschirm hinzu, dann funktioniert sie wie eine App, auch offline.',
   },
   en: {
+    // v46 quick filters and sorting
+    filtersTitle: 'Filters', sortBase_new: 'Recently added', sortBase_az: 'Name (A–Z)', sortBase_quick: 'Quickest', sortBase_active: 'Least work', sortBase_fewest: 'Fewest ingredients', sortBase_cooked: 'Most cooked', sortBase_recent: 'Recently cooked', sortBase_kcal: 'Fewest calories', sortBase_protein: 'Most protein', sortReversed: 'Reverse', sortReversedShort: 'reversed', sortRevHint_new: 'oldest first', sortRevHint_az: 'Z to A', sortRevHint_quick: 'longest first', sortRevHint_active: 'most work first', sortRevHint_fewest: 'most ingredients first', sortRevHint_cooked: 'least cooked first', sortRevHint_recent: 'not cooked for longest first', sortRevHint_kcal: 'most calories first', sortRevHint_protein: 'least protein first', anyTime: 'Any', allN: (n) => `All (${n})`, limitsRow: 'Work, calories, protein', noLimit: 'no limit', anySource: 'any', archivedShown: 'only those', archivedHidden: 'hidden', pinTagsBar: 'Choose tags for the quick bar', pinHintBar: 'Pinned tags show as switches under the search.',
     // v45 trips from Everyday
     tripToday: 'today', tripTomorrow: 'tomorrow', nextTrip: 'Next trip', tripAnyShop: 'general shop', nThings: (n) => (n === 1 ? '1 thing' : `${n} things`), showTrip: 'Show only this', showAllItems: 'Show all',
     // v44 receipts
