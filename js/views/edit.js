@@ -17,7 +17,7 @@ export function setupEditView(ctx) { c$ = ctx; }
 
 const E = () => c$.ui.edit;
 const lines = (v) => String(v || '').split('\n').map((s) => s.trim()).filter(Boolean);
-const DRAFT = ['title', 'servings', 'time', 'prepMin', 'waitMin', 'folderId', 'url', 'sourceType', 'book', 'page', 'notes', 'cuisine', 'image'];
+const DRAFT = ['stage', 'title', 'servings', 'time', 'prepMin', 'waitMin', 'folderId', 'url', 'sourceType', 'book', 'page', 'notes', 'cuisine', 'image'];
 
 /* ---------- state ---------- */
 
@@ -422,6 +422,12 @@ export function viewEdit(id) {
         <span class="stepper small"><button type="button" class="icon-btn" data-action="ed-srv" data-d="-1" aria-label="${esc(t('fewerPeople'))}">−</button>
         <input name="servings" type="number" min="1" step="1" inputmode="numeric" value="${esc(v('servings', r.servings || 4))}" aria-label="${esc(t('servingsLabel'))}">
         <button type="button" class="icon-btn" data-action="ed-srv" data-d="1" aria-label="${esc(t('morePeople'))}">+</button></span></div>
+      ${isNew ? (() => {
+        // v48: where a new recipe goes; written by hand → Preferite, pasted or from a photo → Da provare (as before), changeable here
+        const st = v('stage', ui.prefillSource || ui.prefillUrl ? 'try' : 'fav');
+        return `<div class="erow static stage-row"><span class="erow-l">${esc(t('stageGoes'))}</span>
+        <span class="stage-pick" role="radiogroup" aria-label="${esc(t('stageGoes'))}">${['fav', 'try'].map((k) => `<label class="pill-radio"><input type="radio" name="stage" value="${k}" ${st === k ? 'checked' : ''}><span>${esc(t(`seg_${k}`))}</span></label>`).join('')}</span></div>`;
+      })() : ''}
       ${row('time', t('timeRow'), '', `
         <label>${esc(t('totalTimeLabel'))}<input name="time" value="${esc(v('time', r.time || ''))}" placeholder="${esc(t('timePh'))}"></label>
         <div class="two times-edit">

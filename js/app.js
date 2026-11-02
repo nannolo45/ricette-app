@@ -9,7 +9,7 @@ import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './vi
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 import { GUIDE } from './guide.js';
 
-const APP_VERSION = 'v47';
+const APP_VERSION = 'v48';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -23,12 +23,12 @@ import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
 import { parseRecipeText, detectLang as textLang, groupLines } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
-import { tagsOf, minutesOf, rankByPantry, pantryCoverage, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
+import { tagsOf, minutesOf, rankByPantry, pantryCoverage, findPantryItem, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
 import { originOf, flagOf, CONTINENTS, CONTINENT_ICON } from './geo.js';
 import { planBookFix, booksOf } from './book-fix.js';
 // shared with Everyday, copied unchanged: the list's views, search and departments
-import { availableModes, currentMode, saveModeTarget, groupItems, itemMatches, addedOf, fold, DRAG_MODES, GROUPED_MODES, byItemOrder, recipeGroupOf, filterItems, filterCount as listFilterCount } from './shoplist.js';
-import { listHtml, rowsHtml, viewSheetHtml, itemSheetHtml, shopChipsHtml, cartBarHtml, menuHtml } from './shoplist-ui.js';
+import { availableModes, currentMode, saveModeTarget, groupItems, itemMatches, addedOf, fold, DRAG_MODES, GROUPED_MODES, SHARED_MODES, byItemOrder, recipeGroupOf, filterItems, filterCount as listFilterCount } from './shoplist.js';
+import { listHtml, rowsHtml, itemSheetHtml, shopChipsHtml, cartBarHtml, menuHtml } from './shoplist-ui.js';
 import { DEPTS, DEPT_IDS, deptIcon, deptOf } from './depts.js';
 import { shopStatus } from './shop-status.js';
 import { assignItems } from './shops.js';
@@ -120,7 +120,7 @@ function currentFolderId() {
 // Where new recipes go: the Import tab has its own folder choice, elsewhere the folder being viewed.
 function targetFolderId() {
   // from the "+" sheet (and the photo/book windows opened from it): its "Save in"
-  if (route().name === 'import' || ui.addFlow) return folderOf(state.settings.importFolder) ? state.settings.importFolder : null;
+  if (route().name === 'import' || ui.addFlow || ui.ctxAdd) return folderOf(state.settings.importFolder) ? state.settings.importFolder : null;
   return currentFolderId();
 }
 
@@ -384,7 +384,7 @@ function viewRecipes() {
     ${filterButton()}
   </div>
   ${filtersClosedLine()}
-  ${filterPanel()}
+  ${isWide() ? '' : filterPanel()}
   ${withPantry() ? pantryBar() : ''}
   ${!withPantry() && (folderId || seg === 'all') ? `<div class="folder-bar">
     <div class="crumbs">
@@ -400,7 +400,7 @@ function viewRecipes() {
   ${folderId ? bookFixBanner(folderId) : ''}
   ${showQueue ? `<div class="import-queue">${!isConfigured() ? `<p class="hint">${esc(t('importNeedsGithub'))}</p>` : ''}${queue.map(queueItem).join('')}</div>` : ''}
   <div id="cards">${cardsHtml()}</div>
-  <button type="button" class="fab" data-action="open-add" aria-label="${esc(t('addRecipe'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>`;
+  ${isWide() ? '' : fabHtml('open-add', '', t('addRecipe'))}`;
 }
 
 // what the person asked to import (links, photos, books), newest first; finished books stay until dismissed
@@ -423,8 +423,9 @@ function importNote(active) {
 // then sections that open in place, one at a time. Closed, only what's in use stays visible, as removable chips.
 const SORT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>';
 const FILTER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>';
-function filtersOpen() { return Boolean(ui.filtersOpen); }
+function filtersOpen() { return isWide() || Boolean(ui.filtersOpen); }
 function filterButton() {
+  if (isWide()) return '';
   const n = filterCount() + (withPantry() ? 1 : 0);
   const open = filtersOpen();
   return `<button type="button" class="f-toggle ${open ? 'open' : ''}" data-action="filters-toggle" aria-expanded="${open}" aria-controls="fpanel">${FILTER_SVG}<span>${esc(t('filtersTitle'))}</span>${n ? `<span class="f-count">${n}</span>` : ''}</button>`;
@@ -478,9 +479,12 @@ function sortBox() {
 // ---------- sheets (v33): panels that slide up from the bottom; the view's own handlers work inside ----------
 
 function openSheet(kind) {
-  ui.addFlow = kind === 'add';
   // "+" inside a folder saves into that folder
   if (kind === 'add' && currentFolderId() && state.settings.importFolder !== currentFolderId()) saveSettings({ importFolder: currentFolderId() });
+  if (kind === 'add') ui.addTab = 'link'; // the "+" always opens on the link, the most common way in
+  // wide screen (v48): adding a recipe opens in the right-hand column, not in a sheet
+  if (kind === 'add' && isWide() && ['recipes', 'folder'].includes(route().name)) { ui.ctxAdd = true; render(); return; }
+  ui.addFlow = kind === 'add';
   modal.onchange = null; modal.oninput = null; modal.onclick = null; modal.onsubmit = null;
   modal.classList.add('sheet');
   ui.sheet = kind;
@@ -493,8 +497,8 @@ function openSheet(kind) {
 }
 
 function sheetHtml(kind) {
-  if (kind === 'list') return listSheetHtml();
-  if (kind === 'pantry') return pantrySheetHtml();
+  if (kind === 'qa-list') return qaSheetHtml('list');
+  if (kind === 'qa-pantry') return qaSheetHtml('pantry');
   return kind === 'add' ? addSheetHtml() : '';
 }
 
@@ -502,33 +506,44 @@ function refreshSheet() {
   if (!ui.sheet || !modal.open) return;
   const body = modal.querySelector('.sheet-body');
   if (!body) return;
+  // quick add: keep the field (and the keyboard); only the "just added" chips change
+  const just = body.querySelector('.qa-just');
+  if (ui.sheet.startsWith('qa-') && just && !ui.qaRebuild) { just.innerHTML = qaJustHtml(ui.sheet.slice(3)); return; }
+  ui.qaRebuild = false;
   const top = body.scrollTop;
   body.innerHTML = sheetHtml(ui.sheet);
   body.scrollTop = top;
 }
 
+// The "+" on Ricette (v48): one tab per way in — a link, photos, a whole book, or the empty form.
+const ADD_TABS = ['link', 'photo', 'book', 'new'];
 function addSheetHtml() {
   const folder = folderOf(state.settings.importFolder) ? state.settings.importFolder : '';
+  const tab = ADD_TABS.includes(ui.addTab) ? ui.addTab : 'link';
+  const ico = {
+    photo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>',
+    book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v15H4zM10 5h4v15h-4zM15 6l4-1 3 14-4 1z"/></svg>',
+    new: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>',
+  };
+  const body = {
+    link: `<form class="import" id="import-form">
+      <input type="url" name="url" id="import-url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off" aria-label="${esc(t('pasteLink'))}">
+      <button class="btn primary">${esc(t('import'))}</button>
+    </form>`,
+    photo: `<div class="add-pane"><span class="ap-ico">${ico.photo}</span><p>${esc(t('addPhotoText'))}</p></div>
+      <button type="button" class="btn primary wide photo-import" data-action="photo-import">${esc(t('addPhotoGo'))}</button>`,
+    book: `<div class="add-pane"><span class="ap-ico">${ico.book}</span><p>${esc(t('bookIntro'))}</p></div>
+      <button type="button" class="btn primary wide book-import" data-action="book-import">${esc(t('chooseBook'))}</button>`,
+    new: `<div class="add-pane"><span class="ap-ico">${ico.new}</span><p>${esc(t('addNewText'))}</p></div>
+      <button type="button" class="btn primary wide" data-action="new-recipe">${esc(t('create'))}</button>`,
+  }[tab];
   return `
-  <div class="sheet-head"><h2>${esc(t('addRecipe'))}</h2><button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}">✕</button></div>
-  <form class="import" id="import-form">
-    <input type="url" name="url" id="import-url" required placeholder="${esc(t('pasteLink'))}" inputmode="url" autocomplete="off" aria-label="${esc(t('pasteLink'))}">
-    <button class="btn primary">${esc(t('import'))}</button>
-  </form>
-  <div class="add-grid">
-    <button type="button" class="btn add-tile photo-import" data-action="photo-import">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
-      <span>${esc(t('fromPhoto'))}</span><small>${esc(t('orPasteText'))}</small></button>
-    <button type="button" class="btn add-tile" data-action="new-recipe">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>
-      <span>${esc(t('manualLong'))}</span></button>
-    <button type="button" class="btn add-tile book-import" data-action="book-import">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v15H4zM10 5h4v15h-4zM15 6l4-1 3 14-4 1z"/></svg>
-      <span>${esc(t('wholeBook'))}</span><small>PDF · EPUB</small></button>
-  </div>
+  <div class="sheet-head"><h2>${esc(t('addHeading'))} <span class="sh-sub">${esc(t('addTo_recipes'))}</span></h2><button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}">✕</button></div>
+  <div class="add-tabs" role="tablist">${ADD_TABS.map((k) => `<button type="button" role="tab" class="chip ${k === tab ? 'on' : ''}" aria-selected="${k === tab}" data-action="add-tab" data-value="${k}">${esc(t(`addTab_${k}`))}</button>`).join('')}</div>
+  ${body}
   <label class="import-folder">📁 ${esc(t('saveIn'))}
     <select id="import-folder">${folderOptions(folder)}</select></label>
-  <p class="hint">${esc(t('importHintToTry'))}</p>`;
+  ${tab === 'new' ? '' : `<p class="hint">${esc(t('importHintToTry'))}</p>`}`;
 }
 
 // ---------- tidying up books imported by an older version ----------
@@ -766,9 +781,240 @@ function filterPanel() {
       <span class="fp-count">${esc(t('nRecipes', n))}</span>
       ${globalPeople() ? `<a class="fp-people" href="#/settings/recipes">👥 ${esc(t('people', globalPeople()))}</a>` : ''}
       ${filterCount() ? `<button type="button" class="link-btn f-reset" data-action="f-clear">${esc(t('clearFilters'))}</button>` : ''}
-      <button type="button" class="btn small ghost" data-action="filters-toggle">${esc(t('close'))}</button>
+      ${isWide() ? '' : `<button type="button" class="btn small ghost" data-action="filters-toggle">${esc(t('close'))}</button>`}
     </div>
     ${tags.length ? `<p class="f-pin-link"><button type="button" class="link-btn" data-action="pin-edit" aria-pressed="false">📌 ${esc(t('pinTagsBar'))}</button></p>` : ''}
+  </div>`;
+}
+
+// ---------- v48: one bar for the three tabs, one "+", and three columns on a wide screen ----------
+
+// Wide screens (≥1100 px): the filter panel stays open in a left column, the content takes the middle,
+// and a right column holds what the phone shows in sheets (adding, the cart, a recipe's preview).
+const WIDE = window.matchMedia('(min-width: 1100px)');
+function isWide() { return WIDE.matches; }
+const WIDE_ROUTES = ['recipes', 'folder', 'list', 'pantry'];
+function wideWrap(kind, mid) {
+  if (!isWide()) return mid;
+  return `<div class="tri" data-kind="${kind}">
+    <aside class="rail" aria-label="${esc(t('viewFilters'))}">${railHtml(kind)}</aside>
+    <section class="mid">${mid}</section>
+    <aside class="ctx">${ctxHtml(kind)}</aside>
+  </div>`;
+}
+function railHtml(kind) {
+  if (kind === 'list') return listPanel();
+  if (kind === 'pantry') return pantryPanel();
+  return filterPanel();
+}
+function ctxHtml(kind) {
+  if (kind === 'list') return `<div class="ctx-card">${qaSheetHtml('list', true)}</div>${cartBox()}`;
+  if (kind === 'pantry') return `<div class="ctx-card">${qaSheetHtml('pantry', true)}</div>`;
+  if (ui.ctxAdd) return `<div class="ctx-card">${addSheetHtml()}</div>`;
+  return `<button type="button" class="btn primary wide ctx-add" data-action="open-add">+ ${esc(t('addRecipe'))}</button>${previewHtml()}`;
+}
+
+// the same "Filtri" button and search row as Ricette (v47), for the list and the pantry
+function toolbarHtml({ input, filterAction, count, open }) {
+  return `<div class="search-row">
+    <div class="searchbar">${input}</div>
+    ${isWide() ? '' : `<button type="button" class="f-toggle ${open ? 'open' : ''}" data-action="${filterAction}" aria-expanded="${open}">${FILTER_SVG}<span>${esc(t('filtersTitle'))}</span>${count ? `<span class="f-count">${count}</span>` : ''}</button>`}
+  </div>`;
+}
+// closed: what's in use as ✕ chips, and the view when it isn't the usual one
+function closedLine(chips, viewLabel, toggleAction) {
+  if (!chips.length && !viewLabel) return '';
+  return `<div class="active-chips f-closed">${chips.join('')}${viewLabel ? `<button type="button" class="f-sortline" data-action="${toggleAction}">${SORT_SVG}<span>${esc(viewLabel)}</span></button>` : ''}</div>`;
+}
+// the view picker: one dropdown, grouped "Group by" / "Single list" (radio rows, as the recipes' sort)
+function viewPicker({ label, open, toggleAction, groups, pickAction, shared = [], hint = '' }) {
+  return `<div class="fp-row"><button type="button" class="fp-sort" data-action="${toggleAction}" aria-expanded="${open}">${SORT_SVG}<span>${esc(label)}</span><span class="chev" aria-hidden="true">⌄</span></button></div>
+    ${open ? `<div class="sort-box view-box">${groups.filter((g) => g.modes.length).map((g) => `<div class="vb-group"><div class="vb-head">${esc(g.title)}</div>
+      <div class="sort-list" role="radiogroup" aria-label="${esc(g.title)}">${g.modes.map((m) => `<button type="button" class="sort-opt ${m.on ? 'on' : ''}" role="radio" aria-checked="${m.on}" data-action="${pickAction}" data-value="${m.id}"><span class="dot" aria-hidden="true"></span><span>${esc(m.label)}</span>${shared.includes(m.id) ? `<small>${esc(t('allDevices'))}</small>` : ''}</button>`).join('')}</div></div>`).join('')}
+      ${hint ? `<p class="hint small vb-hint">${esc(hint)}</p>` : ''}</div>` : ''}`;
+}
+const qChip = (label, n, on, attrs) => `<button type="button" class="chip ${on ? 'on' : ''}" ${attrs} aria-pressed="${on}">${esc(label)} <small>${n}</small></button>`;
+function panelFoot(countText, canClear, clearAction, toggleAction) {
+  return `<div class="fp-foot"><span class="fp-count">${esc(countText)}</span>
+    ${canClear ? `<button type="button" class="link-btn f-reset" data-action="${clearAction}">${esc(t('clearFilters'))}</button>` : ''}
+    ${isWide() ? '' : `<button type="button" class="btn small ghost" data-action="${toggleAction}">${esc(t('close'))}</button>`}</div>`;
+}
+
+// ----- shopping list: panel -----
+function listPanelOpen() { return isWide() || Boolean(ui.listPanel); }
+function listOpenItems() {
+  const q = (ui.listQ || '').trim();
+  const match = (i) => !q || itemMatches(i, q, shopNamesOf(i));
+  return live('shopping').filter((i) => !i.checked && match(i));
+}
+function listPanel() {
+  if (!listPanelOpen()) return '';
+  const f = listFilters();
+  const mode = listMode();
+  const modes = availableModes(hasShops());
+  const base = listOpenItems();
+  const ctx = { shops: shopsSorted() };
+  const shown = filterItems(base, f, ctx).length;
+  const hasLow = live('shopping').some((i) => i.auto && !i.checked);
+  const quick = [
+    ...shopsSorted().map((s) => qChip(`🏪 ${s.name}`, filterItems(base, { ...f, shop: s.id }, ctx).filter((i) => (i.shops || []).includes(s.id) || !(i.shops || []).length).length, f.shop === s.id, `data-action="sl-filter" data-kind="shop" data-value="${esc(s.id)}"`)),
+    ...(hasLow ? [qChip(`🟠 ${t('lowOnly')}`, filterItems(base, { ...f, low: true }, ctx).length, Boolean(f.low), 'data-action="sl-filter" data-kind="low" data-value="1"')] : []),
+  ];
+  const opt = (m) => ({ id: m, label: t(`listMode_${m}`), on: m === mode });
+  return `<div class="fpanel" id="lpanel">
+    ${viewPicker({ label: t(`listMode_${mode}`), open: Boolean(ui.lvOpen), toggleAction: 'lv-open', pickAction: 'sl-view', shared: SHARED_MODES, hint: t('listViewHint'),
+      groups: [{ title: t('groupBy'), modes: modes.filter((m) => GROUPED_MODES.includes(m)).map(opt) }, { title: t('inLine'), modes: modes.filter((m) => !GROUPED_MODES.includes(m)).map(opt) }] })}
+    ${quick.length ? `<div class="f-chips fp-quick">${quick.join('')}</div>` : ''}
+    ${panelFoot(t('nItems', shown), listFilterCount(f) > 0, 'list-f-clear', 'lp-toggle')}
+  </div>`;
+}
+
+// ----- pantry: panel (filters combine: any of the chosen states) -----
+const PANTRY_GROUPED = ['dept', 'expiry', 'stock'];
+function pantryFilters() {
+  if (!Array.isArray(ui.pantryFilters)) ui.pantryFilters = [];
+  ui.pantryFilters = ui.pantryFilters.filter((f) => PANTRY_FILTERS.includes(f));
+  return ui.pantryFilters;
+}
+function pantryPanelOpen() { return isWide() || Boolean(ui.pantryPanel); }
+function pantryPanel() {
+  if (!pantryPanelOpen()) return '';
+  const mode = pantryMode();
+  const all = live('pantry');
+  const fs = pantryFilters();
+  const q = (ui.pantryQ || '').trim();
+  const shown = all.filter((p) => pantryMatchQ(p, q) && (!fs.length || fs.some((f) => PANTRY_TEST[f](p)))).length;
+  const opt = (m) => ({ id: m, label: t(`pMode_${m}`), on: m === mode });
+  return `<div class="fpanel" id="ppanel">
+    ${viewPicker({ label: t(`pMode_${mode}`), open: Boolean(ui.pvOpen), toggleAction: 'pv-open', pickAction: 'p-mode',
+      groups: [{ title: t('groupBy'), modes: PANTRY_GROUPED.map(opt) }, { title: t('inLine'), modes: PANTRY_MODES.filter((m) => !PANTRY_GROUPED.includes(m)).map(opt) }] })}
+    <div class="f-chips fp-quick p-filters">${PANTRY_FILTERS.map((f) => qChip(t(`pFilter_${f}`), all.filter(PANTRY_TEST[f]).length, fs.includes(f), `data-action="p-filter" data-value="${f}"`)).join('')}
+      <a class="chip suggest-link" href="#/suggest">🍳 ${esc(t('withWhatYouHave'))}</a></div>
+    ${panelFoot(t('nProducts', shown), fs.length > 0, 'p-filter-clear', 'pp-toggle')}
+  </div>`;
+}
+function pantryMatchQ(p, q) { return !q || itemMatches(p, q, [p.brand, t(`cat_${categoryOf(p)}`), ...(p.barcodes || [])].filter(Boolean)); }
+
+// ----- quick add (the "+" on Spesa and Dispensa): stays open, Enter adds, what was just added shows as chips -----
+const PLUS_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+function fabHtml(action, value, label, cls = '') {
+  return `<button type="button" class="fab ${cls}" data-action="${action}" ${value ? `data-value="${value}"` : ''} aria-label="${esc(label)}">${PLUS_SVG}</button>`;
+}
+function qaJust(kind) { ui.qaJust ||= {}; return (ui.qaJust[kind] ||= []); }
+function qaJustHtml(kind) {
+  const list = qaJust(kind);
+  if (!list.length) return '';
+  return list.map((j) => `<button type="button" class="chip qa-chip" data-action="qa-item" data-kind="${kind}" data-id="${esc(j.id || '')}">✓ ${esc(j.label)}</button>`).join('');
+}
+function qaSheetHtml(kind, inline = false) {
+  const isList = kind === 'list';
+  const scanning = !isList && ui.qaMode === 'scan';
+  const formId = isList ? 'add-item' : 'add-pantry';
+  return `
+  <div class="sheet-head"><h2>${esc(t('addHeading'))} <span class="sh-sub">${esc(t(`addTo_${kind}`))}</span></h2>${inline ? '' : `<button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}">✕</button>`}</div>
+  ${isList ? '' : `<div class="add-tabs qa-tabs" role="tablist">${['write', 'scan'].map((m) => `<button type="button" role="tab" class="chip ${(m === 'scan') === scanning ? 'on' : ''}" aria-selected="${(m === 'scan') === scanning}" data-action="qa-mode" data-value="${m}">${esc(t(m === 'scan' ? 'qaScan' : 'qaWrite'))}</button>`).join('')}</div>`}
+  ${scanning ? `<p class="qa-text">${esc(t('qaScanText'))}</p><button type="button" class="btn primary wide qa-scan" data-action="qa-scan">▥ ${esc(t('qaScanGo'))}</button>
+    <div class="qa-just" aria-live="polite">${qaJustHtml(kind)}</div>`
+    : `<form id="${formId}" class="qa-form">
+    <div class="qa-row"><input name="item" id="${formId}-input" required placeholder="${esc(t(isList ? 'qaListPh' : 'qaPantryPh'))}" autocomplete="off" enterkeyhint="done" aria-label="${esc(t(isList ? 'qaListPh' : 'qaPantryPh'))}">
+      ${inline ? `<button class="btn primary add-btn" aria-label="${esc(t('add'))}">+</button>` : ''}</div>
+    <div class="qa-just" aria-live="polite">${qaJustHtml(kind)}</div>
+    <p class="hint small">${esc(t(isList ? 'qaListHint' : 'qaPantryHint'))}</p>
+    ${inline ? '' : `<div class="sheet-foot"><button class="btn primary">${esc(t('add'))}</button><button type="button" class="btn ghost" data-action="sheet-close">${esc(t('close'))}</button></div>`}
+  </form>`}`;
+}
+// "2 l latte, detersivo piatti, 1 kg farina" → three entries; "1,5 kg" stays one (a comma right before a digit is a decimal)
+function splitAdd(text) { return String(text || '').split(/\n|;|,(?!\d)/).map((s) => s.trim()).filter(Boolean); }
+// "6 uova scade 20/11" → { text: '6 uova', expires: '2026-11-20' }; only with a word for "expires" in front
+const EXPIRY_WORDS = /(?:^|\s)(?:scade(?:\s+il)?|scadenza|bis|mhd|läuft\s+ab|exp(?:ires)?|use\s+by|best\s+before)\s+(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?\.?\s*$/i;
+function splitExpiry(text) {
+  const m = String(text).match(EXPIRY_WORDS);
+  if (!m) return { text, expires: '' };
+  const today = todayStr();
+  let y = m[3] ? Number(m[3].length === 2 ? `20${m[3]}` : m[3]) : Number(today.slice(0, 4));
+  const iso = (yy) => `${yy}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+  // no year and already long past: next year's date
+  if (!m[3] && (daysUntil(iso(y)) ?? 0) < -60) y += 1;
+  const d = iso(y);
+  if (Number.isNaN(Date.parse(`${d}T00:00:00Z`))) return { text, expires: '' };
+  return { text: String(text).slice(0, m.index).trim(), expires: d };
+}
+function pushJust(kind, entries) {
+  ui.qaJust ||= {};
+  ui.qaJust[kind] = [...entries.reverse(), ...qaJust(kind)].slice(0, 8);
+}
+function addQuick(kind, value) {
+  const parts = splitAdd(value);
+  const just = [];
+  if (kind === 'list') {
+    for (const raw of parts) {
+      const ing = parseIngredient(raw);
+      if (!ing.name) continue;
+      const had = live('shopping').find((s) => !s.checked && !s.auto && sameFood(s, ing));
+      const item = addToShopping(ing, '');
+      just.push({ label: had ? t('alreadyOnList', ing.name) : ing.name, id: item?.id || had?.id });
+    }
+  } else {
+    for (const raw of parts) {
+      const { text, expires } = splitExpiry(raw);
+      const ing = parseIngredient(text);
+      if (!ing.name) continue;
+      const existing = findPantry(ing.name);
+      if (existing && isLevel(existing)) {
+        upsert('pantry', { ...existing, level: 'ok', ...(expires ? { expires } : {}) }, { silent: true });
+        just.push({ label: `${existing.name} · ${t('level_ok')}`, id: existing.id });
+      } else if (existing) {
+        const add = ing.qty == null ? 0 : convert(ing.qty, ing.unit, existing.unit);
+        upsert('pantry', { ...existing, qty: round((num(existing.qty) || 0) + (add ?? 0)), ...(expires ? { expires: earlier(existing.expires, expires) || expires } : {}) }, { silent: true });
+        just.push({ label: existing.name, id: existing.id });
+      } else {
+        const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now(), ...(expires ? { expires } : {}), ...foodFields(ing.name) }, { silent: true });
+        just.push({ label: expires ? `${ing.name} · ${expiryText(daysUntil(expires))}` : ing.name, id: p.id });
+      }
+    }
+    ensureLowItems();
+  }
+  if (!just.length) return;
+  pushJust(kind, just);
+  changed();
+}
+function openQuickAdd(kind) {
+  ui.qaJust ||= {};
+  ui.qaJust[kind] = [];
+  if (isWide()) { document.getElementById(kind === 'list' ? 'add-item-input' : 'add-pantry-input')?.focus(); return; }
+  openSheet(`qa-${kind}`);
+  setTimeout(() => modal.querySelector('input[name=item]')?.focus(), 30);
+}
+
+// ----- wide screen: the cart beside the list, a recipe's preview beside the recipes -----
+function cartBox() {
+  const done = live('shopping').filter((i) => i.checked).sort(byItemOrder);
+  const opts = { labels: listLabels(), fmt: LIST_FMT, mode: listMode(), drag: false, selecting: false, isSelected: () => false };
+  return `<div class="ctx-card cart-box"><div class="cb-head"><h2>${esc(t('inCart'))}</h2><small>${done.length}</small></div>
+    ${done.length ? `${rowsHtml(done, opts)}<button type="button" class="btn primary wide" data-action="sl-cart-main">📦 ${esc(t('putAway'))}</button><p class="hint small">${esc(t('putAwayExplain'))}</p>` : `<p class="hint small">${esc(t('listIntro'))}</p>`}</div>`;
+}
+function previewHtml() {
+  const list = recipeList().list;
+  const r = (ui.preview && get('recipes', ui.preview)) || list[0];
+  if (!r) return `<p class="hint">${esc(t('previewHint'))}</p>`;
+  const n = servingsFor(r);
+  const base = r.servings || 4;
+  const pantry = live('pantry');
+  const tm = timesOf(r);
+  const ings = ingredientsOf(r).filter((i) => i.name);
+  const missing = pantryCoverage(r, pantry, { servings: n, basics: state.settings.basics !== false }).missing.length;
+  return `<div class="ctx-card preview">
+    <a class="pv-photo" href="#/recipe/${encodeURIComponent(r.id)}">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></a>
+    <h2 class="pv-title">${esc(r.title)}</h2>
+    <p class="pv-meta">${[tm.total ? `⏱ ${tm.estimated ? '≈' : ''}${fmtMin(tm.total)}` : '', t('people', n), r.cookedCount ? t('cookedN', r.cookedCount) : ''].filter(Boolean).map(esc).join(' · ')}</p>
+    <div class="pv-acts"><a class="btn primary" href="#/recipe/${encodeURIComponent(r.id)}">${esc(t('openRecipe'))}</a>
+      ${missing ? `<button type="button" class="btn" data-action="to-list" data-id="${esc(r.id)}">🛒 ${esc(t('nToList', missing))}</button>` : ''}</div>
+    <ul class="pv-ings">${ings.map((i) => {
+      const p = findPantryItem(i, pantry);
+      const have = Boolean(p && atHome(p));
+      const q = i.qty == null ? '' : qtyText((i.qty * n) / base, i.unit);
+      return `<li><b>${esc(q)}</b><span>${esc(i.name)}</span><small class="${have ? 'have' : 'miss'}">${esc(t(have ? 'ingHave' : 'ingMissing'))}</small></li>`;
+    }).join('')}</ul>
   </div>`;
 }
 
@@ -807,7 +1053,7 @@ function recipeRows(list, coverage, flat) {
     ].filter(Boolean).join(' · ');
     const c = coverage.get(r.id);
     const cov = c && c.total ? (c.missing.length ? `<span class="r-cov missing">${esc(t('missingList', c.missing.slice(0, 3).map((m) => m.name).join(', ')))}</span>` : `<span class="r-cov have">✓ ${esc(t('haveAll'))}</span>`) : '';
-    return `<a class="rrow" href="#/recipe/${encodeURIComponent(r.id)}">
+    return `<a class="rrow ${isWide() && ui.preview === r.id ? 'sel' : ''}" href="#/recipe/${encodeURIComponent(r.id)}">
       <span class="rthumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></span>
       <span class="rbody"><span class="card-title">${esc(r.title)}</span>
         <span class="rmeta">${sourceIcon(r)}${esc(meta)}</span>
@@ -949,7 +1195,7 @@ function recipeCards(list, coverage, filtering) {
   return `<div class="cards">${list.map((r) => {
     const tags = tagsOf(r, tagDefs()).slice(0, 3);
     return `
-    <a class="card" href="#/recipe/${encodeURIComponent(r.id)}">
+    <a class="card ${isWide() && ui.preview === r.id ? 'sel' : ''}" href="#/recipe/${encodeURIComponent(r.id)}">
       <div class="thumb">${photoTag(coverOf(r), { fallback: r.image })}<span>${esc((r.title || '?').charAt(0))}</span></div>
       <div class="card-body">
         <div class="card-title">${esc(r.title)}</div>
@@ -1343,25 +1589,20 @@ function viewList() {
     ...(f.shop ? [`<button type="button" class="chip on x" data-action="list-f-x" data-kind="shop">${esc(`🏪 ${shopById(f.shop)?.name || ''}`)} ✕</button>`] : []),
     ...(f.low ? [`<button type="button" class="chip on x" data-action="list-f-x" data-kind="low">${esc(t('lowOnly'))} ✕</button>`] : []),
   ];
-  const nothing = (q || nf) && !open.length && !done.length;
+  const wide = isWide();
+  const panelOpen = listPanelOpen();
+  const nothing = (q || nf) && !open.length && (wide || !done.length);
   return `
   <div class="title-row list-title">
     <h1>${esc(t('tabList'))}</h1>
     <button type="button" class="icon-btn" data-action="list-menu" aria-label="${esc(t('more'))}">⋯</button>
   </div>
-  <form id="add-item" class="row add-row">
-    <input name="item" id="add-item-input" required placeholder="${esc(t('addItemPh'))}" autocomplete="off" aria-label="${esc(t('addItemPh'))}">
-    <button class="btn primary add-btn" aria-label="${esc(t('add'))}">+</button>
-  </form>
-  <div class="searchbar">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  ${toolbarHtml({ filterAction: 'lp-toggle', count: nf, open: panelOpen, input: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="search" id="shop-q" value="${esc(ui.listQ || '')}" placeholder="${esc(t('searchListPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchListPh'))}">
-    ${q ? `<button type="button" class="search-clear" data-action="shop-q-clear" aria-label="${esc(t('clearSearch'))}">${CLEAR_ICO}</button>` : ''}
-    <button type="button" class="sb-btn ${nf ? 'on' : ''}" data-action="list-view-sheet" aria-label="${esc(t('viewFilters'))}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="sb-mode">${esc(t(`listMode_${mode}`))}</span></button>
-  </div>
+    ${q ? `<button type="button" class="search-clear" data-action="shop-q-clear" aria-label="${esc(t('clearSearch'))}">${CLEAR_ICO}</button>` : ''}` })}
+  ${panelOpen ? '' : closedLine(chips, mode === 'dept' ? '' : t(`listMode_${mode}`), 'lp-toggle')}
+  ${panelOpen && !wide ? listPanel() : ''}
   ${nextTripCard(allOpen)}
-  ${chips.length ? `<div class="active-chips">${chips.join('')}</div>` : ''}
   ${state.meta.contractNewer ? `<p class="hint warn contract-note">${esc(t('contractNewer'))}</p>` : ''}
   ${ui.reorder && !selecting ? `<div class="reorder-bar"><span>${esc(t(GROUPED_MODES.includes(mode) ? 'dragHintGroups' : 'dragHintItems'))}</span><button type="button" class="btn small" data-action="reorder-done">${esc(t('done'))}</button></div>` : ''}
   ${selecting ? selBar(allOpen) : ''}
@@ -1369,16 +1610,9 @@ function viewList() {
     : open.length ? listHtml(groups, opts) : (q || nf) ? ''
       : emptyState({ icon: 'check', tone: 'green', title: t('esListTitle'), text: t(done.length ? 'esListCartText' : 'esListText'), main: { label: t('esFromRecipe'), href: '#/recipes' } })}
   ${drag && mode === 'plain' && !ui.reorder ? `<p class="hint small">${esc(t('dragHintItems'))}</p>` : ''}
-  ${(ui.cartOpen || q) && done.length ? `<h2 class="cart-h">${esc(t('inCart'))}</h2>${rowsHtml(done, { ...opts, drag: false, selecting: false })}<p class="hint small">${esc(t('putAwayExplain'))}</p>` : ''}
-  ${cartBarHtml({ labels: listLabels(), count: done.length, open: Boolean(ui.cartOpen), main: { label: `📦 ${t('putAway')}` } })}`;
-}
-
-function listSheetHtml() {
-  return `
-  <div class="sheet-head"><h2>${esc(t('viewFilters'))}</h2><button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}">✕</button></div>
-  ${viewSheetHtml({ labels: listLabels(), modes: availableModes(hasShops()), mode: listMode(), filters: listFilters(), shops: shopsSorted().map((x) => ({ id: x.id, name: x.name })), hasLow: live('shopping').some((i) => i.auto && !i.checked) })}
-  <p class="hint small">${esc(t('listViewHint'))}</p>
-  <div class="sheet-foot"><button type="button" class="btn ghost" data-action="list-f-clear">${esc(t('clearFilters'))}</button><button type="button" class="btn primary" data-action="sheet-close">${esc(t('done'))}</button></div>`;
+  ${!wide && (ui.cartOpen || q) && done.length ? `<h2 class="cart-h">${esc(t('inCart'))}</h2>${rowsHtml(done, { ...opts, drag: false, selecting: false })}<p class="hint small">${esc(t('putAwayExplain'))}</p>` : ''}
+  ${wide ? '' : cartBarHtml({ labels: listLabels(), count: done.length, open: Boolean(ui.cartOpen), main: { label: `📦 ${t('putAway')}` } })}
+  ${wide || selecting ? '' : fabHtml('qa-open', 'list', t('addHeading'), done.length ? 'up' : '')}`;
 }
 
 function openListMenu() {
@@ -1660,7 +1894,6 @@ function setLevel(p, level) {
 
 function openPantryMenu() {
   const entries = [
-    { id: 'scan', label: `▥ ${t('scan')}` },
     { id: 'receipt', label: `🧾 ${t('receiptRead')}` },
     { id: 'staples', label: `🫙 ${t('staplesPickTitle')}` },
     { id: 'settings', label: `⚙ ${t('setPage_pantry')}` },
@@ -1671,25 +1904,10 @@ function openPantryMenu() {
     if (!b) return;
     modal.close();
     const v = b.dataset.value;
-    if (v === 'scan') startScan();
     if (v === 'receipt') setTimeout(openReceiptCapture, 0);
     if (v === 'staples') setTimeout(() => openStaplesPicker(false), 0);
     if (v === 'settings') location.hash = '#/settings/pantry';
   };
-}
-
-function pantrySheetHtml() {
-  const mode = pantryMode();
-  const all = live('pantry');
-  const filter = PANTRY_FILTERS.includes(ui.pantryFilter) ? ui.pantryFilter : '';
-  const chip = (action, value, label, on) => `<button type="button" class="sl-chip${on ? ' on' : ''}" data-action="${action}" data-value="${value}" aria-pressed="${on}">${label}</button>`;
-  return `
-  <div class="sheet-head"><h2>${esc(t('viewFilters'))}</h2><button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}">✕</button></div>
-  <section class="sl-sec"><h4 class="sl-sech">${esc(t('listView'))}</h4>
-    <div class="sl-chips">${PANTRY_MODES.map((m) => chip('p-mode', m, esc(t(`pMode_${m}`)), m === mode)).join('')}</div></section>
-  <section class="sl-sec"><h4 class="sl-sech">${esc(t('filters'))}</h4>
-    <div class="sl-chips p-filters">${PANTRY_FILTERS.map((f) => chip('p-filter', f, `${esc(t(`pFilter_${f}`))} <small>${all.filter(PANTRY_TEST[f]).length}</small>`, filter === f)).join('')}</div></section>
-  <div class="sheet-foot"><button type="button" class="btn ghost" data-action="p-filter-clear">${esc(t('clearFilters'))}</button><button type="button" class="btn primary" data-action="sheet-close">${esc(t('done'))}</button></div>`;
 }
 
 // ---------- pantry: laid out like the shopping list (search, ⇅ views, filters) ----------
@@ -1737,21 +1955,16 @@ function viewPantry() {
   const all = live('pantry');
   const mode = pantryMode();
   const q = (ui.pantryQ || '').trim();
-  const filter = PANTRY_FILTERS.includes(ui.pantryFilter) ? ui.pantryFilter : '';
-  const matchQ = (p) => !q || itemMatches(p, q, [p.brand, t(`cat_${categoryOf(p)}`), ...(p.barcodes || [])].filter(Boolean));
-  const items = all.filter((p) => matchQ(p) && (!filter || PANTRY_TEST[filter](p)));
+  const fs = pantryFilters();
+  const wide = isWide();
+  const panelOpen = pantryPanelOpen();
+  const items = all.filter((p) => pantryMatchQ(p, q) && (!fs.length || fs.some((f) => PANTRY_TEST[f](p))));
   const groups = pantryGroups(items, mode);
   const counts = (list) => ({ out: list.filter(pIsOut).length, low: list.filter(pIsLow).length });
   // department shortcuts and the "expiring" box only on the plain departments view
-  const plain = mode === 'dept' && !q && !filter;
+  const plain = mode === 'dept' && !q && !fs.length;
   const expiring = plain ? expiringItems().map((x) => x.p) : [];
-  // summary chips: the two things to act on; expired-only / out-only stay in the ⇅ sheet
-  const summary = (f) => {
-    const n = all.filter(PANTRY_TEST[f]).length;
-    return `<button type="button" class="chip p-sum ${filter === f ? 'on' : ''} ${n ? '' : 'none'}" data-action="p-filter" data-value="${f}" aria-pressed="${filter === f}">${esc(t(`pFilter_${f}`))} <small>${n}</small></button>`;
-  };
-  const extraChip = filter && !['expiring', 'low'].includes(filter)
-    ? `<div class="active-chips"><button type="button" class="chip on x" data-action="p-filter" data-value="${filter}">${esc(t(`pFilter_${filter}`))} ✕</button></div>` : '';
+  const chips = fs.map((f) => `<button type="button" class="chip on x" data-action="p-filter" data-value="${f}" aria-label="${esc(t('removeFilter', t(`pFilter_${f}`)))}">${esc(t(`pFilter_${f}`))} ✕</button>`);
   const head = ([k, label, list]) => {
     const n = mode === 'dept' ? counts(list) : { out: 0, low: 0 };
     return `<h3 class="dept-h"><span>${esc(label)}</span>${n.out ? `<span class="badge bad">${esc(t('deptOut', n.out))}</span>` : ''}${n.low ? `<span class="badge warn">${esc(t('deptLow', n.low))}</span>` : ''}<small>${list.length}</small></h3>`;
@@ -1759,28 +1972,18 @@ function viewPantry() {
   const ul = (list) => `<ul class="list pantry">${list.map((p) => pantryRow(p, { mode })).join('')}</ul>`;
   const body = groups.length === 1 && groups[0][0] === 'all'
     ? ul(groups[0][2])
-    : groups.map((g) => `<section class="dept-sec" ${mode === 'dept' ? `id="dept-${esc(g[0])}"` : ''}>${head(g)}${ul(g[2])}</section>`).join('');
+    : `<div class="p-body">${groups.map((g) => `<section class="dept-sec" ${mode === 'dept' ? `id="dept-${esc(g[0])}"` : ''}>${head(g)}${ul(g[2])}</section>`).join('')}</div>`;
   return `
   <div class="title-row pantry-title">
     <h1>${esc(t('tabPantry'))}</h1>
-    <button type="button" class="icon-btn scan-icon" data-action="scan" aria-label="${esc(t('scan'))}" title="${esc(t('scan'))}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 8v8M10 8v8M12.5 8v8M15 8v8M17 8v8"/></svg></button>
     <button type="button" class="icon-btn" data-action="pantry-menu" aria-label="${esc(t('more'))}">⋯</button>
   </div>
-  <form id="add-pantry" class="row add-row">
-    <input name="item" id="add-pantry-input" required placeholder="${esc(t('addPantryPh'))}" autocomplete="off" aria-label="${esc(t('addPantryPh'))}">
-    <button class="btn primary add-btn" aria-label="${esc(t('add'))}">+</button>
-  </form>
   ${all.length ? `
-  <div class="searchbar">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  ${toolbarHtml({ filterAction: 'pp-toggle', count: fs.length, open: panelOpen, input: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="search" id="pantry-q" value="${esc(ui.pantryQ || '')}" placeholder="${esc(t('searchPantryPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchPantryPh'))}">
-    ${q ? `<button type="button" class="search-clear" data-action="pantry-q-clear" aria-label="${esc(t('clearSearch'))}">${CLEAR_ICO}</button>` : ''}
-    <button type="button" class="sb-btn ${filter && !['expiring', 'low'].includes(filter) ? 'on' : ''}" data-action="pantry-view-sheet" aria-label="${esc(t('viewFilters'))}">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="sb-mode">${esc(t(`pMode_${mode}`))}</span></button>
-  </div>
-  <div class="f-chips p-summary" role="group" aria-label="${esc(t('filters'))}">${summary('expiring')}${summary('low')}<a class="chip suggest-link" href="#/suggest">🍳 ${esc(t('whatCanICook'))}</a></div>
-  ${extraChip}` : ''}
+    ${q ? `<button type="button" class="search-clear" data-action="pantry-q-clear" aria-label="${esc(t('clearSearch'))}">${CLEAR_ICO}</button>` : ''}` })}
+  ${panelOpen ? '' : closedLine(chips, mode === 'dept' ? '' : t(`pMode_${mode}`), 'pp-toggle')}
+  ${panelOpen && !wide ? pantryPanel() : ''}` : ''}
   ${receiptCards()}
   ${plain ? staplesCard() : ''}
   ${plain && groups.length > 1 ? `<div class="dept-overview">${groups.map(([c, , list]) => {
@@ -1790,8 +1993,9 @@ function viewPantry() {
   ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map((p) => pantryRow(p, { mode: 'expiry' })).join('')}</ul>` : ''}
   ${!all.length ? emptyPantry()
     : !items.length ? emptyState({ size: 'small', icon: 'search', title: t(q ? 'noPantryMatch' : 'noPantryFilter'),
-      main: q ? { label: t('clearSearch'), action: 'pantry-q-clear' } : filter ? { label: t('showAll'), action: 'p-filter', data: { value: filter } } : null })
-      : body}`;
+      main: q ? { label: t('clearSearch'), action: 'pantry-q-clear' } : fs.length ? { label: t('showAll'), action: 'p-filter-clear' } : null })
+      : body}
+  ${wide ? '' : fabHtml('qa-open', 'pantry', t('addHeading'))}`;
 }
 
 // Connected = a token that worked. The token itself is never put back on screen.
@@ -2836,14 +3040,15 @@ function render() {
   let html;
   switch (r.name) {
     case 'recipe': html = viewRecipe(r.id); break;
-    case 'folder': html = viewRecipes(); break;
+    case 'folder': html = wideWrap('recipes', viewRecipes()); break;
     case 'putaway': html = viewPutAway(); break;
     case 'edit': html = viewEdit(r.id); break;
-    case 'list': html = viewList(); break;
-    case 'pantry': html = viewPantry(); break;
+    case 'list': html = wideWrap('list', viewList()); break;
+    case 'pantry': html = wideWrap('pantry', viewPantry()); break;
     case 'settings': html = viewSettings(r.id); break;
-    default: html = viewRecipes();
+    default: html = wideWrap('recipes', viewRecipes());
   }
+  view.classList.toggle('is-wide', html.startsWith('<div class="tri"'));
   paint(view, html, (v) => { hydrate(v); updatePantryBadge(); });
   if (r.name === 'edit') afterEditRender();
   updateSyncBadge();
@@ -3040,31 +3245,12 @@ function onViewSubmit(e) {
     const url = form.url.value.trim();
     form.url.value = '';
     queueImport(url);
-  } else if (form.id === 'add-item') {
-    const ing = parseIngredient(form.item.value);
+  } else if (form.id === 'add-item' || form.id === 'add-pantry') {
+    const kind = form.id === 'add-item' ? 'list' : 'pantry';
+    const value = form.item.value;
     form.item.value = '';
-    addToShopping(ing, '');
-    changed();
-    $('#add-item-input')?.focus();
-  } else if (form.id === 'add-pantry') {
-    const ing = parseIngredient(form.item.value);
-    form.item.value = '';
-    const existing = findPantry(ing.name);
-    if (existing && isLevel(existing)) {
-      upsert('pantry', { ...existing, level: 'ok' }, { silent: true });
-      ensureLowItems();
-      changed();
-      toast(t('levelSet', existing.name, t('level_ok')));
-    } else if (existing) {
-      const add = ing.qty == null ? 0 : convert(ing.qty, ing.unit, existing.unit);
-      upsert('pantry', { ...existing, qty: round((num(existing.qty) || 0) + (add ?? 0)) }, { silent: true });
-      ensureLowItems();
-      changed();
-    } else {
-      const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now(), ...foodFields(ing.name) }, { silent: true });
-      changed();
-      openPantryEdit(p);
-    }
+    addQuick(kind, value);
+    form.item.focus();
   } else if (form.id === 'putaway-form') {
     commitPutAway();
   } else if (form.id === 'tag-form') {
@@ -3185,6 +3371,16 @@ view.addEventListener('keydown', (e) => {
 });
 
 function onViewClick(e) {
+  if (isWide() && ['recipes', 'folder'].includes(route().name)) {
+    const a = e.target.closest('.mid a.rrow, .mid a.card');
+    if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+      e.preventDefault();
+      ui.preview = decodeURIComponent(a.getAttribute('href').split('/').pop());
+      ui.ctxAdd = false;
+      render();
+      return;
+    }
+  }
   const btn = e.target.closest('[data-action]');
   if (!btn || btn.dataset.action === 'sl-toggle' || (btn.dataset.action === 'sl-select' && btn.tagName === 'INPUT')) return;
   if (editClick(btn)) return;
@@ -3237,8 +3433,7 @@ function onViewClick(e) {
     case 'sl-cart-toggle': ui.cartOpen = !ui.cartOpen; render(); break;
     case 'sl-cart-main': startPutAway(); break;
     case 'list-menu': openListMenu(); break;
-    case 'list-view-sheet': openSheet('list'); break;
-    case 'sl-view': setListMode(btn.dataset.value); ui.reorder = false; changed(); render(); break;
+    case 'sl-view': setListMode(btn.dataset.value); ui.reorder = false; ui.lvOpen = false; changed(); render(); break;
     case 'sl-filter': {
       const f = listFilters();
       if (btn.dataset.kind === 'shop') f.shop = f.shop === btn.dataset.value ? '' : btn.dataset.value;
@@ -3291,7 +3486,6 @@ function onViewClick(e) {
     }
     case 'p-edit': openPantryEdit(get('pantry', id)); break;
     case 'folder-new': openFolderEdit(null, currentFolderId()); break;
-    case 'scan': startScan(); break;
     case 'photo-import': openPhotoCapture(); break;
     case 'book-import': openBookImport(); break;
     case 'photo-search': openPhotoSearch(); break;
@@ -3323,13 +3517,27 @@ function onViewClick(e) {
     case 'trip-only': ui.tripOnly = !ui.tripOnly; render(); break;
     case 'receipt-putaway': startReceiptPutAway(id); break;
     case 'receipt-remove': undoableRemove('queue', id, () => render()); break;
-    case 'es-type': document.getElementById('add-pantry-input')?.focus(); break;
+    case 'es-type': openQuickAdd('pantry'); break;
     case 'open-filters': case 'filters-toggle': ui.filtersOpen = !filtersOpen(); ui.sortOpen = false; if (!ui.filtersOpen) ui.pinEdit = false; render(); break;
     case 'sort-open': ui.sortOpen = !ui.sortOpen; render(); break;
     case 'sort-pick': { const v = btn.dataset.value; setSort(v, v === sortBase() && sortReversed()).then(() => { ui.sortOpen = false; render(); }); break; }
     case 'sort-rev': setSort(sortBase(), !sortReversed()).then(render); break;
     case 'f-sec': ui.fSec = ui.fSec === btn.dataset.value ? null : btn.dataset.value; ui.sortOpen = false; render(); break;
-    case 'sheet-close': if (modal.open) modal.close(); break;
+    case 'sheet-close': if (modal.open) modal.close(); else if (ui.ctxAdd) { ui.ctxAdd = false; render(); } break;
+    // v48: the Filtri panels of Spesa and Dispensa, their view pickers, the quick-add sheets and the add tabs
+    case 'lp-toggle': ui.listPanel = !ui.listPanel; ui.lvOpen = false; render(); break;
+    case 'pp-toggle': ui.pantryPanel = !ui.pantryPanel; ui.pvOpen = false; render(); break;
+    case 'lv-open': ui.lvOpen = !ui.lvOpen; render(); break;
+    case 'pv-open': ui.pvOpen = !ui.pvOpen; render(); break;
+    case 'qa-open': openQuickAdd(btn.dataset.value); break;
+    case 'qa-mode': ui.qaMode = btn.dataset.value; ui.qaRebuild = true; render(); break;
+    case 'qa-scan': if (modal.open) modal.close(); startScan(); break;
+    case 'qa-item': {
+      if (btn.dataset.kind === 'list') { const it = get('shopping', btn.dataset.id); if (it) openItemEdit(it.id); }
+      else { const p = get('pantry', btn.dataset.id); if (p) openPantryEdit(p); }
+      break;
+    }
+    case 'add-tab': ui.addTab = btn.dataset.value; if (modal.open) refreshSheet(); else render(); break;
     case 'sort': saveSettings({ sort: btn.dataset.value, sortRev: false }).then(render); break;
     case 'rview': saveSettings({ recipeView: btn.dataset.value }).then(render); break;
     case 'f-archived': { const f = filters(); f.archived = !f.archived; render(); break; }
@@ -3383,11 +3591,10 @@ function onViewClick(e) {
       document.getElementById('pantry-q')?.focus({ preventScroll: true });
       break;
     }
-    case 'p-filter': ui.pantryFilter = ui.pantryFilter === btn.dataset.value ? '' : btn.dataset.value; render(); break;
-    case 'p-filter-clear': ui.pantryFilter = ''; render(); break;
-    case 'p-mode': saveSettings({ pantryMode: btn.dataset.value }).then(render); break;
+    case 'p-filter': { const fs = pantryFilters(); const v = btn.dataset.value; ui.pantryFilters = fs.includes(v) ? fs.filter((x) => x !== v) : [...fs, v]; render(); break; }
+    case 'p-filter-clear': ui.pantryFilters = []; render(); break;
+    case 'p-mode': ui.pvOpen = false; saveSettings({ pantryMode: btn.dataset.value }).then(render); break;
     case 'p-level': setLevel(get('pantry', id), btn.dataset.value); break;
-    case 'pantry-view-sheet': openSheet('pantry'); break;
     case 'pantry-menu': openPantryMenu(); break;
     case 'staples-pick': openStaplesPicker(btn.dataset.value === 'suggest'); break;
     case 'staples-no': setPref('staplesAsked', Date.now()); changed(); render(); break;
@@ -4133,7 +4340,7 @@ function saveRecipe(form) {
     photos: [...(ui.edit?.photos || [])],
     parsed: true,
     // written by hand: one of yours; pasted, from a photo or a failed import: to try
-    stage: prev.stage || (ui.prefillSource || ui.prefillUrl ? 'try' : 'fav'),
+    stage: prev.stage || (['fav', 'try'].includes(form.elements.stage?.value) ? form.elements.stage.value : (ui.prefillSource || ui.prefillUrl ? 'try' : 'fav')),
   }, { silent: true });
   // a picture from the web the phone couldn't download: the GitHub job keeps a copy
   const pend = ui.edit?.pendingImage;
@@ -4291,6 +4498,8 @@ async function start() {
     window.scrollTo(0, 0);
     render();
   });
+  // v48: crossing 1100 px swaps between one column (panels and sheets) and three (left panel, right column)
+  WIDE.addEventListener('change', () => { ui.ctxAdd = false; if (!modal.open) render(); });
   window.addEventListener('online', () => { runSync(); resolvePendingProducts(); });
   window.addEventListener('offline', () => updateSyncBadge());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runSync(); });

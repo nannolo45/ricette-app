@@ -118,6 +118,22 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **One bar, one "+", wide screens (v48, Nov 2):** copy the contents of `app/` to the top of ricette-app. Nothing
+  changes in the data repo or in the files shared with Everyday.
+  - *Spesa* and *Dispensa* work like *Ricette*: search with *Filtri* next to it. The panel opens under the search,
+    with the view at the top (*Raggruppa per* reparti, ricette, negozi… or *In fila*), then the quick filters with
+    their counts (shops and *in esaurimento* on Spesa; in scadenza, scaduti, in esaurimento, finiti on Dispensa,
+    which can now be combined). Closed, only what's in use stays under the search. Replaces the view button inside
+    the search bar, its sheet, and the pantry's two summary chips. *Ricette con quello che hai* moved into the
+    pantry's panel.
+  - The same **+** at the bottom right on all three tabs. On Spesa and Dispensa it opens a sheet with one field:
+    several things at once separated by commas, Enter adds and keeps it open, what was just added shows as chips
+    (tap one to open it; "già in lista" when it merged). Dispensa understands «scade 20/11» and has a *Scansiona*
+    tab, so the scan icon left the title. The add rows at the top are gone. On Ricette the sheet has tabs *Link*,
+    *Foto*, *Libro*, *Da zero*; a new recipe's form has *Va in* Preferite / Da provare.
+  - Screens 1100 px and wider use three columns: the filter panel stays open on the left, the content takes the
+    middle (the list and the pantry flow into columns), and the right column holds adding, the cart with *Metti in
+    dispensa*, or a preview of the recipe you clicked (*Apri la ricetta* opens it).
 - **Filter panel (v47, Nov 2):** copy the contents of `app/` to the top of ricette-app. *Filtri* next to the search now
   opens a panel right under it, as in Everyday, instead of a sheet: order (with *Al contrario*) and list/grid at the
   top, then Con la dispensa, ≤ 15 / 30 / 60 min and your pinned tags, then Portata, Alimentazione, Origine, Altri tag

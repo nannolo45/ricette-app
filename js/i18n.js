@@ -219,6 +219,18 @@ const dict = {
     newRecipe: 'Nuova ricetta', editRecipe: 'Modifica ricetta', notFound: 'Non trovato.', back: 'Indietro',
     importedN: (n) => `${n} ${plural(n, 'nuova ricetta importata', 'nuove ricette importate')}`,
     installHint: 'Suggerimento: aggiungi l\'app alla schermata Home per usarla come un\'app, anche offline.',
+    // v48: one bar, one "+" everywhere, desktop columns
+    groupBy: 'Raggruppa per', inLine: 'In fila', allDevices: 'tutti i dispositivi', viewLabel: 'Vista',
+    nItems: (n) => (n === 1 ? '1 voce' : `${n} voci`), nProducts: (n) => (n === 1 ? '1 prodotto' : `${n} prodotti`),
+    addHeading: 'Aggiungi', addTo_list: 'alla spesa', addTo_pantry: 'in dispensa', addTo_recipes: 'una ricetta',
+    qaListPh: 'Es. 2 l latte, detersivo piatti', qaPantryPh: 'Es. 6 uova scade 20/11, 1 kg farina',
+    qaListHint: 'Più cose insieme: separale con una virgola. Quantità e reparto si capiscono da soli. Invio aggiunge e lascia aperto.',
+    qaPantryHint: 'Più prodotti insieme: separali con una virgola. «scade 20/11» mette la scadenza. Tocca un prodotto appena aggiunto per soglia e altri dettagli.',
+    alreadyOnList: (n) => `${n} · già in lista`, qaWrite: 'Scrivi', qaScan: 'Scansiona', qaScanText: 'Inquadra il codice a barre: il prodotto si riconosce da solo.', qaScanGo: 'Apri la fotocamera',
+    addTab_link: 'Link', addTab_photo: 'Foto', addTab_book: 'Libro', addTab_new: 'Da zero',
+    addPhotoText: 'Una ricetta da un libro o da un appunto. Inquadra tutta la ricetta; se continua su più pagine, aggiungile tutte: diventano una ricetta sola.',
+    addPhotoGo: 'Scatta o scegli le foto', addNewText: 'Si apre il modulo vuoto: titolo, ingredienti, preparazione. Le ricette scritte da te vanno tra le Preferite.', create: 'Crea',
+    stageGoes: 'Va in', openRecipe: 'Apri la ricetta', previewHint: 'Scegli una ricetta per vederla qui.', toBuy: 'Da comprare', withWhatYouHave: 'Ricette con quello che hai',
   },
   de: {
     // v46 quick filters and sorting
@@ -434,6 +446,18 @@ const dict = {
     newRecipe: 'Neues Rezept', editRecipe: 'Rezept bearbeiten', notFound: 'Nicht gefunden.', back: 'Zurück',
     importedN: (n) => `${n} ${plural(n, 'neues Rezept importiert', 'neue Rezepte importiert')}`,
     installHint: 'Tipp: Füge die App zum Home-Bildschirm hinzu, dann funktioniert sie wie eine App, auch offline.',
+    // v48
+    groupBy: 'Gruppieren nach', inLine: 'Als Liste', allDevices: 'alle Geräte', viewLabel: 'Ansicht',
+    nItems: (n) => (n === 1 ? '1 Eintrag' : `${n} Einträge`), nProducts: (n) => (n === 1 ? '1 Produkt' : `${n} Produkte`),
+    addHeading: 'Hinzufügen', addTo_list: 'zur Einkaufsliste', addTo_pantry: 'zum Vorrat', addTo_recipes: 'ein Rezept',
+    qaListPh: 'z. B. 2 l Milch, Spülmittel', qaPantryPh: 'z. B. 6 Eier bis 20.11., 1 kg Mehl',
+    qaListHint: 'Mehreres auf einmal: mit Komma trennen. Menge und Abteilung werden erkannt. Enter fügt hinzu und lässt das Feld offen.',
+    qaPantryHint: 'Mehrere Produkte: mit Komma trennen. „bis 20.11.“ setzt das Ablaufdatum. Tippe auf ein eben hinzugefügtes Produkt für Mindestmenge und mehr.',
+    alreadyOnList: (n) => `${n} · schon auf der Liste`, qaWrite: 'Schreiben', qaScan: 'Scannen', qaScanText: 'Halte den Barcode vor die Kamera: das Produkt wird erkannt.', qaScanGo: 'Kamera öffnen',
+    addTab_link: 'Link', addTab_photo: 'Foto', addTab_book: 'Buch', addTab_new: 'Neu',
+    addPhotoText: 'Ein Rezept aus einem Buch oder einer Notiz. Das ganze Rezept ins Bild; geht es über mehrere Seiten, alle hinzufügen: sie werden ein Rezept.',
+    addPhotoGo: 'Fotos aufnehmen oder wählen', addNewText: 'Das leere Formular öffnet sich: Titel, Zutaten, Zubereitung. Eigene Rezepte kommen zu den Favoriten.', create: 'Erstellen',
+    stageGoes: 'Kommt zu', openRecipe: 'Rezept öffnen', previewHint: 'Wähle ein Rezept, um es hier zu sehen.', toBuy: 'Einzukaufen', withWhatYouHave: 'Rezepte mit dem, was da ist',
   },
   en: {
     // v46 quick filters and sorting
@@ -649,6 +673,18 @@ const dict = {
     newRecipe: 'New recipe', editRecipe: 'Edit recipe', notFound: 'Not found.', back: 'Back',
     importedN: (n) => `${n} new ${plural(n, 'recipe', 'recipes')} imported`,
     installHint: 'Tip: add the app to your home screen to use it like an app, offline too.',
+    // v48
+    groupBy: 'Group by', inLine: 'Single list', allDevices: 'all devices', viewLabel: 'View',
+    nItems: (n) => (n === 1 ? '1 item' : `${n} items`), nProducts: (n) => (n === 1 ? '1 product' : `${n} products`),
+    addHeading: 'Add', addTo_list: 'to the list', addTo_pantry: 'to the pantry', addTo_recipes: 'a recipe',
+    qaListPh: 'e.g. 2 l milk, dish soap', qaPantryPh: 'e.g. 6 eggs exp 20/11, 1 kg flour',
+    qaListHint: 'Several at once: separate them with commas. Quantity and aisle are worked out. Enter adds and keeps this open.',
+    qaPantryHint: 'Several products: separate them with commas. "exp 20/11" sets the expiry date. Tap a product you just added for its threshold and more.',
+    alreadyOnList: (n) => `${n} · already on the list`, qaWrite: 'Type', qaScan: 'Scan', qaScanText: 'Point the camera at the barcode: the product is recognised.', qaScanGo: 'Open the camera',
+    addTab_link: 'Link', addTab_photo: 'Photo', addTab_book: 'Book', addTab_new: 'From scratch',
+    addPhotoText: 'A recipe from a book or a note. Get the whole recipe in frame; if it runs over several pages, add them all: they become one recipe.',
+    addPhotoGo: 'Take or choose photos', addNewText: 'The empty form opens: title, ingredients, method. Recipes you write go to Favourites.', create: 'Create',
+    stageGoes: 'Goes to', openRecipe: 'Open the recipe', previewHint: 'Pick a recipe to see it here.', toBuy: 'To buy', withWhatYouHave: 'Recipes with what you have',
   },
 };
 
