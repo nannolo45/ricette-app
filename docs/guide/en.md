@@ -49,7 +49,7 @@ In Settings → *Pantry and reminders*, tap *Turn on notifications*. Every morni
 
 ### 4. Optional: people and language
 
-In Settings → *Recipes*, choose how many people you usually cook for: quantities, the shopping list and *With the pantry* follow it. In *Language*, choose English, Italian or German.
+In Settings → *Recipes*, choose how many people you usually cook for: quantities, the shopping list and *With the pantry* follow it. In *Language*, choose English, Italian or German. In *Appearance*, choose the theme (automatic like your phone, light or dark) and the app's colour: aubergine, petrol, terracotta or cornflower. Language, theme and colour apply only to the device where you choose them.
 
 ### 5. A second person
 

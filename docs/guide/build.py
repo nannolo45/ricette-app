@@ -10,8 +10,11 @@ from PIL import Image
 root = pathlib.Path(__file__).resolve().parents[2]
 APP = 'Ricette'
 CSS = """
-:root{color-scheme:light dark;--bg:#faf6ef;--ink:#2b2420;--muted:#7a6e64;--line:#e9e1d4;--acc:#b5532d;--card:#f3ece1}
-@media(prefers-color-scheme:dark){:root{--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#e07a4f;--card:#262220}}
+:root{color-scheme:light dark;--bg:#faf6ef;--ink:#2b2420;--muted:#7a6e64;--line:#e9e1d4;--acc:#7a3f93;--card:#f3ece1}
+:root[data-accent=petrolio]{--acc:#1d6b75}:root[data-accent=terracotta]{--acc:#b5532d}:root[data-accent=fiordaliso]{--acc:#3657b0}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#c792dc;--card:#262220}:root:not([data-theme=light])[data-accent=petrolio]{--acc:#4fb3bf}:root:not([data-theme=light])[data-accent=terracotta]{--acc:#e07a4f}:root:not([data-theme=light])[data-accent=fiordaliso]{--acc:#86a8f2}}
+:root[data-theme=dark]{--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#c792dc;--card:#262220}:root[data-theme=dark][data-accent=petrolio]{--acc:#4fb3bf}:root[data-theme=dark][data-accent=terracotta]{--acc:#e07a4f}:root[data-theme=dark][data-accent=fiordaliso]{--acc:#86a8f2}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 main{max-width:720px;margin:0 auto;padding:16px 18px 60px}
 h1{font-family:Georgia,serif;font-size:1.9rem;margin:.4em 0}h2{font-family:Georgia,serif;margin-top:2em;border-top:1px solid var(--line);padding-top:1em}
@@ -35,7 +38,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 .zoom{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;padding:2vw;cursor:zoom-out}
 .zoom img{max-width:100%;max-height:100%;width:auto;margin:0;border:0;box-shadow:none;cursor:zoom-out}
 """
-HEAD_JS = "(function(){var m;try{m=localStorage.getItem('guideMode')}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)document.documentElement.classList.add('desk')})()"
+HEAD_JS = "(function(){try{var k=JSON.parse(localStorage.getItem('ricette.look')||'{}'),h=document.documentElement;if(k.theme==='light'||k.theme==='dark')h.dataset.theme=k.theme;if(k.accent&&k.accent!=='melanzana')h.dataset.accent=k.accent}catch(e){}var m;try{m=localStorage.getItem('guideMode')}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)document.documentElement.classList.add('desk')})()"
 BODY_JS = """<script>
 document.addEventListener('click',function(e){var z=document.querySelector('.zoom');if(z){z.remove();return;}var i=e.target.closest('main img');if(!i)return;var d=document.createElement('div');d.className='zoom';var b=document.createElement('img');b.src=i.currentSrc||i.src;b.alt=i.alt;d.appendChild(b);document.body.appendChild(d);});
 function setMode(m,keep){document.documentElement.classList.toggle('desk',m==='desk');document.querySelectorAll('.mode button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.mode===m));});if(keep){try{localStorage.setItem('guideMode',m)}catch(e){}}}

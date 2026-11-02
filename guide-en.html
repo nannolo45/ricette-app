@@ -1,6 +1,9 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ricette · Guide</title><script>(function(){var m;try{m=localStorage.getItem('guideMode')}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)document.documentElement.classList.add('desk')})()</script><style>
-:root{color-scheme:light dark;--bg:#faf6ef;--ink:#2b2420;--muted:#7a6e64;--line:#e9e1d4;--acc:#b5532d;--card:#f3ece1}
-@media(prefers-color-scheme:dark){:root{--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#e07a4f;--card:#262220}}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ricette · Guide</title><script>(function(){try{var k=JSON.parse(localStorage.getItem('ricette.look')||'{}'),h=document.documentElement;if(k.theme==='light'||k.theme==='dark')h.dataset.theme=k.theme;if(k.accent&&k.accent!=='melanzana')h.dataset.accent=k.accent}catch(e){}var m;try{m=localStorage.getItem('guideMode')}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)document.documentElement.classList.add('desk')})()</script><style>
+:root{color-scheme:light dark;--bg:#faf6ef;--ink:#2b2420;--muted:#7a6e64;--line:#e9e1d4;--acc:#7a3f93;--card:#f3ece1}
+:root[data-accent=petrolio]{--acc:#1d6b75}:root[data-accent=terracotta]{--acc:#b5532d}:root[data-accent=fiordaliso]{--acc:#3657b0}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#c792dc;--card:#262220}:root:not([data-theme=light])[data-accent=petrolio]{--acc:#4fb3bf}:root:not([data-theme=light])[data-accent=terracotta]{--acc:#e07a4f}:root:not([data-theme=light])[data-accent=fiordaliso]{--acc:#86a8f2}}
+:root[data-theme=dark]{--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#c792dc;--card:#262220}:root[data-theme=dark][data-accent=petrolio]{--acc:#4fb3bf}:root[data-theme=dark][data-accent=terracotta]{--acc:#e07a4f}:root[data-theme=dark][data-accent=fiordaliso]{--acc:#86a8f2}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 main{max-width:720px;margin:0 auto;padding:16px 18px 60px}
 h1{font-family:Georgia,serif;font-size:1.9rem;margin:.4em 0}h2{font-family:Georgia,serif;margin-top:2em;border-top:1px solid var(--line);padding-top:1em}
@@ -54,7 +57,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p>In Settings → <em>Pantry and reminders</em>, tap <em>Turn on notifications</em>. Every morning you get a heads-up when something in the pantry is about to expire, even with the app closed. This is also where you choose how many days ahead.</p>
 <p><img class="ph" loading="lazy" alt="Pantry and reminders" src="guide/en/04-settings-pantry.png" /><img class="dk" loading="lazy" alt="Pantry and reminders" src="guide/en/desk/04-settings-pantry.webp" /></p>
 <h3 id="4-optional-people-and-language">4. Optional: people and language</h3>
-<p>In Settings → <em>Recipes</em>, choose how many people you usually cook for: quantities, the shopping list and <em>With the pantry</em> follow it. In <em>Language</em>, choose English, Italian or German.</p>
+<p>In Settings → <em>Recipes</em>, choose how many people you usually cook for: quantities, the shopping list and <em>With the pantry</em> follow it. In <em>Language</em>, choose English, Italian or German. In <em>Appearance</em>, choose the theme (automatic like your phone, light or dark) and the app's colour: aubergine, petrol, terracotta or cornflower. Language, theme and colour apply only to the device where you choose them.</p>
 <h3 id="5-a-second-person">5. A second person</h3>
 <p>Everyone has their own repository and token. On their phone, open the same address and connect their repository. If the device held someone else's data, the app asks whether to start empty: choose that. <em>Empty this device</em>, under <em>GitHub connection</em>, does the same whenever you like.</p>
 <h2 id="the-three-tabs">The three tabs</h2>

@@ -114,13 +114,23 @@ works offline, and keeps all your data as plain files in this repository.
 
 ## Updating an existing setup
 
-From now on the zip has two folders: copy everything in `ricette-app/` into the app repository, and everything in
-`ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
-`data/` files, so copying it can't overwrite your recipes.
+From v50 the zip holds one folder, `ricette/`, with `ricette-app/` and `ricette-data/` inside. Each is laid out
+exactly like its repository: copy everything in `ricette-app/` to the top of the app repository, and everything in
+`ricette-data/` to the top of the data repository, replacing files with the same name. From v51 the zip holds only
+the files that changed in that version (a folder is left out when nothing in it changed). `ricette-data/` never contains
+your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.github` is a hidden folder.) Files to
+delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
+an extra `app/` folder.)
 
-- **Credenza / Frigo / Freezer, one product sheet, recipes from photos step by step (v50, Nov 2):** copy the contents
-  of `app/` to the top of ricette-app and `docs/` next to it, as for v49. **Also copy `ricette-data/scripts/` into the
-  data repo** (the importer now reads photos by role). Agreed with Everyday (its v60): pantry products may carry
+- **Melanzana, and a choice of theme and colour (v51, Nov 2):** the zip now holds only the files that changed; copy
+  `ricette-app/` into the app repository (nothing for the data repo, nothing to delete). The app's colour is now
+  *melanzana* (aubergine) instead of terracotta. New page Settings → *Aspetto*: theme *Automatico* (follows the phone or
+  computer, as before), *Chiaro* or *Scuro*, and the colour (melanzana, petrolio, terracotta, fiordaliso). Both are per
+  device, like the language, and are applied before the page appears, so there is no flash of the wrong colours. The
+  guide pages follow the same choice; their pictures are retaken in the new colour. Nothing changes for Everyday.
+- **Credenza / Frigo / Freezer, one product sheet, recipes from photos step by step (v50, Nov 2):** copy `ricette-app/`
+  and `ricette-data/` into their repositories (the importer in `scripts/` now reads photos by role). Delete `img/` and
+  `js/guide.js` from ricette-app if they are still there. Agreed with Everyday (its v60): pantry products may carry
   `place` and `shops`; nothing else changes for Everyday.
   - **Dispensa in places:** *Tutto · Credenza · Frigo · Freezer* at the top, with counts. Products without a place
     show a guess from their aisle (dairy, meat and fish → fridge, frozen → freezer, the rest → cupboard), never

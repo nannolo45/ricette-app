@@ -49,7 +49,7 @@ Tippe unter Einstellungen → *Vorrat und Erinnerungen* auf *Mitteilungen aktivi
 
 ### 4. Optional: Personen und Sprache
 
-Unter Einstellungen → *Rezepte* wählst du, für wie viele Personen du meistens kochst: Mengen, Einkaufsliste und *Mit dem Vorrat* richten sich danach. Unter *Sprache* wählst du Deutsch, Englisch oder Italienisch.
+Unter Einstellungen → *Rezepte* wählst du, für wie viele Personen du meistens kochst: Mengen, Einkaufsliste und *Mit dem Vorrat* richten sich danach. Unter *Sprache* wählst du Deutsch, Englisch oder Italienisch. Unter *Aussehen* wählst du das Farbschema (automatisch wie das Handy, hell oder dunkel) und die Farbe der App: Aubergine, Petrol, Terrakotta oder Kornblume. Sprache, Farbschema und Farbe gelten nur auf dem Gerät, auf dem du sie wählst.
 
 ### 5. Eine zweite Person
 

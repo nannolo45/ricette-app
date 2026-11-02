@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v50';
+const APP_VERSION = 'v51';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -2069,8 +2069,8 @@ function fileSizesBlock() {
 
 // ---------- settings (v37): an index and one page per topic ----------
 
-const SETTINGS_PAGES = ['sync', 'list', 'pantry', 'recipes', 'foods', 'language', 'backup', 'guide'];
-const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', backup: '💾', guide: '📖' };
+const SETTINGS_PAGES = ['sync', 'list', 'pantry', 'recipes', 'foods', 'language', 'look', 'backup', 'guide'];
+const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', look: '🎨', backup: '💾', guide: '📖' };
 
 function settingsSummary(page) {
   const s = state.settings;
@@ -2081,6 +2081,7 @@ function settingsSummary(page) {
     case 'recipes': return t('recipesSettingsSummary');
     case 'foods': { const n = unknownFoodNames().length; return n ? t('foodsUnknownN', n) : t('foodsAllKnown'); }
     case 'language': return LANGS[getLang()];
+    case 'look': return `${t(`theme_${lookTheme()}`)} · ${t(`accent_${lookAccent()}`)}`;
     case 'backup': return t('exportData');
     case 'guide': return t('guideSummary');
     default: return '';
@@ -2139,12 +2140,41 @@ function settingsPage(page) {
     </label>
   </form>
   <p class="hint small">${esc(t('languageHint'))}</p>`;
+    case 'look': return lookSettings();
     case 'backup': return `
   <button class="btn" data-action="export">${esc(t('exportData'))}</button>
   <p class="hint">${esc(t('backupHint'))}</p>
   <p class="hint">${esc(t('installHint'))}</p>`;
     default: return '';
   }
+}
+
+// v51: theme and colour, per device (settings theme / accent), mirrored to localStorage so index.html applies them before the first paint
+const THEMES = ['auto', 'light', 'dark'];
+const ACCENTS = ['melanzana', 'petrolio', 'terracotta', 'fiordaliso'];
+function lookTheme() { return THEMES.includes(state.settings.theme) ? state.settings.theme : 'auto'; }
+function lookAccent() { return ACCENTS.includes(state.settings.accent) ? state.settings.accent : 'melanzana'; }
+function applyLook() {
+  const root = document.documentElement;
+  const theme = lookTheme(); const accent = lookAccent();
+  if (theme === 'auto') delete root.dataset.theme; else root.dataset.theme = theme;
+  if (accent === 'melanzana') delete root.dataset.accent; else root.dataset.accent = accent;
+  try { localStorage.setItem('ricette.look', JSON.stringify({ theme, accent })); } catch (e) { /* private mode */ }
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.content = getComputedStyle(root).getPropertyValue('--accent-light').trim() || '#7a3f93';
+}
+function lookSettings() {
+  const theme = lookTheme(); const accent = lookAccent();
+  return `
+  <form class="form look-form" id="look-form">
+    <fieldset class="look-themes"><legend>${esc(t('themeLabel'))}</legend><div class="look-box">${THEMES.map((v) => `
+      <label class="look-row"><input type="radio" name="theme" value="${v}" ${v === theme ? 'checked' : ''}><span><strong>${esc(t(`theme_${v}`))}</strong><small>${esc(t(`themeSub_${v}`))}</small></span></label>`).join('')}
+    </div></fieldset>
+    <fieldset class="look-accents"><legend>${esc(t('accentLabel'))}</legend><div class="look-sws">${ACCENTS.map((a) => `
+      <label class="look-sw"><input type="radio" name="accent" value="${a}" ${a === accent ? 'checked' : ''}><span class="sw sw-${a}" aria-hidden="true"></span><span>${esc(t(`accent_${a}`))}</span></label>`).join('')}
+    </div></fieldset>
+  </form>
+  <p class="hint small">${esc(t('lookHint'))}</p>`;
 }
 
 // v49: the user guide is a standalone page per language (docs/guide → app/guide-<lang>.html), opened in this tab
@@ -3474,6 +3504,11 @@ function onViewChange(e) {
     renderShell();
     render();
   }
+  if ((el.name === 'theme' || el.name === 'accent') && el.form?.id === 'look-form') {
+    saveSettings({ [el.name]: el.value });
+    applyLook();
+    return;
+  }
   if (el.name === 'remindDays' && el.form?.id === 'remind-form') {
     const v = Math.max(0, parseInt(el.value, 10) || 0);
     saveSettings({ remindDays: v }).then(() => { if (thisDevice()) saveDevice({}); else render(); });
@@ -4679,6 +4714,7 @@ async function start() {
   refreshUserFoods();
   await autoConfigure();
   applyLang(state.settings.lang);
+  applyLook();
   renderShell();
   render();
   handleShareTarget();

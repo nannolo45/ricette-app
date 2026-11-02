@@ -1,7 +1,7 @@
 // Offline support. Each app version is cached as a whole; a new version is
 // downloaded in the background and takes over when the user taps "Update"
 // (or the next time the app is started from scratch).
-const VERSION = 'ricette-v50';
+const VERSION = 'ricette-v51';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/app.js', 'js/store.js', 'js/sync.js', 'js/parse.js', 'js/i18n.js', 'js/photos.js', 'js/expiry.js', 'js/barcode.js', 'js/scanner.js', 'js/products.js', 'js/recipe-text.js', 'js/dish-image.js', 'js/recipe-tools.js', 'js/categories.js', 'js/sortable.js', 'js/nutrition.js', 'js/online.js', 'js/times.js', 'js/geo.js', 'js/book-fix.js', 'js/shops.js', 'js/shoplist.js', 'js/depts.js', 'js/shop-status.js', 'js/shell.js', 'js/ui/dialogs.js', 'js/recipe-stage.js', 'js/ui/format.js', 'js/ui/empty.js', 'js/views/recipe.js', 'js/views/edit.js', 'js/shoplist-ui.js', 'js/foods.js', 'js/kitchen.js', 'css/shoplist.css', 'guide-it.html', 'guide-en.html', 'guide-de.html',

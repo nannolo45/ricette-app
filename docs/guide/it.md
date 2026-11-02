@@ -49,7 +49,7 @@ In Impostazioni → *Dispensa e promemoria* tocca *Attiva le notifiche*. Ogni ma
 
 ### 4. Facoltativo: persone e lingua
 
-In Impostazioni → *Ricette* scegli per quante persone cucini di solito: quantità, lista della spesa e *Con la dispensa* si adeguano. In *Lingua* scegli italiano, inglese o tedesco.
+In Impostazioni → *Ricette* scegli per quante persone cucini di solito: quantità, lista della spesa e *Con la dispensa* si adeguano. In *Lingua* scegli italiano, inglese o tedesco. In *Aspetto* scegli il tema (automatico come il telefono, chiaro o scuro) e il colore dell'app: melanzana, petrolio, terracotta o fiordaliso. Lingua, tema e colore valgono solo sul dispositivo su cui li scegli.
 
 ### 5. Una seconda persona
 
