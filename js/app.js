@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v54';
+const APP_VERSION = 'v54.1';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -197,13 +197,18 @@ function shortDate(dateStr) {
 }
 
 function updatePantryBadge() {
-  const n = expiringItems().length;
+  const list = expiringItems();
+  const n = list.length;
   const a = document.querySelector('nav.tabs a[data-tab=pantry]');
   if (!a) return;
   let b = a.querySelector('.count');
   if (!n) { b?.remove(); return; }
   if (!b) { b = document.createElement('span'); b.className = 'count'; a.querySelector('.ico').append(b); }
   b.textContent = n;
+  // v54.1: red when something has already expired, the accent while things are only about to
+  const gone = list.some((x) => x.st === 'expired');
+  b.classList.toggle('bad', gone);
+  a.title = gone ? t('badgeExpired', list.filter((x) => x.st === 'expired').length) : t('badgeSoon', n);
 }
 
 function ensureLowItems() {

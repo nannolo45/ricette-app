@@ -257,6 +257,7 @@ label.move select { width: auto; padding: 6px 10px; font-size: .9rem; }
   position: absolute; top: -4px; right: -10px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
   background: var(--accent); color: var(--accent-ink); font-size: .65rem; font-weight: 700; line-height: 17px; text-align: center;
 }
+.tabs .count.bad { background: var(--danger); color: #fff; }
 
 /* barcode scanner */
 .scan-btn { width: 100%; margin: 2px 0 6px; }

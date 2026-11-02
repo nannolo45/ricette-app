@@ -122,6 +122,9 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **Red badge for expired food (v54.1, Nov 2):** copy `ricette-app/` into the app repository (4 files). The number on
+  the Dispensa tab turns red as soon as something has already expired, and stays in the accent colour while things
+  are only about to expire; holding the pointer over the tab says which.
 - **Places as tabs, Reparti and Bambino (v54, Nov 2):** copy `ricette-app/` into the app repository (only changed
   files, guide pictures included: upload `guide/it`, `guide/en` and `guide/de` one commit each) and
   `ricette-data/scripts/lib/foods.js` into the data repository. The Dispensa's places are now tabs, three to a row
