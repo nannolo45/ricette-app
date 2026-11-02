@@ -118,6 +118,13 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Pictures in the guide (v48.2, Nov 2):** copy the contents of `app/` to the top of ricette-app, including the new
+  folder `img/guide/`. Settings → Guide now shows screenshots in your language: the three tabs on a computer under
+  *The three tabs*, and phone screens under finding and filtering, adding recipes, shopping and the pantry. Tap one
+  to see it full size. They load only when you open the guide (about 220 KB per language).
+- **Desktop add panel fix (v48.1, Nov 2):** copy the contents of `app/` to the top of ricette-app. On a wide screen the
+  *Add a recipe* panel in the right column no longer spills over its card: the four tabs sit on one row and *Save in*
+  stays on one line.
 - **One bar, one "+", wide screens (v48, Nov 2):** copy the contents of `app/` to the top of ricette-app. Nothing
   changes in the data repo or in the files shared with Everyday.
   - *Spesa* and *Dispensa* work like *Ricette*: search with *Filtri* next to it. The panel opens under the search,

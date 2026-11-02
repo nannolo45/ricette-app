@@ -7,9 +7,9 @@ import { emptyState } from './ui/empty.js';
 import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/format.js';
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
-import { GUIDE } from './guide.js';
+import { GUIDE, GUIDE_SHOTS } from './guide.js';
 
-const APP_VERSION = 'v48';
+const APP_VERSION = 'v48.2';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -541,7 +541,7 @@ function addSheetHtml() {
   <div class="sheet-head"><h2>${esc(t('addHeading'))} <span class="sh-sub">${esc(t('addTo_recipes'))}</span></h2><button type="button" class="icon sheet-x" data-action="sheet-close" aria-label="${esc(t('close'))}">✕</button></div>
   <div class="add-tabs" role="tablist">${ADD_TABS.map((k) => `<button type="button" role="tab" class="chip ${k === tab ? 'on' : ''}" aria-selected="${k === tab}" data-action="add-tab" data-value="${k}">${esc(t(`addTab_${k}`))}</button>`).join('')}</div>
   ${body}
-  <label class="import-folder">📁 ${esc(t('saveIn'))}
+  <label class="import-folder"><span class="if-l">📁 ${esc(t('saveIn'))}</span>
     <select id="import-folder">${folderOptions(folder)}</select></label>
   ${tab === 'new' ? '' : `<p class="hint">${esc(t('importHintToTry'))}</p>`}`;
 }
@@ -2111,7 +2111,16 @@ function settingsPage(page) {
 function guideHtml() {
   const secs = GUIDE[getLang()] || GUIDE.en;
   const rich = (x) => esc(x).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  return `<div class="guide">${secs.map(([h, p]) => `<section><h2>${esc(h)}</h2><p>${rich(p)}</p></section>`).join('')}</div>`;
+  const lang = GUIDE[getLang()] ? getLang() : 'en';
+  const shots = (i) => {
+    const list = GUIDE_SHOTS[i];
+    if (!list || !list.length) return '';
+    return `<div class="guide-shots">${list.map(([name, cap]) => {
+      const src = `img/guide/${lang}-${name}.webp`; const c = cap[lang] || cap.en;
+      return `<figure class="gshot ${name.startsWith('d-') ? 'wide' : 'phone'}"><a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="${esc(c)}" loading="lazy" decoding="async"></a><figcaption>${esc(c)}</figcaption></figure>`;
+    }).join('')}</div>`;
+  };
+  return `<div class="guide">${secs.map(([h, p], i) => `<section><h2>${esc(h)}</h2><p>${rich(p)}</p>${shots(i)}</section>`).join('')}</div>`;
 }
 
 function syncSettings() {
