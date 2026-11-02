@@ -9,7 +9,7 @@ import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './vi
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 import { GUIDE, GUIDE_SHOTS } from './guide.js';
 
-const APP_VERSION = 'v48.2';
+const APP_VERSION = 'v48.3';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -2108,19 +2108,23 @@ function settingsPage(page) {
   }
 }
 
+function guideDev() { return ui.guideDev || (isWide() ? 'd' : 'm'); }
+
 function guideHtml() {
   const secs = GUIDE[getLang()] || GUIDE.en;
   const rich = (x) => esc(x).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   const lang = GUIDE[getLang()] ? getLang() : 'en';
+  const dev = guideDev();
   const shots = (i) => {
-    const list = GUIDE_SHOTS[i];
+    const list = GUIDE_SHOTS[i] && GUIDE_SHOTS[i][dev];
     if (!list || !list.length) return '';
     return `<div class="guide-shots">${list.map(([name, cap]) => {
-      const src = `img/guide/${lang}-${name}.webp`; const c = cap[lang] || cap.en;
-      return `<figure class="gshot ${name.startsWith('d-') ? 'wide' : 'phone'}"><a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="${esc(c)}" loading="lazy" decoding="async"></a><figcaption>${esc(c)}</figcaption></figure>`;
+      const src = `img/guide/${lang}-${dev}-${name}.webp`; const c = cap[lang] || cap.en;
+      return `<figure class="gshot ${dev === 'd' ? 'wide' : 'phone'}"><a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="${esc(c)}" loading="lazy" decoding="async"></a><figcaption>${esc(c)}</figcaption></figure>`;
     }).join('')}</div>`;
   };
-  return `<div class="guide">${secs.map(([h, p], i) => `<section><h2>${esc(h)}</h2><p>${rich(p)}</p>${shots(i)}</section>`).join('')}</div>`;
+  const sw = `<div class="seg two guide-dev" role="radiogroup" aria-label="${esc(t('guideShots'))}">${['m', 'd'].map((k) => `<button type="button" role="radio" aria-checked="${k === dev}" class="seg-btn ${k === dev ? 'on' : ''}" data-action="guide-dev" data-value="${k}">${k === 'm' ? '📱' : '🖥️'} ${esc(t(k === 'm' ? 'guidePhone' : 'guideComputer'))}</button>`).join('')}</div>`;
+  return `<div class="guide">${sw}${secs.map(([h, p], i) => `<section><h2>${esc(h)}</h2><p>${rich(p)}</p>${shots(i)}</section>`).join('')}</div>`;
 }
 
 function syncSettings() {
@@ -3512,6 +3516,17 @@ function onViewClick(e) {
     case 'put-away': startPutAway(); break;
     case 'pa-scan': putAwayScan(); break;
     case 'dept-jump': document.getElementById(`dept-${btn.dataset.value}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
+    case 'guide-dev': {
+      // keep the section you were reading at the same place: the pictures change height
+      const secs = [...document.querySelectorAll('.guide section')];
+      const bar = document.querySelector('.guide-dev').getBoundingClientRect().bottom;
+      const i = Math.max(0, secs.findIndex((x) => x.getBoundingClientRect().bottom > bar + 8));
+      const off = secs[i] ? secs[i].getBoundingClientRect().top : 0;
+      ui.guideDev = btn.dataset.value; render();
+      const after = document.querySelectorAll('.guide section')[i];
+      if (after && scrollY > 0) window.scrollBy(0, after.getBoundingClientRect().top - off);
+      break;
+    }
     case 'seg': if (!btn.dataset.keep) ui.search = ''; saveSettings({ recipeSeg: btn.dataset.value }).then(() => { if (route().name !== 'recipes') location.hash = '#/recipes'; else render(); }); break;
     case 'pantry-toggle': ui.withPantry = !ui.withPantry; if (route().name !== 'recipes' && route().name !== 'folder') location.hash = '#/recipes'; else render(); break;
     case 'open-add': openSheet('add'); break;

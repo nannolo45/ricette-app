@@ -230,7 +230,7 @@ const dict = {
     addTab_link: 'Link', addTab_photo: 'Foto', addTab_book: 'Libro', addTab_new: 'Da zero',
     addPhotoText: 'Una ricetta da un libro o da un appunto. Inquadra tutta la ricetta; se continua su più pagine, aggiungile tutte: diventano una ricetta sola.',
     addPhotoGo: 'Scatta o scegli le foto', addNewText: 'Si apre il modulo vuoto: titolo, ingredienti, preparazione. Le ricette scritte da te vanno tra le Preferite.', create: 'Crea',
-    stageGoes: 'Va in', openRecipe: 'Apri la ricetta', previewHint: 'Scegli una ricetta per vederla qui.', toBuy: 'Da comprare', withWhatYouHave: 'Ricette con quello che hai',
+    stageGoes: 'Va in', openRecipe: 'Apri la ricetta', previewHint: 'Scegli una ricetta per vederla qui.', guidePhone: 'Telefono', guideComputer: 'Computer', guideShots: 'Schermate per', toBuy: 'Da comprare', withWhatYouHave: 'Ricette con quello che hai',
   },
   de: {
     // v46 quick filters and sorting
@@ -457,7 +457,7 @@ const dict = {
     addTab_link: 'Link', addTab_photo: 'Foto', addTab_book: 'Buch', addTab_new: 'Neu',
     addPhotoText: 'Ein Rezept aus einem Buch oder einer Notiz. Das ganze Rezept ins Bild; geht es über mehrere Seiten, alle hinzufügen: sie werden ein Rezept.',
     addPhotoGo: 'Fotos aufnehmen oder wählen', addNewText: 'Das leere Formular öffnet sich: Titel, Zutaten, Zubereitung. Eigene Rezepte kommen zu den Favoriten.', create: 'Erstellen',
-    stageGoes: 'Kommt zu', openRecipe: 'Rezept öffnen', previewHint: 'Wähle ein Rezept, um es hier zu sehen.', toBuy: 'Einzukaufen', withWhatYouHave: 'Rezepte mit dem, was da ist',
+    stageGoes: 'Kommt zu', openRecipe: 'Rezept öffnen', previewHint: 'Wähle ein Rezept, um es hier zu sehen.', guidePhone: 'Handy', guideComputer: 'Computer', guideShots: 'Bildschirmfotos für', toBuy: 'Einzukaufen', withWhatYouHave: 'Rezepte mit dem, was da ist',
   },
   en: {
     // v46 quick filters and sorting
@@ -684,7 +684,7 @@ const dict = {
     addTab_link: 'Link', addTab_photo: 'Photo', addTab_book: 'Book', addTab_new: 'From scratch',
     addPhotoText: 'A recipe from a book or a note. Get the whole recipe in frame; if it runs over several pages, add them all: they become one recipe.',
     addPhotoGo: 'Take or choose photos', addNewText: 'The empty form opens: title, ingredients, method. Recipes you write go to Favourites.', create: 'Create',
-    stageGoes: 'Goes to', openRecipe: 'Open the recipe', previewHint: 'Pick a recipe to see it here.', toBuy: 'To buy', withWhatYouHave: 'Recipes with what you have',
+    stageGoes: 'Goes to', openRecipe: 'Open the recipe', previewHint: 'Pick a recipe to see it here.', guidePhone: 'Phone', guideComputer: 'Computer', guideShots: 'Screenshots for', toBuy: 'To buy', withWhatYouHave: 'Recipes with what you have',
   },
 };
 

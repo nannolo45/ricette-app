@@ -849,6 +849,7 @@ details.tag-group[open] { padding-bottom: 10px; }
 .guide section { margin: 0 0 14px; }
 .guide h2 { margin: 1.2rem 0 .3rem; font-size: 1.1rem; }
 .guide p { margin: 0; line-height: 1.55; }
+.guide-dev { position: sticky; top: 72px; z-index: 2; margin: 4px 0 10px; box-shadow: 0 -12px 0 var(--bg), 0 6px 14px -8px #0008; }
 .guide-shots { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 4px; align-items: flex-start; }
 .gshot { margin: 0; }
 .gshot.phone { flex: 1 1 150px; max-width: 240px; }

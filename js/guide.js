@@ -1,7 +1,7 @@
 // The short guide shown in Settings → Guida (v37). The full guide is a separate document; this is the essentials,
 // in the three languages of the app. Plain text: **bold** is turned into <strong> when shown.
-// v48.2: GUIDE_SHOTS adds screenshots (img/guide/<lang>-<name>.webp) under a section, by its index (the three
-// languages have the same sections in the same order). 'd-' = computer, 'm-' = phone.
+// v48.2: GUIDE_SHOTS adds screenshots (img/guide/<lang>-<m|d>-<name>.webp) under a section, by its index (the three
+// languages have the same sections in the same order). m = phone, d = computer.
 
 export const GUIDE = {
   it: [
@@ -40,20 +40,30 @@ export const GUIDE = {
 };
 
 const C = (it, de, en) => ({ it, de, en });
+// v48.3: each section has a phone set (m) and a computer set (d); the guide's Telefono / Computer switch picks one.
 export const GUIDE_SHOTS = {
-  0: [
-    ['d-recipes', C('Al computer: Ricette, con i filtri a sinistra e l\'anteprima a destra', 'Am Computer: Rezepte, Filter links, Vorschau rechts', 'On a computer: Recipes, filters on the left, preview on the right')],
-    ['d-list', C('Al computer: Spesa, con l\'aggiunta e il carrello a destra', 'Am Computer: Einkauf, Hinzufügen und Wagen rechts', 'On a computer: Shopping, add and cart on the right')],
-    ['d-pantry', C('Al computer: Dispensa', 'Am Computer: Vorrat', 'On a computer: Pantry')],
-  ],
-  2: [
-    ['m-recipes-filters', C('Il pannello Filtri delle ricette', 'Das Filter-Feld der Rezepte', 'The recipes Filters panel')],
-    ['m-list-filters', C('Spesa: scegliere la vista', 'Einkauf: die Ansicht wählen', 'Shopping: choosing the view')],
-  ],
-  3: [
-    ['m-add-recipe', C('Il + su Ricette', 'Das + bei Rezepte', 'The + on Recipes')],
-    ['m-new-recipe', C('Da zero: il modulo, con «Va in»', 'Neu: das Formular mit „Kommt zu“', 'From scratch: the form, with "Goes to"')],
-  ],
-  5: [['m-list-add', C('Il + su Spesa: più cose insieme', 'Das + bei Einkauf: mehreres auf einmal', 'The + on Shopping: several at once')]],
-  6: [['m-pantry-filters', C('Dispensa: i filtri rapidi', 'Vorrat: die Schnellfilter', 'Pantry: the quick filters')]],
+  0: {
+    m: [['recipes', C('Ricette', 'Rezepte', 'Recipes')], ['list', C('Spesa', 'Einkauf', 'Shopping')], ['pantry', C('Dispensa', 'Vorrat', 'Pantry')]],
+    d: [
+      ['recipes', C('Ricette: filtri a sinistra, anteprima a destra', 'Rezepte: Filter links, Vorschau rechts', 'Recipes: filters on the left, preview on the right')],
+      ['list', C('Spesa: aggiunta e carrello a destra', 'Einkauf: Hinzufügen und Wagen rechts', 'Shopping: add and cart on the right')],
+      ['pantry', C('Dispensa', 'Vorrat', 'Pantry')],
+    ],
+  },
+  2: {
+    m: [['recipes-filters', C('Il pannello Filtri delle ricette', 'Das Filter-Feld der Rezepte', 'The recipes Filters panel')], ['list-filters', C('Spesa: scegliere la vista', 'Einkauf: die Ansicht wählen', 'Shopping: choosing the view')]],
+    d: [['recipes-filters', C('I filtri restano aperti a sinistra; qui Portata', 'Die Filter bleiben links offen; hier Gang', 'Filters stay open on the left; here Course')], ['list-filters', C('Spesa: la vista si sceglie a sinistra', 'Einkauf: die Ansicht links wählen', 'Shopping: choose the view on the left')]],
+  },
+  3: {
+    m: [['add-recipe', C('Il + su Ricette', 'Das + bei Rezepte', 'The + on Recipes')], ['new-recipe', C('Da zero: il modulo, con «Va in»', 'Neu: das Formular mit „Kommt zu“', 'From scratch: the form, with "Goes to"')]],
+    d: [['add-recipe', C('«Aggiungi una ricetta» si apre a destra', '„Rezept hinzufügen“ öffnet sich rechts', '"Add a recipe" opens on the right')], ['new-recipe', C('Da zero: il modulo, con «Va in»', 'Neu: das Formular mit „Kommt zu“', 'From scratch: the form, with "Goes to"')]],
+  },
+  5: {
+    m: [['list-add', C('Il + su Spesa: più cose insieme', 'Das + bei Einkauf: mehreres auf einmal', 'The + on Shopping: several at once')]],
+    d: [['list-add', C('Si aggiunge a destra, più cose insieme', 'Hinzufügen rechts, mehreres auf einmal', 'Add on the right, several at once')]],
+  },
+  6: {
+    m: [['pantry-filters', C('Dispensa: i filtri rapidi', 'Vorrat: die Schnellfilter', 'Pantry: the quick filters')]],
+    d: [['pantry-filters', C('Dispensa: i filtri rapidi a sinistra', 'Vorrat: die Schnellfilter links', 'Pantry: the quick filters on the left')]],
+  },
 };
