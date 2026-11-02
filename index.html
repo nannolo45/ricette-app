@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Ricette</title>
-  <meta name="theme-color" content="#7a3f93">
-  <script>/* v51: theme and colour before the first paint (Settings → Aspetto) */try{var k=JSON.parse(localStorage.getItem('ricette.look')||'{}'),h=document.documentElement;if(k.theme==='light'||k.theme==='dark')h.dataset.theme=k.theme;if(k.accent&&k.accent!=='melanzana')h.dataset.accent=k.accent;}catch(e){}</script>
+  <meta name="theme-color" content="#151a1b">
+  <script>/* v52: light or dark (Settings → Lingua e aspetto) and the colour, before the first paint; js/theme.js takes over */(function(){var c='auto',a='';try{var o=JSON.parse(localStorage.getItem('ricette.look')||'null');c=localStorage.getItem('ricette-theme')||(o&&o.theme)||'auto';a=localStorage.getItem('ricette-accent')||(o&&o.accent)||''}catch(e){}var h=document.documentElement,d=c==='dark'||(c!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);h.className=d?'dark':'light';if(a&&a!=='melanzana')h.dataset.accent=a;var m=document.querySelector('meta[name=theme-color]');if(m)m.content=d?'#151a1b':'#ffffff';})()</script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">

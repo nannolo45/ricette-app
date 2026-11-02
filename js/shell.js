@@ -8,8 +8,8 @@ const $ = (sel) => document.querySelector(sel);
 
 export function route() {
   const h = location.hash.replace(/^#\/?/, '') || 'recipes';
-  const [name, id] = h.split('/');
-  return { name, id: id && decodeURIComponent(id) };
+  const [name, id, sub] = h.split('/');
+  return { name, id: id && decodeURIComponent(id), sub: sub && decodeURIComponent(sub) };
 }
 
 // which tab is lit for each route

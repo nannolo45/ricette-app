@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v51';
+const APP_VERSION = 'v53';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -39,6 +39,7 @@ import { createKitchen, LEVELS, isLevel, levelOf, atHome, lowInfo, ingredientsOf
 import { sameFood, foodOf, foodFields, refood, setUserFoods, searchFoods, foodName, food as foodRec, allFoods, foodDept, simple as simpleName } from './foods.js';
 import { keywordDept } from './depts.js';
 import { recipeTimes, formatMinutes } from './times.js';
+import { THEMES, ACCENTS, themeChoice, accentChoice, applyTheme } from './theme.js';
 import { photoCandidates, creditFor, testKey, mealdbSearch, rankOnline, searchTerms } from './online.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -786,7 +787,7 @@ function filterPanel() {
     <div class="f-folds">${folds}</div>
     <div class="fp-foot">
       <span class="fp-count">${esc(t('nRecipes', n))}</span>
-      ${globalPeople() ? `<a class="fp-people" href="#/settings/recipes">👥 ${esc(t('people', globalPeople()))}</a>` : ''}
+      ${globalPeople() ? `<a class="fp-people" href="#/settings/recipes/people">👥 ${esc(t('people', globalPeople()))}</a>` : ''}
       ${filterCount() ? `<button type="button" class="link-btn f-reset" data-action="f-clear">${esc(t('clearFilters'))}</button>` : ''}
       ${isWide() ? '' : `<button type="button" class="btn small ghost" data-action="filters-toggle">${esc(t('close'))}</button>`}
     </div>
@@ -1947,9 +1948,11 @@ const PANTRY_TEST = {
 };
 // out first, then running low, then the rest; by name inside
 // v50: where a product is kept. Missing `place` = not chosen yet: shown as a guess, never written back.
-const PLACES = ['shelf', 'fridge', 'freezer'];
+const PLACES = ['shelf', 'fridge', 'freezer', 'home']; // v53: home = Casa e pulizia (cleaning, household, personal care)
 const FROZEN_WORDS = /surgel|frozen|tiefk[üu]hl|gelato|ghiaccioli/i;
 function guessPlace(p) {
+  const d = deptOf(p);
+  if (d === 'household' || d === 'care') return 'home';
   const c = categoryOf(p);
   if (c === 'frozen' || FROZEN_WORDS.test(p.name || '')) return 'freezer';
   return c === 'dairy' || c === 'meatfish' ? 'fridge' : 'shelf';
@@ -2015,7 +2018,7 @@ function viewPantry() {
     <h1>${esc(t('tabPantry'))}</h1>
     <button type="button" class="icon-btn" data-action="pantry-menu" aria-label="${esc(t('more'))}">⋯</button>
   </div>
-  ${every.length ? `<div class="seg four p-places" role="tablist" aria-label="${esc(t('placeLabel'))}">${['all', ...PLACES].map((k) => `<button type="button" role="tab" class="seg-btn ${k === place ? 'on' : ''}" aria-selected="${k === place}" data-action="p-place" data-value="${k}">${esc(t(`place_${k}`))} <small>${k === 'all' ? every.length : every.filter((p) => placeOf(p) === k).length}</small></button>`).join('')}</div>` : ''}
+  ${every.length ? `<div class="seg five p-places" role="tablist" aria-label="${esc(t('placeLabel'))}">${['all', ...PLACES].map((k) => `<button type="button" role="tab" class="seg-btn ${k === place ? 'on' : ''}" aria-selected="${k === place}" data-action="p-place" data-value="${k}">${esc(t(`place_${k}`))} <small>${k === 'all' ? every.length : every.filter((p) => placeOf(p) === k).length}</small></button>`).join('')}</div>` : ''}
   ${every.length ? `
   ${toolbarHtml({ filterAction: 'pp-toggle', count: fs.length, open: panelOpen, input: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="search" id="pantry-q" value="${esc(ui.pantryQ || '')}" placeholder="${esc(t('searchPantryPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchPantryPh'))}">
@@ -2069,8 +2072,28 @@ function fileSizesBlock() {
 
 // ---------- settings (v37): an index and one page per topic ----------
 
-const SETTINGS_PAGES = ['sync', 'list', 'pantry', 'recipes', 'foods', 'language', 'look', 'backup', 'guide'];
-const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', look: '🎨', backup: '💾', guide: '📖' };
+const SETTINGS_PAGES = ['sync', 'list', 'pantry', 'recipes', 'foods', 'language', 'backup', 'guide'];
+const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', backup: '💾', guide: '📖' };
+// v52 (Everyday's handover, v62): a page that would hold several topics is a list of rows, each opening its own page
+const SETTINGS_SUBS = { list: ['view', 'shops'], pantry: ['remind', 'staples'], recipes: ['people', 'tags', 'online'] };
+const SUB_ICON = { view: '⇅', shops: '🏪', remind: '🔔', staples: '🧂', people: '👥', tags: '🏷️', online: '🌐' };
+
+function subSummary(page, sub) {
+  switch (`${page}/${sub}`) {
+    case 'list/view': return `${t(`listMode_${listMode()}`)} · ${t(pref('deptOrder', []).length ? 'deptOrderCustom' : 'deptOrderStandard')}`;
+    case 'list/shops': return t('nShops', shopsSorted().length);
+    case 'pantry/remind': return `${t('remindDaysShort', remindDefault())} · ${t(pushOn() ? 'notifyOnShort' : 'notifyOffShort')}`;
+    case 'pantry/staples': { const n = live('pantry').filter(isLevel).length; return n ? t('staplesSaved', n) : t('staplesNone'); }
+    case 'recipes/people': return globalPeople() ? t('people', globalPeople()) : t('peopleAsRecipe');
+    case 'recipes/tags': { const { own } = tagCounts(); return t('tagsSummary', autoTagIds().filter((id) => (tagDef(id) || {}).enabled !== false).length, own.size); }
+    case 'recipes/online': {
+      const src = onlineSources();
+      const on = [pref('autoPhotos', true) !== false ? t('photosAutoShort') : '', src.mealdb ? 'TheMealDB' : '', src.github ? t('srcSites') : ''].filter(Boolean);
+      return on.length ? on.join(' · ') : t('onlineOffShort');
+    }
+    default: return '';
+  }
+}
 
 function settingsSummary(page) {
   const s = state.settings;
@@ -2080,19 +2103,55 @@ function settingsSummary(page) {
     case 'pantry': return `${t(pushOn() ? 'notifyOnShort' : 'notifyOffShort')} · ${t('remindDaysShort', remindDefault())}`;
     case 'recipes': return t('recipesSettingsSummary');
     case 'foods': { const n = unknownFoodNames().length; return n ? t('foodsUnknownN', n) : t('foodsAllKnown'); }
-    case 'language': return LANGS[getLang()];
-    case 'look': return `${t(`theme_${lookTheme()}`)} · ${t(`accent_${lookAccent()}`)}`;
+    case 'language': return `${LANGS[getLang()]} · ${t(`theme_${themeChoice()}`)} · ${t(`accent_${accentChoice()}`)}`;
     case 'backup': return t('exportData');
     case 'guide': return t('guideSummary');
     default: return '';
   }
 }
 
-function viewSettings(page) {
+function viewSettings(page, sub) {
   if (page === 'guide') { location.replace(guideHref()); return ''; } // v49: the guide is its own page (guide-<lang>.html)
+  if (page === 'look') { location.replace('#/settings/language'); return ''; } // v51's page, now part of Lingua e aspetto
   if (!SETTINGS_PAGES.includes(page)) return settingsIndex();
+  const subs = SETTINGS_SUBS[page];
+  if (subs && subs.includes(sub)) {
+    const back = `<a class="back" href="#/settings/${page}">← ${esc(t(`setPage_${page}`))}</a>`;
+    return `${back}<h1>${SUB_ICON[sub]} ${esc(t(`setSub_${page}_${sub}`))}</h1>${settingsSubPage(page, sub)}`;
+  }
   const back = `<a class="back" href="#/settings">← ${esc(t('tabSettings'))}</a>`;
+  if (subs) {
+    return `${back}<h1>${SETTINGS_ICON[page]} ${esc(t(`setPage_${page}`))}</h1>
+  <nav class="set-list" aria-label="${esc(t(`setPage_${page}`))}">${subs.map((x) => `
+    <a class="set-item" href="#/settings/${page}/${x}"><span class="set-ico" aria-hidden="true">${SUB_ICON[x]}</span><span class="set-text"><strong>${esc(t(`setSub_${page}_${x}`))}</strong><small>${esc(subSummary(page, x))}</small></span><span class="set-chev" aria-hidden="true">›</span></a>`).join('')}
+  </nav>`;
+  }
   return `${back}<h1>${SETTINGS_ICON[page]} ${esc(t(`setPage_${page}`))}</h1>${settingsPage(page)}`;
+}
+
+function settingsSubPage(page, sub) {
+  switch (`${page}/${sub}`) {
+    case 'list/view': return listSettings();
+    case 'list/shops': return shopSettings();
+    case 'pantry/remind': return `
+  <form class="form" id="remind-form">
+    <label>${esc(t('remindDefault'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(remindDefault())}"></label>
+  </form>
+  <div class="field-label">${esc(t('notifyTitle'))}</div>
+  ${notifySection()}`;
+    case 'pantry/staples': return `
+  <p class="hint">${esc(t('staplesSettingsHint', live('pantry').filter(isLevel).length))}</p>
+  <button type="button" class="btn" data-action="staples-pick">${esc(t('staplesChoose'))}</button>`;
+    case 'recipes/people': return `
+  <select id="people" aria-label="${esc(t('peopleAll'))}">
+    <option value="0" ${globalPeople() ? '' : 'selected'}>${esc(t('peopleAsRecipe'))}</option>
+    ${[1, 2, 3, 4, 5, 6, 8, 10, 12].map((k) => `<option value="${k}" ${globalPeople() === k ? 'selected' : ''}>${esc(t('people', k))}</option>`).join('')}
+  </select>
+  <p class="hint small">${esc(t('peopleAllHint'))}</p>`;
+    case 'recipes/tags': return tagSettings();
+    case 'recipes/online': return onlineSettings();
+    default: return '';
+  }
 }
 
 function settingsIndex() {
@@ -2114,24 +2173,6 @@ function settingsIndex() {
 function settingsPage(page) {
   switch (page) {
     case 'sync': return syncSettings();
-    case 'list': return listSettings() + shopSettings();
-    case 'pantry': return `
-  <form class="form" id="remind-form">
-    <label>${esc(t('remindDefault'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(remindDefault())}"></label>
-  </form>
-  ${notifySection()}
-  <h2>🫙 ${esc(t('staplesPickTitle'))}</h2>
-  <p class="hint small">${esc(t('staplesSettingsHint', live('pantry').filter(isLevel).length))}</p>
-  <button type="button" class="btn" data-action="staples-pick">${esc(t('staplesChoose'))}</button>`;
-    case 'recipes': return `
-  <h2>👥 ${esc(t('peopleAll'))}</h2>
-  <select id="people" aria-label="${esc(t('peopleAll'))}">
-    <option value="0" ${globalPeople() ? '' : 'selected'}>${esc(t('peopleAsRecipe'))}</option>
-    ${[1, 2, 3, 4, 5, 6, 8, 10, 12].map((k) => `<option value="${k}" ${globalPeople() === k ? 'selected' : ''}>${esc(t('people', k))}</option>`).join('')}
-  </select>
-  <p class="hint small">${esc(t('peopleAllHint'))}</p>
-  ${tagSettings()}
-  ${onlineSettings()}`;
     case 'foods': return foodsSettings();
     case 'language': return `
   <form class="form" id="lang-form">
@@ -2139,8 +2180,8 @@ function settingsPage(page) {
       <select name="lang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === getLang() ? 'selected' : ''}>${v}</option>`).join('')}</select>
     </label>
   </form>
-  <p class="hint small">${esc(t('languageHint'))}</p>`;
-    case 'look': return lookSettings();
+  <p class="hint small">${esc(t('languageHint'))}</p>
+  ${lookSettings()}`;
     case 'backup': return `
   <button class="btn" data-action="export">${esc(t('exportData'))}</button>
   <p class="hint">${esc(t('backupHint'))}</p>
@@ -2149,32 +2190,21 @@ function settingsPage(page) {
   }
 }
 
-// v51: theme and colour, per device (settings theme / accent), mirrored to localStorage so index.html applies them before the first paint
-const THEMES = ['auto', 'light', 'dark'];
-const ACCENTS = ['melanzana', 'petrolio', 'terracotta', 'fiordaliso'];
-function lookTheme() { return THEMES.includes(state.settings.theme) ? state.settings.theme : 'auto'; }
-function lookAccent() { return ACCENTS.includes(state.settings.accent) ? state.settings.accent : 'melanzana'; }
-function applyLook() {
-  const root = document.documentElement;
-  const theme = lookTheme(); const accent = lookAccent();
-  if (theme === 'auto') delete root.dataset.theme; else root.dataset.theme = theme;
-  if (accent === 'melanzana') delete root.dataset.accent; else root.dataset.accent = accent;
-  try { localStorage.setItem('ricette.look', JSON.stringify({ theme, accent })); } catch (e) { /* private mode */ }
-  const meta = document.querySelector('meta[name=theme-color]');
-  if (meta) meta.content = getComputedStyle(root).getPropertyValue('--accent-light').trim() || '#7a3f93';
-}
+// v52: Aspetto (theme and colour) lives on Lingua e aspetto; js/theme.js keeps the choice on this device
 function lookSettings() {
-  const theme = lookTheme(); const accent = lookAccent();
+  const theme = themeChoice(); const accent = accentChoice();
   return `
   <form class="form look-form" id="look-form">
-    <fieldset class="look-themes"><legend>${esc(t('themeLabel'))}</legend><div class="look-box">${THEMES.map((v) => `
-      <label class="look-row"><input type="radio" name="theme" value="${v}" ${v === theme ? 'checked' : ''}><span><strong>${esc(t(`theme_${v}`))}</strong><small>${esc(t(`themeSub_${v}`))}</small></span></label>`).join('')}
-    </div></fieldset>
+    <fieldset><legend>${esc(t('themeLabel'))}</legend>
+      <div class="seg look-theme" role="radiogroup">${THEMES.map((v) => `
+        <label><input type="radio" name="theme" value="${v}" ${v === theme ? 'checked' : ''}><span>${esc(t(`theme_${v}`))}</span></label>`).join('')}
+      </div>
+      <p class="hint small">${esc(t('themeHint'))}</p>
+    </fieldset>
     <fieldset class="look-accents"><legend>${esc(t('accentLabel'))}</legend><div class="look-sws">${ACCENTS.map((a) => `
       <label class="look-sw"><input type="radio" name="accent" value="${a}" ${a === accent ? 'checked' : ''}><span class="sw sw-${a}" aria-hidden="true"></span><span>${esc(t(`accent_${a}`))}</span></label>`).join('')}
     </div></fieldset>
-  </form>
-  <p class="hint small">${esc(t('lookHint'))}</p>`;
+  </form>`;
 }
 
 // v49: the user guide is a standalone page per language (docs/guide → app/guide-<lang>.html), opened in this tab
@@ -2367,7 +2397,7 @@ function onlineSection() {
   };
   return `<section class="online-box" id="online">
     <h2>🌐 ${esc(t('onlineIdeas'))}</h2>
-    ${!anySource ? `<p class="hint">${esc(t('onlineOff'))} <a href="#/settings/recipes">${esc(t('tabSettings'))}</a></p>` : `
+    ${!anySource ? `<p class="hint">${esc(t('onlineOff'))} <a href="#/settings/recipes/online">${esc(t('tabSettings'))}</a></p>` : `
     <p class="hint small">${esc(t('onlinePick'))}</p>
     <div class="f-chips online-chips">${names.map((n) => `<button type="button" class="chip ${o.selected.includes(n) ? 'on' : ''}" data-action="online-toggle" data-value="${esc(n)}">${expiring.has(n) ? '⏳ ' : ''}${esc(n)}</button>`).join('')}
       <form id="online-add-form" class="chip-add"><input id="online-add" placeholder="+ ${esc(t('otherIngredient'))}" autocomplete="off"></form></div>
@@ -2375,7 +2405,7 @@ function onlineSection() {
       <button type="button" class="btn primary" data-action="online-search" ${o.selected.length && navigator.onLine ? '' : 'disabled'}>✨ ${esc(t('suggestRecipes'))}</button>
       ${o.selected.length ? `<button type="button" class="btn ghost small" data-action="online-clear">${esc(t('clearSelection'))}</button>` : ''}
     </div>
-    <p class="hint small">${esc(t('onlineMax', maxMissing()))} · <a href="#/settings/recipes">${esc(t('change'))}</a></p>
+    <p class="hint small">${esc(t('onlineMax', maxMissing()))} · <a href="#/settings/recipes/online">${esc(t('change'))}</a></p>
     ${statusLine()}
     ${ranked ? `<ul class="suggest online-list">${ranked.shown.map(onlineCard).join('')}</ul>
       ${!ranked.shown.length && !waiting && o.mealdbStatus !== 'busy' ? `<p class="empty">${esc(t('noOnlineMatch'))}</p>` : ''}
@@ -2461,7 +2491,6 @@ function keyBlock(svc) {
 function onlineSettings() {
   const src = onlineSources();
   return `
-  <h2 id="online-settings">🌐 ${esc(t('onlineTitle'))}</h2>
   <div class="field-label">${esc(t('photosOnline'))}</div>
   <label class="check"><input type="checkbox" data-pref="autoPhotos" ${pref('autoPhotos', true) !== false ? 'checked' : ''}> <span>${esc(t('autoPhotos'))}<small>${esc(t('autoPhotosHint'))}</small></span></label>
   ${keyBlock('pixabay')}
@@ -2481,7 +2510,6 @@ function listSettings() {
   const mode = listMode();
   const custom = pref('deptOrder', []).length > 0;
   return `
-  <h2>${esc(t('tabList'))}</h2>
   <div class="field-label">${esc(t('listView'))}</div>
   <label class="sort-pick">⇅ <select id="settings-list-mode" aria-label="${esc(t('listView'))}">${availableModes(hasShops()).map((m) => `<option value="${m}" ${m === mode ? 'selected' : ''}>${esc(t(`listMode_${m}`))}</option>`).join('')}</select></label>
   <p class="hint small">${esc(t('listViewHint'))}</p>
@@ -2527,7 +2555,6 @@ function hoursText(shop) {
 function shopSettings() {
   const shops = shopsSorted();
   return `
-  <h2>🏪 ${esc(t('shopsTitle'))}</h2>
   <p class="hint">${esc(t('shopsHint'))}</p>
   ${shops.length ? `<ul class="shop-list" data-sortable="shops-settings">${shops.map((sh) => `<li data-sort-key="${esc(sh.id)}">
       ${grip(`s-${sh.id}`, sh.name)}
@@ -2907,7 +2934,6 @@ function tagSettings() {
   const autos = autoTagIds();
   const origins = originTagIds(auto);
   return `
-  <h2>${esc(t('tagsTitle'))}</h2>
   <p class="hint">${esc(t('tagsHint'))}</p>
   ${grp('auto', t('autoTagsTitle'), autos.length, `<ul class="tagdefs" id="tagdefs">${autos.map(row).join('')}</ul>
   <button type="button" class="btn" data-action="tagdef-new">+ ${esc(t('newAutoTag'))}</button>`)}
@@ -3039,7 +3065,7 @@ function render() {
     case 'edit': html = viewEdit(r.id); break;
     case 'list': html = wideWrap('list', viewList()); break;
     case 'pantry': html = wideWrap('pantry', viewPantry()); break;
-    case 'settings': html = viewSettings(r.id); break;
+    case 'settings': html = viewSettings(r.id, r.sub); break;
     default: html = wideWrap('recipes', viewRecipes());
   }
   view.classList.toggle('is-wide', html.startsWith('<div class="tri"'));
@@ -3505,8 +3531,7 @@ function onViewChange(e) {
     render();
   }
   if ((el.name === 'theme' || el.name === 'accent') && el.form?.id === 'look-form') {
-    saveSettings({ [el.name]: el.value });
-    applyLook();
+    if (el.name === 'theme') applyTheme(el.value); else applyTheme(undefined, el.value);
     return;
   }
   if (el.name === 'remindDays' && el.form?.id === 'remind-form') {
@@ -4714,7 +4739,7 @@ async function start() {
   refreshUserFoods();
   await autoConfigure();
   applyLang(state.settings.lang);
-  applyLook();
+  applyTheme();
   renderShell();
   render();
   handleShareTarget();

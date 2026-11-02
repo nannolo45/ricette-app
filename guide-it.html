@@ -1,9 +1,8 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ricette · Guida</title><script>(function(){try{var k=JSON.parse(localStorage.getItem('ricette.look')||'{}'),h=document.documentElement;if(k.theme==='light'||k.theme==='dark')h.dataset.theme=k.theme;if(k.accent&&k.accent!=='melanzana')h.dataset.accent=k.accent}catch(e){}var m;try{m=localStorage.getItem('guideMode')}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)document.documentElement.classList.add('desk')})()</script><style>
-:root{color-scheme:light dark;--bg:#faf6ef;--ink:#2b2420;--muted:#7a6e64;--line:#e9e1d4;--acc:#7a3f93;--card:#f3ece1}
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ricette · Guida</title><script>(function(){var h=document.documentElement,m,t='auto',a='';try{m=localStorage.getItem('guideMode');t=localStorage.getItem('ricette-theme')||'auto';a=localStorage.getItem('ricette-accent')||''}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)h.classList.add('desk');h.classList.add(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');if(a&&a!=='melanzana')h.dataset.accent=a})()</script><style>
+:root{color-scheme:light;--bg:#f3f5f5;--ink:#162021;--muted:#5d696a;--line:#dde3e3;--acc:#7a3f93;--card:#ffffff}
+:root.dark{color-scheme:dark;--bg:#151a1b;--ink:#e9eeec;--muted:#94a09f;--line:#313b3c;--acc:#c792dc;--card:#1f2627}
 :root[data-accent=petrolio]{--acc:#1d6b75}:root[data-accent=terracotta]{--acc:#b5532d}:root[data-accent=fiordaliso]{--acc:#3657b0}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#c792dc;--card:#262220}:root:not([data-theme=light])[data-accent=petrolio]{--acc:#4fb3bf}:root:not([data-theme=light])[data-accent=terracotta]{--acc:#e07a4f}:root:not([data-theme=light])[data-accent=fiordaliso]{--acc:#86a8f2}}
-:root[data-theme=dark]{--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#c792dc;--card:#262220}:root[data-theme=dark][data-accent=petrolio]{--acc:#4fb3bf}:root[data-theme=dark][data-accent=terracotta]{--acc:#e07a4f}:root[data-theme=dark][data-accent=fiordaliso]{--acc:#86a8f2}
-:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+:root.dark[data-accent=petrolio]{--acc:#4fb3bf}:root.dark[data-accent=terracotta]{--acc:#e07a4f}:root.dark[data-accent=fiordaliso]{--acc:#86a8f2}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 main{max-width:720px;margin:0 auto;padding:16px 18px 60px}
 h1{font-family:Georgia,serif;font-size:1.9rem;margin:.4em 0}h2{font-family:Georgia,serif;margin-top:2em;border-top:1px solid var(--line);padding-top:1em}
@@ -11,12 +10,11 @@ h3{margin-top:1.6em}a{color:var(--acc)}code{background:var(--card);padding:1px 5
 img{display:block;max-width:300px;width:100%;margin:14px auto;border:1px solid var(--line);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.18);cursor:zoom-in}
 table{border-collapse:collapse;width:100%;font-size:.95em}th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
 .top{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:.95em}.top a{text-decoration:none}
-.langs{display:inline-flex;gap:12px}
+.top .pick{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.9em}
+.top select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 28px 6px 10px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 55%,calc(100% - 10px) 55%;background-size:5px 5px;background-repeat:no-repeat;cursor:pointer}
+.top .picks{display:flex;gap:10px;flex-wrap:wrap}
 nav.toc{background:var(--card);border-radius:14px;padding:10px 16px;margin:16px 0}nav.toc a{display:block;padding:3px 0;text-decoration:none}
 html:not(.desk) .dk,html:not(.desk) .desk-only,html.desk .ph,html.desk .phone-only{display:none}
-.mode{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px}
-.mode button{border:0;background:none;color:var(--muted);font:inherit;font-size:.88em;padding:4px 12px;border-radius:999px;cursor:pointer}
-.mode button[aria-pressed=true]{background:var(--acc);color:var(--bg);font-weight:600}
 html.desk main{max-width:1080px;padding:24px 32px 80px}
 html.desk main>p,html.desk main>ul,html.desk main>ol,html.desk main>table,html.desk main>h2,html.desk main>h3,html.desk main>div,html.desk nav.toc{max-width:780px;margin-left:auto;margin-right:auto}
 html.desk nav.toc{columns:2;column-gap:24px}
@@ -26,7 +24,7 @@ img.wide{max-width:100%;border-radius:12px}
 html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 .zoom{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;padding:2vw;cursor:zoom-out}
 .zoom img{max-width:100%;max-height:100%;width:auto;margin:0;border:0;box-shadow:none;cursor:zoom-out}
-</style></head><body><main><div class="top"><a href="./#/settings">← Torna all'app</a><span class="mode" role="group" aria-label="Mostra la guida per"><button type="button" data-mode="phone">📱 Telefono</button><button type="button" data-mode="desk">💻 Computer</button></span><span class="langs"><a href="guide-en.html" hreflang="en">English</a><a href="guide-de.html" hreflang="de">Deutsch</a></span></div><h1 id="ricette-guida-per-lutente">Ricette: guida per l'utente</h1><nav class="toc"><a href="#cose-ricette">Cos'è Ricette</a><a href="#prima-configurazione">Prima configurazione</a><a href="#le-tre-schede">Le tre schede</a><a href="#ricette">Ricette</a><a href="#aggiungere-ricette">Aggiungere ricette</a><a href="#la-spesa">La spesa</a><a href="#la-dispensa">La dispensa</a><a href="#con-everyday">Con Everyday</a><a href="#una-settimana-tipo">Una settimana tipo</a><a href="#su-un-computer">Su un computer</a><a href="#consigli-e-problemi-comuni">Consigli e problemi comuni</a></nav>
+</style></head><body><main><div class="top"><a href="./#/settings">← Torna all'app</a><span class="picks"><label class="pick">Mostra la guida per <select id="mode"><option value="phone">📱 Telefono</option><option value="desk">💻 Computer</option></select></label><label class="pick">Lingua <select id="lang"><option value="guide-it.html" selected>Italiano</option><option value="guide-en.html">English</option><option value="guide-de.html">Deutsch</option></select></label></span></div><h1 id="ricette-guida-per-lutente">Ricette: guida per l'utente</h1><nav class="toc"><a href="#cose-ricette">Cos'è Ricette</a><a href="#prima-configurazione">Prima configurazione</a><a href="#le-tre-schede">Le tre schede</a><a href="#ricette">Ricette</a><a href="#aggiungere-ricette">Aggiungere ricette</a><a href="#la-spesa">La spesa</a><a href="#la-dispensa">La dispensa</a><a href="#con-everyday">Con Everyday</a><a href="#una-settimana-tipo">Una settimana tipo</a><a href="#su-un-computer">Su un computer</a><a href="#consigli-e-problemi-comuni">Consigli e problemi comuni</a></nav>
 <p>Tutto quello che serve per configurare Ricette e usarlo ogni giorno: le ricette, la lista della spesa e la dispensa.</p>
 <div class="desk-only">
 <p><strong>Stai leggendo la guida per il computer.</strong> Le immagini mostrano l'app su uno schermo largo: i filtri a sinistra, la scheda in mezzo e un pannello a destra (vedi <a href="#su-un-computer">Su un computer</a>). Dove la guida dice <em>tocca</em>, sul computer è un clic. In cima, <strong>📱 Telefono</strong> mostra la guida per il telefono (la scelta resta). Clicca un'immagine per ingrandirla.</p>
@@ -39,8 +37,8 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p>Funziona nel browser, su telefono o computer, e si installa come un'app normale. I dati restano tuoi: stanno sui tuoi dispositivi e in uno spazio privato su GitHub che vedi solo tu. Non c'è un account da noi e niente da pagare.</p>
 <p>Cosa non è: non è un sito di ricette e non ti propone piatti che non hai scelto tu. Non pianifica i pasti della settimana: lo fa l'app Everyday, che usa le ricette di Ricette (vedi <a href="#con-everyday">Con Everyday</a>).</p>
 <h2 id="prima-configurazione">Prima configurazione</h2>
-<p>Servono dieci minuti e un account GitHub (gratuito). Tutto avviene in Impostazioni: tocca l'ingranaggio in alto a destra. Le Impostazioni sono un breve elenco, e ogni voce apre una pagina sua. La scheda in cima dice se i dati sono sincronizzati, con <em>Sincronizza ora</em>.</p>
-<p><img class="ph" loading="lazy" alt="Impostazioni: la sincronizzazione in cima e le pagine" src="guide/it/03-settings.png" /><img class="dk" loading="lazy" alt="Impostazioni: la sincronizzazione in cima e le pagine" src="guide/it/desk/03-settings.webp" /></p>
+<p>Servono dieci minuti e un account GitHub (gratuito). Tutto avviene in Impostazioni: tocca l'ingranaggio in alto a destra. Le Impostazioni sono un breve elenco, e ogni voce apre una pagina sua; dove una pagina tocca più cose (come <em>Ricette</em>), è a sua volta un elenco. La scheda in cima dice se i dati sono sincronizzati, con <em>Sincronizza ora</em>.</p>
+<p><img class="ph" loading="lazy" alt="Impostazioni: la sincronizzazione in cima e le pagine" src="guide/it/03-settings.webp" /><img class="dk" loading="lazy" alt="Impostazioni: la sincronizzazione in cima e le pagine" src="guide/it/desk/03-settings.webp" /></p>
 <h3 id="1-installare-lapp">1. Installare l'app</h3>
 <p>Apri l'indirizzo dell'app in Chrome sul telefono, o in un browser qualsiasi sul computer. Su Android scegli <em>Installa app</em> dal menu del browser; sul computer clicca l'icona di installazione nella barra dell'indirizzo. L'app funziona anche senza connessione. Le nuove versioni arrivano da sole; in fondo alle Impostazioni vedi quale hai.</p>
 <h3 id="2-collegare-il-tuo-spazio-su-github">2. Collegare il tuo spazio su GitHub</h3>
@@ -50,14 +48,14 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <li>Crea un token di accesso (GitHub → Settings → Developer settings → Fine-grained tokens) che possa leggere e scrivere i <em>Contents</em> di quel repository. Un token è come una password fatta per le app.</li>
 <li>In Impostazioni → <em>Collegamento GitHub</em> scrivi il tuo <em>Utente GitHub</em>, il <em>Repository</em> e il <em>Token di accesso</em>, poi tocca <em>Salva e verifica</em>.</li>
 </ol>
-<p><img class="ph" loading="lazy" alt="Utente, repository e token" src="guide/it/01-sync-form.png" /><img class="dk" loading="lazy" alt="Utente, repository e token" src="guide/it/desk/01-sync-form.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Utente, repository e token" src="guide/it/01-sync-form.webp" /><img class="dk" loading="lazy" alt="Utente, repository e token" src="guide/it/desk/01-sync-form.webp" /></p>
 <p>Quando funziona, la pagina dice <strong>Collegato</strong> e l'etichetta in alto diventa verde. Il token resta solo su questo dispositivo: ripeti il passo su ogni telefono o computer che usi.</p>
-<p><img class="ph" loading="lazy" alt="Collegato: il repository e l'ultima sincronizzazione" src="guide/it/02-sync-connected.png" /><img class="dk" loading="lazy" alt="Collegato: il repository e l'ultima sincronizzazione" src="guide/it/desk/02-sync-connected.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Collegato: il repository e l'ultima sincronizzazione" src="guide/it/02-sync-connected.webp" /><img class="dk" loading="lazy" alt="Collegato: il repository e l'ultima sincronizzazione" src="guide/it/desk/02-sync-connected.webp" /></p>
 <h3 id="3-facoltativo-gli-avvisi-di-scadenza">3. Facoltativo: gli avvisi di scadenza</h3>
-<p>In Impostazioni → <em>Dispensa e promemoria</em> tocca <em>Attiva le notifiche</em>. Ogni mattina ricevi un avviso se qualcosa in dispensa sta per scadere, anche ad app chiusa. Qui scegli anche quanti giorni prima avvisarti.</p>
-<p><img class="ph" loading="lazy" alt="Dispensa e promemoria" src="guide/it/04-settings-pantry.png" /><img class="dk" loading="lazy" alt="Dispensa e promemoria" src="guide/it/desk/04-settings-pantry.webp" /></p>
-<h3 id="4-facoltativo-persone-e-lingua">4. Facoltativo: persone e lingua</h3>
-<p>In Impostazioni → <em>Ricette</em> scegli per quante persone cucini di solito: quantità, lista della spesa e <em>Con la dispensa</em> si adeguano. In <em>Lingua</em> scegli italiano, inglese o tedesco. In <em>Aspetto</em> scegli il tema (automatico come il telefono, chiaro o scuro) e il colore dell'app: melanzana, petrolio, terracotta o fiordaliso. Lingua, tema e colore valgono solo sul dispositivo su cui li scegli.</p>
+<p>In Impostazioni → <em>Dispensa e promemoria</em> → <em>Promemoria di scadenza</em> tocca <em>Attiva le notifiche</em>. Ogni mattina ricevi un avviso se qualcosa in dispensa sta per scadere, anche ad app chiusa. Qui scegli anche quanti giorni prima avvisarti.</p>
+<p><img class="ph" loading="lazy" alt="Dispensa e promemoria" src="guide/it/04-settings-pantry.webp" /><img class="dk" loading="lazy" alt="Dispensa e promemoria" src="guide/it/desk/04-settings-pantry.webp" /></p>
+<h3 id="4-facoltativo-persone-lingua-e-aspetto">4. Facoltativo: persone, lingua e aspetto</h3>
+<p>In Impostazioni → <em>Ricette</em> → <em>Persone</em> scegli per quante persone cucini di solito: quantità, lista della spesa e <em>Con la dispensa</em> si adeguano. In <em>Lingua e aspetto</em> scegli italiano, inglese o tedesco, il tema (<em>Automatico</em> come il telefono, <em>Chiaro</em> o <em>Scuro</em>) e il colore dell'app: melanzana, petrolio, terracotta o fiordaliso. Lingua, tema e colore valgono solo sul dispositivo su cui li scegli.</p>
 <h3 id="5-una-seconda-persona">5. Una seconda persona</h3>
 <p>Ognuno ha il suo repository e il suo token. Sul suo telefono apri lo stesso indirizzo e collega il suo repository. Se il dispositivo conteneva i dati di qualcun altro, l'app chiede se partire vuoto: scegli quello. <em>Svuota questo dispositivo</em>, in <em>Collegamento GitHub</em>, fa lo stesso quando vuoi.</p>
 <h2 id="le-tre-schede">Le tre schede</h2>
@@ -83,12 +81,12 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 </tr>
 </tbody>
 </table>
-<p>Le tre schede funzionano allo stesso modo: in alto la ricerca con <strong>Filtri</strong> accanto, in basso a destra il <strong>+</strong> arancione per aggiungere. L'ingranaggio in alto apre le Impostazioni. Il pallino accanto dice se i dati sono sincronizzati: verde vuol dire tutto a posto; toccalo per sincronizzare subito.</p>
+<p>Le tre schede funzionano allo stesso modo: in alto la ricerca con <strong>Filtri</strong> accanto, in basso a destra il <strong>+</strong> colorato per aggiungere. L'ingranaggio in alto apre le Impostazioni. Il pallino accanto dice se i dati sono sincronizzati: verde vuol dire tutto a posto; toccalo per sincronizzare subito.</p>
 <h2 id="ricette">Ricette</h2>
-<p><img class="ph" loading="lazy" alt="Ricette: le cartelle in cima, poi tutte le ricette" src="guide/it/10-recipes.png" /><img class="dk" loading="lazy" alt="Ricette: le cartelle in cima, poi tutte le ricette" src="guide/it/desk/10-recipes.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Ricette: le cartelle in cima, poi tutte le ricette" src="guide/it/10-recipes.webp" /><img class="dk" loading="lazy" alt="Ricette: le cartelle in cima, poi tutte le ricette" src="guide/it/desk/10-recipes.webp" /></p>
 <h3 id="preferite-da-provare-tutte">Preferite, Da provare, Tutte</h3>
 <p>Ogni ricetta ha uno stato. <strong>Preferite</strong> sono quelle che rifai. <strong>Da provare</strong> sono quelle importate e non ancora giudicate: ogni importazione arriva qui. <strong>Tutte</strong> mostra anche le cartelle, per esempio <em>Cene veloci</em> o <em>Dolci</em>.</p>
-<p><img class="ph" loading="lazy" alt="Preferite: le ricette che rifai" src="guide/it/11-favourites.png" /><img class="dk" loading="lazy" alt="Preferite: le ricette che rifai" src="guide/it/desk/11-favourites.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Preferite: le ricette che rifai" src="guide/it/11-favourites.webp" /><img class="dk" loading="lazy" alt="Preferite: le ricette che rifai" src="guide/it/desk/11-favourites.webp" /></p>
 <p>Per cambiare stato tocca la ☆ sulla pagina della ricetta. Le ricette archiviate restano, ma nascoste.</p>
 <h3 id="trovare-e-filtrare">Trovare e filtrare</h3>
 <p>Scrivi nella ricerca un nome o un ingrediente: cerca in tutta la raccolta. <strong>Filtri</strong> apre un pannello proprio lì sotto:</p>
@@ -97,11 +95,11 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <li>gli interruttori rapidi: <em>Con la dispensa</em>, <strong>≤ 15 / 30 / 60 min</strong> e i tuoi tag fissati;</li>
 <li>le sezioni <em>Portata</em>, <em>Alimentazione</em>, <em>Origine</em>, <em>Altri tag</em> e <em>Lavoro, calorie, fonte</em>, che si aprono una alla volta.</li>
 </ul>
-<p><img class="ph" loading="lazy" alt="Il pannello Filtri, con Portata aperta" src="guide/it/12-filters.png" /><img class="dk" loading="lazy" alt="Il pannello Filtri, con Portata aperta" src="guide/it/desk/12-filters.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Il pannello Filtri, con Portata aperta" src="guide/it/12-filters.webp" /><img class="dk" loading="lazy" alt="Il pannello Filtri, con Portata aperta" src="guide/it/desk/12-filters.webp" /></p>
 <p>Chiuso il pannello, sotto la ricerca restano i filtri attivi: tocca ✕ per toglierne uno.</p>
 <h3 id="con-la-dispensa">Con la dispensa</h3>
 <p>L'interruttore <strong>Con la dispensa</strong> mette in cima le ricette per cui hai quasi tutto in casa e dice cosa manca. <em>Aggiungi i mancanti alla spesa</em> lo mette in lista. Sale, pepe e olio si possono dare per scontati.</p>
-<p><img class="ph" loading="lazy" alt="Con la dispensa: prima quello che puoi cucinare" src="guide/it/13-with-pantry.png" /><img class="dk" loading="lazy" alt="Con la dispensa: prima quello che puoi cucinare" src="guide/it/desk/13-with-pantry.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Con la dispensa: prima quello che puoi cucinare" src="guide/it/13-with-pantry.webp" /><img class="dk" loading="lazy" alt="Con la dispensa: prima quello che puoi cucinare" src="guide/it/desk/13-with-pantry.webp" /></p>
 <h3 id="la-pagina-della-ricetta">La pagina della ricetta</h3>
 <p>Accanto agli ingredienti, − e + cambiano le persone. Ogni ingrediente dice se ce l'hai: <em>in casa</em> o <em>manca</em>. In basso:</p>
 <ul>
@@ -109,14 +107,14 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <li><strong>L'ho cucinata</strong> toglie dalla dispensa quello che hai usato;</li>
 <li><strong>⋯</strong> per modificare, spostare in una cartella, condividere o eliminare.</li>
 </ul>
-<p><img class="ph" loading="lazy" alt="La pagina di una ricetta: cosa hai in casa e cosa manca" src="guide/it/14-recipe.png" /><img class="dk" loading="lazy" alt="La pagina di una ricetta: cosa hai in casa e cosa manca" src="guide/it/desk/14-recipe.webp" /></p>
+<p><img class="ph" loading="lazy" alt="La pagina di una ricetta: cosa hai in casa e cosa manca" src="guide/it/14-recipe.webp" /><img class="dk" loading="lazy" alt="La pagina di una ricetta: cosa hai in casa e cosa manca" src="guide/it/desk/14-recipe.webp" /></p>
 <p>Dopo <em>L'ho cucinata</em> su una ricetta da provare, l'app chiede <strong>Com'era?</strong>: <em>Da rifare: preferita</em>, <em>Buona, provata</em> o <em>Non fa per noi: archivia</em>.</p>
-<p><img class="ph" loading="lazy" alt="Com'era? dopo la prima volta" src="guide/it/15-how-was-it.png" /><img class="dk" loading="lazy" alt="Com'era? dopo la prima volta" src="guide/it/desk/15-how-was-it.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Com'era? dopo la prima volta" src="guide/it/15-how-was-it.webp" /><img class="dk" loading="lazy" alt="Com'era? dopo la prima volta" src="guide/it/desk/15-how-was-it.webp" /></p>
 <h2 id="aggiungere-ricette">Aggiungere ricette</h2>
 <p>Tocca <strong>+</strong> su Ricette. Il foglio ha una scheda per ogni modo, e in fondo <em>Salva in</em> per scegliere la cartella. Tutto quello che importi arriva in <em>Da provare</em> in un minuto o due.</p>
 <h3 id="da-un-link">Da un link</h3>
 <p>Incolla l'indirizzo della ricetta e tocca <em>Importa</em>. Puoi anche condividere un link da un'altra app direttamente a Ricette.</p>
-<p><img class="ph" loading="lazy" alt="Link: incolla l'indirizzo" src="guide/it/20-add-link.png" /><img class="dk" loading="lazy" alt="Link: incolla l'indirizzo" src="guide/it/desk/20-add-link.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Link: incolla l'indirizzo" src="guide/it/20-add-link.webp" /><img class="dk" loading="lazy" alt="Link: incolla l'indirizzo" src="guide/it/desk/20-add-link.webp" /></p>
 <h3 id="da-una-foto">Da una foto</h3>
 <p>Per una ricetta da un libro o da un appunto. Tocca <em>Scatta o scegli le foto</em>: l'app ti guida in tre passi.</p>
 <ol>
@@ -124,14 +122,14 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <li><strong>Preparazione:</strong> i passaggi, nell'ordine in cui li leggi. Se sono sulla stessa pagina degli ingredienti, spunta <em>Ingredienti e preparazione sono sulla stessa pagina</em> e questo passo si salta.</li>
 <li><strong>Il piatto:</strong> facoltativo. Diventa la copertina e non viene letto; con <em>Salta</em> ne cerco una io.</li>
 </ol>
-<p><img class="ph" loading="lazy" alt="Da una foto: prima gli ingredienti" src="guide/it/21-add-photo.png" /><img class="dk" loading="lazy" alt="Da una foto: prima gli ingredienti" src="guide/it/desk/21-add-photo.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Da una foto: prima gli ingredienti" src="guide/it/21-add-photo.webp" /><img class="dk" loading="lazy" alt="Da una foto: prima gli ingredienti" src="guide/it/desk/21-add-photo.webp" /></p>
 <p>Alla fine <em>Tutto a posto?</em> riassume le foto: <em>Rifai</em> cambia un gruppo, <em>Importa la ricetta</em> la manda. Se hai già il testo (Live Text, Google Lens), incollalo al primo passo in <em>Oppure incolla il testo</em>. Il testo viene letto sul tuo GitHub, non da un servizio esterno.</p>
 <h3 id="un-libro-intero">Un libro intero</h3>
 <p><em>Libro</em> importa un intero libro di cucina, PDF o EPUB. Ogni ricetta diventa una ricetta a parte, con la pagina del libro e, se c'è, la sua foto. Un libro di qualche centinaio di pagine può richiedere un'ora.</p>
-<p><img class="ph" loading="lazy" alt="Libro: un PDF o un EPUB intero" src="guide/it/22-add-book.png" /><img class="dk" loading="lazy" alt="Libro: un PDF o un EPUB intero" src="guide/it/desk/22-add-book.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Libro: un PDF o un EPUB intero" src="guide/it/22-add-book.webp" /><img class="dk" loading="lazy" alt="Libro: un PDF o un EPUB intero" src="guide/it/desk/22-add-book.webp" /></p>
 <h3 id="da-zero">Da zero</h3>
 <p><em>Da zero</em> apre il modulo vuoto. In <em>Va in</em> scegli se la ricetta va tra le <em>Preferite</em> o <em>Da provare</em>.</p>
-<p><img class="ph" loading="lazy" alt="Da zero: il modulo, con Va in" src="guide/it/23-new-recipe.png" /><img class="dk" loading="lazy" alt="Da zero: il modulo, con Va in" src="guide/it/desk/23-new-recipe.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Da zero: il modulo, con Va in" src="guide/it/23-new-recipe.webp" /><img class="dk" loading="lazy" alt="Da zero: il modulo, con Va in" src="guide/it/desk/23-new-recipe.webp" /></p>
 <h3 id="modificare-una-ricetta">Modificare una ricetta</h3>
 <p>Dalla pagina della ricetta tocca ⋯ → <em>Modifica</em>. <em>Salva</em> resta in alto; se esci con modifiche non salvate, l'app chiede prima.</p>
 <table>
@@ -168,21 +166,21 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 </tr>
 </tbody>
 </table>
-<p><img class="ph" loading="lazy" alt="Gli ingredienti come righe" src="guide/it/24-edit.png" /><img class="dk" loading="lazy" alt="Gli ingredienti come righe" src="guide/it/desk/24-edit.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Gli ingredienti come righe" src="guide/it/24-edit.webp" /><img class="dk" loading="lazy" alt="Gli ingredienti come righe" src="guide/it/desk/24-edit.webp" /></p>
 <p>Tocca un ingrediente per cambiarlo. Sotto il nome c'è il cibo riconosciuto; se è sbagliato o manca, tocca <strong>Correggi</strong>. <em>Scrivi come testo</em> mostra tutta la lista come testo, comodo per incollare.</p>
-<p><img class="ph" loading="lazy" alt="Un ingrediente: quantità, gruppo e Correggi" src="guide/it/25-ingredient.png" /><img class="dk" loading="lazy" alt="Un ingrediente: quantità, gruppo e Correggi" src="guide/it/desk/25-ingredient.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Un ingrediente: quantità, gruppo e Correggi" src="guide/it/25-ingredient.webp" /><img class="dk" loading="lazy" alt="Un ingrediente: quantità, gruppo e Correggi" src="guide/it/desk/25-ingredient.webp" /></p>
 <h3 id="ingredienti-e-cibi">Ingredienti e cibi</h3>
 <p>Ricette riconosce i cibi in italiano, inglese e tedesco: così le uova della ricetta sono le uova in dispensa, e ogni cosa va nel reparto giusto. In Impostazioni → <em>Ingredienti e cibi</em> trovi i nomi che non ha riconosciuto: collegali a un cibo o creane uno tuo. Vale per tutte le ricette, la spesa e la dispensa.</p>
-<p><img class="ph" loading="lazy" alt="Ingredienti e cibi: i nomi da sistemare" src="guide/it/26-foods.png" /><img class="dk" loading="lazy" alt="Ingredienti e cibi: i nomi da sistemare" src="guide/it/desk/26-foods.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Ingredienti e cibi: i nomi da sistemare" src="guide/it/26-foods.webp" /><img class="dk" loading="lazy" alt="Ingredienti e cibi: i nomi da sistemare" src="guide/it/desk/26-foods.webp" /></p>
 <h2 id="la-spesa">La spesa</h2>
-<p><img class="ph" loading="lazy" alt="La spesa, divisa per reparti" src="guide/it/30-list.png" /><img class="dk" loading="lazy" alt="La spesa, divisa per reparti" src="guide/it/desk/30-list.webp" /></p>
+<p><img class="ph" loading="lazy" alt="La spesa, divisa per reparti" src="guide/it/30-list.webp" /><img class="dk" loading="lazy" alt="La spesa, divisa per reparti" src="guide/it/desk/30-list.webp" /></p>
 <h3 id="aggiungere">Aggiungere</h3>
 <p>Tocca <strong>+</strong> e scrivi, per esempio <code>2 l latte, uova, 1,5 kg farina</code>, poi Invio. Quantità e reparto si capiscono da soli, e il campo resta aperto per la prossima. Sotto compare quello che hai appena aggiunto: tocca un nome per cambiarlo.</p>
-<p><img class="ph" loading="lazy" alt="Il + su Spesa: più cose insieme" src="guide/it/31-list-add.png" /><img class="dk" loading="lazy" alt="Il + su Spesa: più cose insieme" src="guide/it/desk/31-list-add.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Il + su Spesa: più cose insieme" src="guide/it/31-list-add.webp" /><img class="dk" loading="lazy" alt="Il + su Spesa: più cose insieme" src="guide/it/desk/31-list-add.webp" /></p>
 <p>Dalle ricette, <em>alla spesa</em> aggiunge gli ingredienti che mancano, già con la quantità. Quello che in dispensa sta finendo entra in lista da solo.</p>
 <h3 id="viste-e-filtri">Viste e filtri</h3>
 <p><strong>Filtri</strong> apre la scelta della vista: <em>Raggruppa per</em> reparti, ricette o negozi, oppure <em>In fila</em>: <em>Mio ordine</em>, <em>A–Z</em>, recenti. Sotto, i filtri rapidi per negozio. Reparti, ricette e il tuo ordine valgono su tutti i dispositivi, anche in Everyday.</p>
-<p><img class="ph" loading="lazy" alt="Scegliere la vista" src="guide/it/32-list-views.png" /><img class="dk" loading="lazy" alt="Scegliere la vista" src="guide/it/desk/32-list-views.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Scegliere la vista" src="guide/it/32-list-views.webp" /><img class="dk" loading="lazy" alt="Scegliere la vista" src="guide/it/desk/32-list-views.webp" /></p>
 <h3 id="la-scheda-di-un-prodotto">La scheda di un prodotto</h3>
 <p>Tocca il nome di una voce: si apre la scheda del prodotto, la stessa che apri dal carrello e dalla dispensa. In cima, tre schede dicono dove si trova: <em>In lista</em>, <em>Nel carrello</em> e <em>In casa</em>, con quantità e posto.</p>
 <ul>
@@ -191,31 +189,31 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <li>Se il prodotto non è in lista, <em>Aggiungi alla lista</em> ce lo mette; se non è in casa, <em>Mettilo in dispensa</em>.</li>
 <li>Il pulsante rosso dice cosa toglie: <em>Togli dalla lista</em>, <em>Togli dal carrello</em> o <em>Togli dalla dispensa</em> (con <em>Annulla</em> subito dopo).</li>
 </ul>
-<p><img class="ph" loading="lazy" alt="La scheda di un prodotto: dove si trova, quanto, negozi" src="guide/it/33-list-item.png" /><img class="dk" loading="lazy" alt="La scheda di un prodotto: dove si trova, quanto, negozi" src="guide/it/desk/33-list-item.webp" /></p>
+<p><img class="ph" loading="lazy" alt="La scheda di un prodotto: dove si trova, quanto, negozi" src="guide/it/33-list-item.webp" /><img class="dk" loading="lazy" alt="La scheda di un prodotto: dove si trova, quanto, negozi" src="guide/it/desk/33-list-item.webp" /></p>
 <h3 id="il-carrello-e-metti-in-dispensa">Il carrello e Metti in dispensa</h3>
 <p>Spunta quello che metti nel carrello: scende in <strong>Nel carrello</strong>. A casa tocca <strong>Metti in dispensa</strong>: controlli quantità, scadenze e dove va ogni cosa (credenza, frigo o freezer), poi tutto entra in dispensa ed esce dalla lista. Un prodotto nuovo si porta dietro i negozi della voce.</p>
-<p><img class="ph" loading="lazy" alt="Il carrello" src="guide/it/34-cart.png" /><img class="dk" loading="lazy" alt="Il carrello" src="guide/it/desk/34-cart.webp" /></p>
-<p><img class="ph" loading="lazy" alt="Metti in dispensa: quantità e scadenze" src="guide/it/35-put-away.png" /><img class="dk" loading="lazy" alt="Metti in dispensa: quantità e scadenze" src="guide/it/desk/35-put-away.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Il carrello" src="guide/it/34-cart.webp" /><img class="dk" loading="lazy" alt="Il carrello" src="guide/it/desk/34-cart.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Metti in dispensa: quantità e scadenze" src="guide/it/35-put-away.webp" /><img class="dk" loading="lazy" alt="Metti in dispensa: quantità e scadenze" src="guide/it/desk/35-put-away.webp" /></p>
 <h3 id="il-prossimo-giro">Il prossimo giro</h3>
 <p>Se usi Everyday e pianifichi un giro di spesa, la lista mostra <strong>Prossimo giro</strong>: quando e in quali negozi. Ogni voce dice in quale giro la compri; <em>Mostra solo questo</em> lascia solo quelle.</p>
-<p><img class="ph" loading="lazy" alt="Il prossimo giro, pianificato in Everyday" src="guide/it/36-trips.png" /><img class="dk" loading="lazy" alt="Il prossimo giro, pianificato in Everyday" src="guide/it/desk/36-trips.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Il prossimo giro, pianificato in Everyday" src="guide/it/36-trips.webp" /><img class="dk" loading="lazy" alt="Il prossimo giro, pianificato in Everyday" src="guide/it/desk/36-trips.webp" /></p>
 <h2 id="la-dispensa">La dispensa</h2>
-<p><img class="ph" loading="lazy" alt="La dispensa: in scadenza in cima, poi per reparto" src="guide/it/40-pantry.png" /><img class="dk" loading="lazy" alt="La dispensa: in scadenza in cima, poi per reparto" src="guide/it/desk/40-pantry.webp" /></p>
+<p><img class="ph" loading="lazy" alt="La dispensa: in scadenza in cima, poi per reparto" src="guide/it/40-pantry.webp" /><img class="dk" loading="lazy" alt="La dispensa: in scadenza in cima, poi per reparto" src="guide/it/desk/40-pantry.webp" /></p>
 <h3 id="credenza-frigo-e-freezer">Credenza, frigo e freezer</h3>
-<p>In cima scegli dove guardare: <em>Tutto</em>, <em>Credenza</em>, <em>Frigo</em> o <em>Freezer</em>, ognuno con quanti prodotti contiene. Ogni prodotto ha il suo posto. Finché non lo scegli tu, l'app lo indovina dal reparto: latticini, carne e pesce in frigo, i surgelati in freezer, il resto in credenza. Per spostarlo apri la sua scheda e tocca il posto in <em>Dove</em>.</p>
-<p><img class="ph" loading="lazy" alt="Solo il frigo" src="guide/it/45-pantry-fridge.png" /><img class="dk" loading="lazy" alt="Solo il frigo" src="guide/it/desk/45-pantry-fridge.webp" /></p>
+<p>In cima scegli dove guardare: <em>Tutto</em>, <em>Credenza</em>, <em>Frigo</em>, <em>Freezer</em> o <em>Casa e pulizia</em>, ognuno con quanti prodotti contiene. Ogni prodotto ha il suo posto. Finché non lo scegli tu, l'app lo indovina dal reparto: latticini, carne e pesce in frigo, i surgelati in freezer, detersivi, carta e cose per la cura di sé in <em>Casa e pulizia</em>, il resto in credenza. Per spostarlo apri la sua scheda e tocca il posto in <em>Dove</em>.</p>
+<p><img class="ph" loading="lazy" alt="Solo il frigo" src="guide/it/45-pantry-fridge.webp" /><img class="dk" loading="lazy" alt="Solo il frigo" src="guide/it/desk/45-pantry-fridge.webp" /></p>
 <h3 id="aggiungere-e-scansionare">Aggiungere e scansionare</h3>
 <p>Tocca <strong>+</strong> e scrivi, per esempio <code>6 uova scade 20/11, 1 kg farina</code>: «scade 20/11» mette la scadenza. <em>Va in</em> sceglie il posto: quello che stai guardando, oppure <em>Da solo</em> e ogni cosa va al suo. Con <em>Scansiona</em> inquadri il codice a barre e il prodotto si riconosce da solo.</p>
-<p><img class="ph" loading="lazy" alt="Il + su Dispensa" src="guide/it/41-pantry-add.png" /><img class="dk" loading="lazy" alt="Il + su Dispensa" src="guide/it/desk/41-pantry-add.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Il + su Dispensa" src="guide/it/41-pantry-add.webp" /><img class="dk" loading="lazy" alt="Il + su Dispensa" src="guide/it/desk/41-pantry-add.webp" /></p>
 <h3 id="scadenze-e-soglie">Scadenze e soglie</h3>
 <p>Tocca un prodotto per la sua scheda, la stessa della spesa (vedi <a href="#la-scheda-di-un-prodotto">La scheda di un prodotto</a>). <em>Avvisami quando scende a</em> è la soglia: sotto, il prodotto entra da solo nella lista della spesa. <em>Ricompra fino a</em> dice quanto comprarne. <em>Scadenza</em> e <em>Avvisami giorni prima</em> decidono l'avviso del mattino. I negozi in <em>Si trova da</em> tornano con il prodotto quando finisce e rientra in lista.</p>
-<p><img class="ph" loading="lazy" alt="Un prodotto: quantità, soglia, scadenza" src="guide/it/42-pantry-product.png" /><img class="dk" loading="lazy" alt="Un prodotto: quantità, soglia, scadenza" src="guide/it/desk/42-pantry-product.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Un prodotto: quantità, soglia, scadenza" src="guide/it/42-pantry-product.webp" /><img class="dk" loading="lazy" alt="Un prodotto: quantità, soglia, scadenza" src="guide/it/desk/42-pantry-product.webp" /></p>
 <h3 id="scorte-ce-poca-finita">Scorte: C'è, Poca, Finita</h3>
 <p>Per sale, olio, spezie e simili non serve contare i grammi. In <em>Come la conti</em> scegli <strong>C'è / Poca / Finita</strong>: <em>Poca</em> e <em>Finita</em> lo mettono in lista, e quando lo rimetti in dispensa torna <em>C'è</em>. Cucinare non lo scala.</p>
-<p><img class="ph" loading="lazy" alt="Una scorta: C'è, Poca, Finita" src="guide/it/43-staple.png" /><img class="dk" loading="lazy" alt="Una scorta: C'è, Poca, Finita" src="guide/it/desk/43-staple.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Una scorta: C'è, Poca, Finita" src="guide/it/43-staple.webp" /><img class="dk" loading="lazy" alt="Una scorta: C'è, Poca, Finita" src="guide/it/desk/43-staple.webp" /></p>
 <h3 id="filtri">Filtri</h3>
 <p><strong>Filtri</strong> sceglie la vista (reparti, scadenza, scorte, A–Z) e i filtri <em>In scadenza</em>, <em>Scaduti</em>, <em>In esaurimento</em> e <em>Finiti</em>, anche insieme. <em>Ricette con quello che hai</em> apre Ricette con <em>Con la dispensa</em> acceso.</p>
-<p><img class="ph" loading="lazy" alt="Solo quello in scadenza" src="guide/it/44-pantry-filters.png" /><img class="dk" loading="lazy" alt="Solo quello in scadenza" src="guide/it/desk/44-pantry-filters.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Solo quello in scadenza" src="guide/it/44-pantry-filters.webp" /><img class="dk" loading="lazy" alt="Solo quello in scadenza" src="guide/it/desk/44-pantry-filters.webp" /></p>
 <h3 id="scontrini">Scontrini</h3>
 <p>In ⋯ → <em>Leggi uno scontrino</em> fotografi lo scontrino dritto e ben illuminato. Viene letto sul tuo GitHub e poi cancellato; quando è pronto compare in Dispensa e lo metti via come il carrello.</p>
 <h2 id="con-everyday">Con Everyday</h2>
@@ -223,7 +221,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <ul>
 <li><strong>La lista della spesa è una sola.</strong> Quello che aggiungi in Everyday compare qui, e viceversa.</li>
 <li><strong>I pasti.</strong> In Everyday scegli una ricetta per un pasto, partendo dalle Preferite. Quando il pasto è fatto, la ricetta conta una volta in più (<em>cucinata 4 volte</em>).</li>
-<li><strong>Mettere via.</strong> Anche in Everyday la spesa messa via entra in dispensa, con i negozi della voce. Il posto in casa lo scegli in Ricette; fino ad allora vale quello indovinato.</li>
+<li><strong>Mettere via.</strong> Anche in Everyday la spesa messa via entra in dispensa, con i negozi della voce, compresi detersivi e cose per la persona, che finiscono in <em>Casa e pulizia</em>. Il posto in casa lo scegli in Ricette; fino ad allora vale quello indovinato.</li>
 <li><strong>I giri di spesa.</strong> Everyday decide quando fare la spesa; Ricette lo mostra in lista come <a href="#il-prossimo-giro">Prossimo giro</a>.</li>
 </ul>
 <p>Chi decide cosa: Ricette decide le ricette, la lista e la dispensa; Everyday decide quando cucinare e quando fare la spesa.</p>
@@ -239,9 +237,9 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <li><strong>Spesa:</strong> il campo per aggiungere e il carrello, con <em>Metti in dispensa</em>. La lista si dispone su più colonne.</li>
 <li><strong>Dispensa:</strong> il campo per aggiungere e scansionare.</li>
 </ul>
-<p><img loading="lazy" class="wide" alt="Ricette su un computer: filtri, ricette, anteprima" src="guide/it/60-wide-recipes.png" /></p>
-<p><img loading="lazy" class="wide" alt="Spesa su un computer" src="guide/it/61-wide-list.png" /></p>
-<p><img loading="lazy" class="wide" alt="Dispensa su un computer" src="guide/it/62-wide-pantry.png" /></p>
+<p><img loading="lazy" class="wide" alt="Ricette su un computer: filtri, ricette, anteprima" src="guide/it/60-wide-recipes.webp" /></p>
+<p><img loading="lazy" class="wide" alt="Spesa su un computer" src="guide/it/61-wide-list.webp" /></p>
+<p><img loading="lazy" class="wide" alt="Dispensa su un computer" src="guide/it/62-wide-pantry.webp" /></p>
 <h2 id="consigli-e-problemi-comuni">Consigli e problemi comuni</h2>
 <p><strong>La sincronizzazione non parte.</strong> Controlla in Impostazioni → <em>Collegamento GitHub</em> che il token possa scrivere i <em>Contents</em> del repository e non sia scaduto. <em>Modifica collegamento</em> permette di incollarne uno nuovo.</p>
 <p><strong>Un'importazione resta in coda.</strong> Le importazioni girano sul tuo GitHub: servono il collegamento e un minuto o due. Se una pagina non si lascia leggere, l'app lo dice in cima a <em>Da provare</em>: prova con una foto della ricetta.</p>
@@ -250,8 +248,9 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p><strong>Voglio una copia dei miei dati.</strong> Impostazioni → <em>Backup</em> → <em>Scarica una copia dei dati</em>. Il tuo repository su GitHub contiene comunque gli stessi dati.</p>
 <p><strong>Il telefono non avvisa delle scadenze.</strong> Le notifiche vanno attivate su ogni dispositivo, in <em>Dispensa e promemoria</em>. Su iPhone funzionano solo dall'app installata sulla schermata Home.</p></main><script>
 document.addEventListener('click',function(e){var z=document.querySelector('.zoom');if(z){z.remove();return;}var i=e.target.closest('main img');if(!i)return;var d=document.createElement('div');d.className='zoom';var b=document.createElement('img');b.src=i.currentSrc||i.src;b.alt=i.alt;d.appendChild(b);document.body.appendChild(d);});
-function setMode(m,keep){document.documentElement.classList.toggle('desk',m==='desk');document.querySelectorAll('.mode button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.mode===m));});if(keep){try{localStorage.setItem('guideMode',m)}catch(e){}}}
+function setMode(m,keep){document.documentElement.classList.toggle('desk',m==='desk');var s=document.getElementById('mode');if(s)s.value=m;if(keep){try{localStorage.setItem('guideMode',m)}catch(e){}}}
 setMode(document.documentElement.classList.contains('desk')?'desk':'phone',false);
-document.querySelectorAll('.mode button').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();setMode(b.dataset.mode,true);});});
+document.getElementById('mode').addEventListener('change',function(e){setMode(e.target.value,true);});
+document.getElementById('lang').addEventListener('change',function(e){location.href=e.target.value+location.hash;});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){var z=document.querySelector('.zoom');if(z)z.remove();}});
 </script></body></html>

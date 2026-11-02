@@ -122,6 +122,21 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **Casa e pulizia (v53, Nov 2):** copy `ricette-app/` into the app repository (only changed files). The Dispensa has a
+  fourth place next to Credenza, Frigo and Freezer: *Casa e pulizia*, for cleaning products, paper and personal care.
+  Products without a chosen place go there by themselves when their department is household or personal care; a place
+  you picked stays. Agreed with Everyday (the optional `place` field may now be `home`); from Everyday v63, cleaning and
+  care items put away in Everyday also land in the pantry, under Casa e pulizia.
+- **Everyday's v62 handover, and one colour everywhere (v52, Nov 2):** copy `ricette-app/` into the app repository
+  (only changed files; nothing to delete; nothing for the data repo). The new palette shared by Everyday, Ricette and
+  Palestra ("Pulito": cool grey page and white cards in light, the same dark as Everyday), with melanzana as Ricette's
+  colour. Light or dark is now a class on the page, kept per device under `ricette-theme` (the guide reads it too); the
+  colour under `ricette-accent`; a choice made in v51 carries over. Settings are lists all the way down: *Spesa e
+  negozi*, *Dispensa e promemoria* and *Ricette* open a list of rows, each a page about one thing; *Lingua* and
+  *Aspetto* are one page, *Lingua e aspetto*. The guide's top bar has two dropdowns (*Mostra la guida per*, *Lingua*)
+  and its phone pictures are WebP. Fixed: the Dispensa tab's number and the Filtri count use the colour; the phone's
+  status bar matches the top bar instead of the old orange (Android refreshes an installed app's colour on its own
+  within about a day); the app icon is melanzana; shop open/closed colours follow the theme.
 - **Melanzana, and a choice of theme and colour (v51, Nov 2):** the zip now holds only the files that changed; copy
   `ricette-app/` into the app repository (nothing for the data repo, nothing to delete). The app's colour is now
   *melanzana* (aubergine) instead of terracotta. New page Settings → *Aspetto*: theme *Automatico* (follows the phone or

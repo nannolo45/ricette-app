@@ -77,6 +77,7 @@ const seed = (pg) => pg.evaluate(async ({ lang }) => {
   P('p7', L('riso carnaroli', 'carnaroli rice', 'Carnaroli-Reis'), 0, 'g', { min: 200, target: 1000 }); P('p8', L('yogurt greco', 'greek yoghurt', 'griechischer Joghurt'), 2, '', { expires: iso(-1) });
   P('p9', L('pomodori pelati', 'tinned tomatoes', 'Dosentomaten'), 3, ''); P('p10', L('spinaci', 'spinach', 'Spinat'), 1, '', { expires: iso(1) });
   P('p11', 'parmigiano', 300, 'g', { min: 100, target: 400, expires: iso(20), shops: ['s2'], place: 'fridge' });
+  P('p12', L('detersivo piatti', 'washing-up liquid', 'Spülmittel'), 1, ''); // v53: shows Casa e pulizia
   m.upsert('pantry', { id: 'salt', name: L('sale', 'salt', 'Salz'), track: 'level', level: 'ok', food: 'salt' });
   m.upsert('pantry', { id: 'oil', name: L('olio d\'oliva', 'olive oil', 'Olivenöl'), track: 'level', level: 'low', food: 'olive-oil' });
   m.upsert('pantry', { id: 'pepper', name: L('pepe nero', 'black pepper', 'schwarzer Pfeffer'), track: 'level', level: 'ok' });
@@ -130,7 +131,7 @@ await go('#/settings/sync');
 await shot('02-sync-connected');
 await go('#/settings');
 await shot('03-settings');
-await go('#/settings/pantry');
+await go('#/settings/pantry/remind');
 await shot('04-settings-pantry');
 
 // ---- 2. Recipes ----
