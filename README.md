@@ -122,6 +122,13 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **App icon on Firefox, and v54.1's update (v54.2, Nov 2):** copy `ricette-app/` into the app repository (8 files) and
+  delete the old icons `icons/icon.svg`, `icons/icon-192.png`, `icons/icon-512.png`, `icons/apple-touch-icon.png`
+  (and `icons/icon-maskable-512.png` if it is there). The manifest and maskable icon of v53.1 had never reached the
+  site, and v54.1's offline copy asked for that missing icon, so the update could not install. The icons now have new
+  names and are PNG only: Firefox on Android picked the SVG, which Android cannot draw, and kept old icons by their
+  address. A missing icon can no longer block an update. After uploading, open the app once so it updates, remove the
+  old home-screen shortcut and add it again from Firefox's menu.
 - **Red badge for expired food (v54.1, Nov 2):** copy `ricette-app/` into the app repository (4 files). The number on
   the Dispensa tab turns red as soon as something has already expired, and stays in the accent colour while things
   are only about to expire; holding the pointer over the tab says which.

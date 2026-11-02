@@ -1,16 +1,21 @@
 // Offline support. Each app version is cached as a whole; a new version is
 // downloaded in the background and takes over when the user taps "Update"
 // (or the next time the app is started from scratch).
-const VERSION = 'ricette-v54.1';
+const VERSION = 'ricette-v54.2';
 const SHELL = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/app.js', 'js/theme.js', 'js/store.js', 'js/sync.js', 'js/parse.js', 'js/i18n.js', 'js/photos.js', 'js/expiry.js', 'js/barcode.js', 'js/scanner.js', 'js/products.js', 'js/recipe-text.js', 'js/dish-image.js', 'js/recipe-tools.js', 'js/categories.js', 'js/sortable.js', 'js/nutrition.js', 'js/online.js', 'js/times.js', 'js/geo.js', 'js/book-fix.js', 'js/shops.js', 'js/shoplist.js', 'js/depts.js', 'js/shop-status.js', 'js/shell.js', 'js/ui/dialogs.js', 'js/recipe-stage.js', 'js/ui/format.js', 'js/ui/empty.js', 'js/views/recipe.js', 'js/views/edit.js', 'js/shoplist-ui.js', 'js/foods.js', 'js/kitchen.js', 'css/shoplist.css', 'guide-it.html', 'guide-en.html', 'guide-de.html',
-  'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
+  'icons/ricette-192.png', 'icons/ricette-512.png', 'icons/ricette-maskable-512.png', 'icons/ricette-180.png',
 ];
 
 self.addEventListener('install', (event) => {
   // cache: 'reload' skips the browser's HTTP cache (GitHub Pages lets it keep files for 10 minutes)
-  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))));
+  // v54.2: icons are optional, so one missing picture can't block the update (v53.1's icon was never uploaded)
+  const req = (u) => new Request(u, { cache: 'reload' });
+  event.waitUntil(caches.open(VERSION).then((c) => Promise.all([
+    c.addAll(SHELL.filter((u) => !u.startsWith('icons/')).map(req)),
+    ...SHELL.filter((u) => u.startsWith('icons/')).map((u) => c.add(req(u)).catch(() => {})),
+  ])));
 });
 
 self.addEventListener('message', (event) => {
@@ -61,8 +66,8 @@ self.addEventListener('push', (event) => {
   try { msg = event.data ? event.data.json() : {}; } catch { msg = { body: event.data && event.data.text() }; }
   event.waitUntil(self.registration.showNotification(msg.title || 'Ricette', {
     body: msg.body || '',
-    icon: 'icons/icon-192.png',
-    badge: 'icons/icon-192.png',
+    icon: 'icons/ricette-192.png',
+    badge: 'icons/ricette-192.png',
     tag: msg.tag || 'expiry',
     data: { url: msg.url || './#/pantry' },
   }));

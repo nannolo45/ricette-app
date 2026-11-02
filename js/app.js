@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v54.1';
+const APP_VERSION = 'v54.2';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -4095,7 +4095,7 @@ function reminderBody(items) {
 
 async function showLocal(title, body) {
   const reg = await navigator.serviceWorker?.ready;
-  const opts = { body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'expiry', data: { url: './#/pantry' } };
+  const opts = { body, icon: 'icons/ricette-192.png', badge: 'icons/ricette-192.png', tag: 'expiry', data: { url: './#/pantry' } };
   if (reg?.showNotification) return reg.showNotification(title, opts);
   return new Notification(title, opts);
 }
