@@ -118,6 +118,37 @@ From now on the zip has two folders: copy everything in `ricette-app/` into the 
 `ricette-data/` into the data repository (see `READ-ME-FIRST.md` in the zip). `ricette-data/` never contains your
 `data/` files, so copying it can't overwrite your recipes.
 
+- **Credenza / Frigo / Freezer, one product sheet, recipes from photos step by step (v50, Nov 2):** copy the contents
+  of `app/` to the top of ricette-app and `docs/` next to it, as for v49. **Also copy `ricette-data/scripts/` into the
+  data repo** (the importer now reads photos by role). Agreed with Everyday (its v60): pantry products may carry
+  `place` and `shops`; nothing else changes for Everyday.
+  - **Dispensa in places:** *Tutto · Credenza · Frigo · Freezer* at the top, with counts. Products without a place
+    show a guess from their aisle (dairy, meat and fish → fridge, frozen → freezer, the rest → cupboard), never
+    stored until you pick one. The **+** puts things where you're looking, or *Da solo* each in its place; *Metti in
+    dispensa* has a place per row.
+  - **One sheet for a product** wherever you open it (list, cart, pantry): tabs *In lista · Nel carrello · In casa*,
+    the part for that place, then department, shops and note shared by every copy. *Aggiungi alla lista* and
+    *Mettilo in dispensa* from the sheet. Pantry products now have shops: they come back with the product when it
+    runs low; a new product put away takes the item's shops.
+  - **Recipe from photos, step by step:** ingredients, method (skipped when they share a page), the dish (optional,
+    becomes the cover, never read), then a review. Older importers still work: they read the text pages only.
+  - The guide (all three languages) is updated, with new pictures.
+- **New user guide, shared gear, steadier pantry (v49, Nov 2):** copy the contents of `app/` to the top of
+  ricette-app, and the new folder `docs/` next to it (the guide's sources). Delete the old `img/` folder and
+  `js/guide.js` from the repository: they are no longer used. Nothing changes in the data repo or for Everyday.
+  - **The guide is now a page of its own**, written like Everyday's: *Settings → Guide* opens it in the same tab, in
+    the app's language (Italian, English or German), with a table of contents, *📱 Phone / 💻 Computer* at the top
+    (remembered, shared with Everyday's and Palestra's guides), pictures that enlarge on a click, and *← Back to the
+    app*. It works offline too. Sources: `docs/guide/<lang>.md`; `docs/guide/screenshots.mjs` retakes every picture
+    from sample data, `docs/guide/build.py` builds `guide-<lang>.html` (see the comments at the top of both).
+  - **The settings gear** is the one all three apps now share: an outlined cog in a rounded square, filled while you're
+    in Settings, with the word *Settings* next to it on a wide screen.
+  - **Dispensa:** tapping *Poca* or *Finita* no longer makes the product jump up the list under your finger; the order
+    catches up when you come back to the tab.
+- **Phone or computer in the guide (v48.3, Nov 2):** copy the contents of `app/` to the top of ricette-app, including
+  `img/guide/` (27 new pictures; the v48.2 ones keep their names). The guide has a *Telefono / Computer* switch at the top
+  that stays in view while you scroll: every section with pictures now has a phone set and a computer set. It starts on
+  the device you're using; switching keeps you at the same section.
 - **Pictures in the guide (v48.2, Nov 2):** copy the contents of `app/` to the top of ricette-app, including the new
   folder `img/guide/`. Settings → Guide now shows screenshots in your language: the three tabs on a computer under
   *The three tabs*, and phone screens under finding and filtering, adding recipes, shopping and the pantry. Tap one
