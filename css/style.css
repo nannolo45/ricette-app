@@ -740,6 +740,8 @@ dialog.sheet::before { content: ''; display: block; width: 40px; height: 4px; bo
 .fab svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
 @media (min-width: 1100px) { .fab { bottom: 24px; } }
 #cards { padding-bottom: 72px; }
+/* v54: room under the last row so the + never covers its buttons */
+main:has(> .fab, .fab) { padding-bottom: 84px; }
 
 /* sheets */
 dialog.sheet { padding: 0; }
@@ -1148,10 +1150,33 @@ p.center { text-align: center; }
 
 /* v50: places in the pantry (Credenza / Frigo / Freezer) and one product sheet for list, cart and home */
 .seg.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-/* v53: five pantry places; the long one (Casa e pulizia) may take two lines */
-.seg.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.seg.five .seg-btn { font-size: .8rem; padding: 4px 2px; white-space: normal; line-height: 1.15; min-height: 44px; overflow-wrap: anywhere; }
-.seg.five .seg-btn small { font-size: .7rem; }
+/* v54: pantry places as tabs, like Everyday's Viste: three per row, name and count on one line, ✎ Posti last */
+.seg.place-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 6px; }
+.seg.place-tabs > button { flex: none; }
+.place-tabs .seg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 44px; padding: 0 4px; font-size: .86rem; letter-spacing: -.01em; font-weight: 600; }
+.place-tabs .pt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place-tabs .seg-btn small { flex: none; }
+.place-tabs .seg-btn.on { background: var(--accent); color: var(--accent-ink); }
+.place-tabs .seg-btn.on small { color: inherit; opacity: .75; }
+.place-tabs .pt-edit { border: 1px dashed var(--line); color: var(--muted); font-weight: 500; }
+.pl-edit { list-style: none; margin: 8px 0 14px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.pl-row { display: flex; align-items: center; gap: 2px; min-height: 56px; padding: 0 6px 0 14px; }
+.pl-row + .pl-row { border-top: 1px solid var(--line); }
+.pl-row .pl-show { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; margin: 0; color: var(--ink); font-weight: 400; font-size: 1rem; }
+.pl-row .pl-show input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--accent); }
+.pl-row .pl-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-row.fixed .pl-fixed { width: 22px; height: 22px; border-radius: 6px; background: var(--line); color: var(--muted); display: grid; place-items: center; font-size: .8rem; margin-right: 12px; }
+.pl-row.fixed small { color: var(--muted); padding-right: 8px; }
+.pl-row .icon-btn { width: 40px; height: 44px; color: var(--muted); }
+.pl-row .icon-btn:disabled { opacity: .3; }
+.pl-depts .chip.add { border-style: dashed; }
+.dept-places { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
+.dept-places .chip { min-height: 46px; justify-content: center; }
+.pick-list .pl-take { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 48px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; padding: 0 4px; }
+.pick-list .pl-take small { margin-left: auto; color: var(--muted); }
+.dept-rows li { align-items: center; }
+.dept-rows .dept-row { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; padding: 8px 0; cursor: pointer; }
+.dept-rows .dept-row small { color: var(--muted); font-size: .8rem; }
 .p-places { margin-top: 2px; }
 .p-place { color: var(--muted); font-weight: 400; }
 .qa-place { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 2px; }
@@ -1216,3 +1241,5 @@ p.center { text-align: center; }
 :root:not(.dark) .top { background: color-mix(in srgb, #fff 88%, transparent); }
 :root:not(.dark) .tabs { background: #fff; }
 @media (min-width: 1100px) { :root:not(.dark) .tabs { background: transparent; } }
+/* v54: five places in the product sheet's Dove: three per row */
+.lvl-seg.place-seg { display: grid; grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }

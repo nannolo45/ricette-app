@@ -122,6 +122,20 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **Places as tabs, Reparti and Bambino (v54, Nov 2):** copy `ricette-app/` into the app repository (only changed
+  files, guide pictures included: upload `guide/it`, `guide/en` and `guide/de` one commit each) and
+  `ricette-data/scripts/lib/foods.js` into the data repository. The Dispensa's places are now tabs, three to a row
+  with name and count on one line (like Everyday's Viste); the last tile, *✎ Posti*, hides, orders and renames them,
+  and shows which departments end up in each. Settings has a new *Reparti* page: the department order (moved from
+  *Spesa e negozi*) and, for each department, the place its products go to. A fifth place and a new department,
+  *Bambino*, for nappies, creams, formula, baby food, bottles and the like (about 15 new dictionary entries in three
+  languages). Pantry groups now use the full department list, so cleaning, personal care and baby things get their own
+  group instead of *Altro*. Places, names and the department-to-place links are shared (`places`, `deptPlaces` in
+  `prefs.json`). Shared with Everyday (v64 is ready): new `js/depts.js` and `js/foods.js`.
+- **App icon fix (v53.1, Nov 2):** copy `ricette-app/` into the app repository (5 files). The installed app showed a blank
+  icon: the install now gets its own full-square icon for Android's shaped icons (`icons/icon-maskable-512.png`), and
+  the SVG is no longer offered for installing (it stays as the browser tab icon). After uploading, remove the app from
+  the phone and install it again from Chrome.
 - **Casa e pulizia (v53, Nov 2):** copy `ricette-app/` into the app repository (only changed files). The Dispensa has a
   fourth place next to Credenza, Frigo and Freezer: *Casa e pulizia*, for cleaning products, paper and personal care.
   Products without a chosen place go there by themselves when their department is household or personal care; a place

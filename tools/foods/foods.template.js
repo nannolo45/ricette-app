@@ -17,7 +17,7 @@ export const simple = (s) => String(s || '').toLowerCase().replace(/ß/g, 'ss').
 // last-word forms: plurals in it/de/en (uova/uovo, pomodori/pomodoro, Zwiebeln/Zwiebel, eggs/egg)
 const lastForms = (w) => [...new Set([w, w.replace(/(?:es|en|s|e|i|n)$/, ''), w.replace(/i$/, 'o'), w.replace(/e$/, 'a'), w.replace(/i$/, 'e'), w.replace(/a$/, 'e'), w.replace(/o$/, 'i')])];
 const WEIGHT_KEYS = ['piece', 'dens', 'pack', 'can', 'slice', 'bunch'];
-export const NONFOOD_DEPTS = ['household', 'care'];
+export const NONFOOD_DEPTS = ['household', 'care', 'baby'];
 
 /* ---------- the table ---------- */
 

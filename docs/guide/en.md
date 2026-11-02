@@ -215,11 +215,15 @@ If you use Everyday and plan a shopping trip, the list shows **Next trip**: when
 
 ![The pantry: expiring first, then by aisle](guide/en/40-pantry.webp)
 
-### Cupboard, fridge and freezer
+### Places: cupboard, fridge, freezer, home and baby
 
-At the top, choose where to look: *All*, *Cupboard*, *Fridge*, *Freezer* or *Home & cleaning*, each with how many products it holds. Every product has its place. Until you choose one, the app guesses it from the aisle: dairy, meat and fish in the fridge, frozen food in the freezer, cleaning products, paper and toiletries in *Home & cleaning*, the rest in the cupboard. To move a product, open its sheet and tap the place under *Where*.
+At the top, choose where to look: *All*, *Cupboard*, *Fridge*, *Freezer*, *Home & cleaning* or *Baby*, three to a row, each with how many products it holds. Every product has its place. Until you choose one, the app guesses it from the aisle: dairy, meat and fish in the fridge, frozen food in the freezer, cleaning products, paper and toiletries in *Home & cleaning*, nappies, creams, formula and baby food in *Baby*, the rest in the cupboard. To move a product, open its sheet and tap the place under *Where*.
+
+The last tile, *✎ Places*, opens the list of places: untick the ones you don't use (their products stay in *All*), change the order with ▲ ▼, and tap ⋯ to rename a place or see which aisles end up there. From there, or from Settings → *Departments*, you can send an aisle to another place: eggs in the cupboard, say. The same *Departments* page is where you drag the aisles into your shops' order. Places, names and aisles are the same on all your devices.
 
 ![Just the fridge](guide/en/45-pantry-fridge.webp)
+
+![The places](guide/en/46-pantry-places.webp)
 
 ### Adding and scanning
 
@@ -255,7 +259,7 @@ Everyday is the app for planning your days. The two share the shopping list, the
 
 - **There's one shopping list.** What you add in Everyday shows up here, and the other way round.
 - **Meals.** In Everyday you pick a recipe for a meal, starting from your Favourites. When the meal is done, the recipe counts one more time (*cooked 4 times*).
-- **Putting away.** In Everyday too, shopping you put away goes into the pantry, with the item's shops, cleaning and toiletries included: they land in *Home & cleaning*. You choose its place at home in Ricette; until then the guess applies.
+- **Putting away.** In Everyday too, shopping you put away goes into the pantry, with the item's shops, cleaning and toiletries included: they land in *Home & cleaning*, and baby things, which go to *Baby*. You choose its place at home in Ricette; until then the guess applies.
 - **Shopping trips.** Everyday decides when to go shopping; Ricette shows it on the list as the [next trip](#the-next-trip).
 
 Who decides what: Ricette decides the recipes, the list and the pantry; Everyday decides when to cook and when to shop.

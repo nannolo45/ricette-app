@@ -215,11 +215,15 @@ Se usi Everyday e pianifichi un giro di spesa, la lista mostra **Prossimo giro**
 
 ![La dispensa: in scadenza in cima, poi per reparto](guide/it/40-pantry.webp)
 
-### Credenza, frigo e freezer
+### I posti: credenza, frigo, freezer, casa e bambino
 
-In cima scegli dove guardare: *Tutto*, *Credenza*, *Frigo*, *Freezer* o *Casa e pulizia*, ognuno con quanti prodotti contiene. Ogni prodotto ha il suo posto. Finché non lo scegli tu, l'app lo indovina dal reparto: latticini, carne e pesce in frigo, i surgelati in freezer, detersivi, carta e cose per la cura di sé in *Casa e pulizia*, il resto in credenza. Per spostarlo apri la sua scheda e tocca il posto in *Dove*.
+In cima scegli dove guardare: *Tutto*, *Credenza*, *Frigo*, *Freezer*, *Casa e pulizia* o *Bambino*, tre per riga, ognuno con quanti prodotti contiene. Ogni prodotto ha il suo posto. Finché non lo scegli tu, l'app lo indovina dal reparto: latticini, carne e pesce in frigo, i surgelati in freezer, detersivi, carta e cose per la cura di sé in *Casa e pulizia*, pannolini, creme, latte in polvere e pappe in *Bambino*, il resto in credenza. Per spostare un prodotto apri la sua scheda e tocca il posto in *Dove*.
+
+L'ultima casella, *✎ Posti*, apre l'elenco dei posti: togli la spunta a quelli che non usi (i loro prodotti restano in *Tutto*), cambia l'ordine con ▲ ▼ e tocca ⋯ per dare a un posto un altro nome o per vedere quali reparti ci finiscono. Da lì, o da Impostazioni → *Reparti*, puoi mandare un reparto in un altro posto: per esempio le uova in credenza. Nella stessa pagina *Reparti* trascini i reparti nell'ordine dei tuoi negozi. Posti, nomi e reparti valgono su tutti i dispositivi.
 
 ![Solo il frigo](guide/it/45-pantry-fridge.webp)
+
+![I posti](guide/it/46-pantry-places.webp)
 
 ### Aggiungere e scansionare
 
@@ -255,7 +259,7 @@ Everyday è l'app per pianificare le giornate. Le due app condividono la lista d
 
 - **La lista della spesa è una sola.** Quello che aggiungi in Everyday compare qui, e viceversa.
 - **I pasti.** In Everyday scegli una ricetta per un pasto, partendo dalle Preferite. Quando il pasto è fatto, la ricetta conta una volta in più (*cucinata 4 volte*).
-- **Mettere via.** Anche in Everyday la spesa messa via entra in dispensa, con i negozi della voce, compresi detersivi e cose per la persona, che finiscono in *Casa e pulizia*. Il posto in casa lo scegli in Ricette; fino ad allora vale quello indovinato.
+- **Mettere via.** Anche in Everyday la spesa messa via entra in dispensa, con i negozi della voce, compresi detersivi e cose per la persona, che finiscono in *Casa e pulizia*, e le cose per i bambini, che vanno in *Bambino*. Il posto in casa lo scegli in Ricette; fino ad allora vale quello indovinato.
 - **I giri di spesa.** Everyday decide quando fare la spesa; Ricette lo mostra in lista come [Prossimo giro](#il-prossimo-giro).
 
 Chi decide cosa: Ricette decide le ricette, la lista e la dispensa; Everyday decide quando cucinare e quando fare la spesa.

@@ -215,11 +215,15 @@ Nutzt du Everyday und planst dort einen Einkauf, zeigt die Liste **Nächster Ein
 
 ![Der Vorrat: oben was bald abläuft, dann nach Abteilung](guide/de/40-pantry.webp)
 
-### Schrank, Kühlschrank und Gefrierfach
+### Orte: Schrank, Kühlschrank, Gefrierfach, Haushalt und Baby
 
-Oben wählst du, wo du schaust: *Alles*, *Schrank*, *Kühlschrank*, *Gefrierfach* oder *Haushalt*, jeweils mit der Zahl der Produkte. Jedes Produkt hat seinen Ort. Bis du ihn wählst, schätzt die App ihn nach der Abteilung: Milchprodukte, Fleisch und Fisch in den Kühlschrank, Tiefkühlware ins Gefrierfach, Putzmittel, Papier und Pflegeprodukte in den *Haushalt*, der Rest in den Schrank. Zum Umräumen öffnest du das Blatt und tippst den Ort unter *Wo* an.
+Oben wählst du, wo du schaust: *Alles*, *Schrank*, *Kühlschrank*, *Gefrierfach*, *Haushalt* oder *Baby & Kind*, drei pro Zeile, jeweils mit der Zahl der Produkte. Jedes Produkt hat seinen Ort. Bis du ihn wählst, schätzt die App ihn nach der Abteilung: Milchprodukte, Fleisch und Fisch in den Kühlschrank, Tiefkühlware ins Gefrierfach, Putzmittel, Papier und Pflegeprodukte in den *Haushalt*, Windeln, Cremes, Babymilch und Brei zu *Baby & Kind*, der Rest in den Schrank. Um ein Produkt umzuräumen, öffne sein Blatt und tippe unter *Wo* auf den Ort.
+
+Die letzte Kachel, *✎ Orte*, öffnet die Liste der Orte: Nimm den Haken bei denen weg, die du nicht brauchst (ihre Produkte bleiben unter *Alles*), ändere die Reihenfolge mit ▲ ▼ und tippe auf ⋯, um einen Ort umzubenennen oder zu sehen, welche Abteilungen dort landen. Von dort oder unter Einstellungen → *Abteilungen* schickst du eine Abteilung an einen anderen Ort, etwa die Eier in den Schrank. Auf derselben Seite *Abteilungen* ziehst du die Abteilungen in die Reihenfolge deiner Läden. Orte, Namen und Abteilungen gelten auf allen Geräten.
 
 ![Nur der Kühlschrank](guide/de/45-pantry-fridge.webp)
+
+![Die Orte](guide/de/46-pantry-places.webp)
 
 ### Hinzufügen und scannen
 
@@ -255,7 +259,7 @@ Everyday ist die App, mit der du deine Tage planst. Die beiden teilen Einkaufsli
 
 - **Es gibt eine einzige Einkaufsliste.** Was du in Everyday hinzufügst, steht auch hier, und umgekehrt.
 - **Mahlzeiten.** In Everyday wählst du ein Rezept für eine Mahlzeit, zuerst aus den Favoriten. Ist die Mahlzeit erledigt, zählt das Rezept einmal mehr (*4× gekocht*).
-- **Einräumen.** Auch in Everyday kommt der eingeräumte Einkauf in den Vorrat, mit den Läden des Eintrags, auch Putzmittel und Pflegeprodukte: sie landen im *Haushalt*. Den Ort zu Hause wählst du in Ricette; bis dahin gilt die Schätzung.
+- **Einräumen.** Auch in Everyday kommt der eingeräumte Einkauf in den Vorrat, mit den Läden des Eintrags, auch Putzmittel und Pflegeprodukte: sie landen im *Haushalt*, und Babysachen, die zu *Baby & Kind* kommen. Den Ort zu Hause wählst du in Ricette; bis dahin gilt die Schätzung.
 - **Einkäufe.** Everyday entscheidet, wann eingekauft wird; Ricette zeigt es auf der Liste als [nächsten Einkauf](#der-nachste-einkauf).
 
 Wer was entscheidet: Ricette entscheidet über Rezepte, Liste und Vorrat; Everyday entscheidet, wann gekocht und wann eingekauft wird.

@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v53';
+const APP_VERSION = 'v54';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -28,10 +28,10 @@ import { planBookFix, booksOf } from './book-fix.js';
 // shared with Everyday, copied unchanged: the list's views, search and departments
 import { availableModes, currentMode, saveModeTarget, groupItems, itemMatches, addedOf, fold, DRAG_MODES, GROUPED_MODES, SHARED_MODES, byItemOrder, recipeGroupOf, filterItems, filterCount as listFilterCount } from './shoplist.js';
 import { listHtml, rowsHtml, itemSheetHtml, shopChipsHtml, cartBarHtml, menuHtml } from './shoplist-ui.js';
-import { DEPTS, DEPT_IDS, deptIcon, deptOf } from './depts.js';
+import { DEPTS, DEPT_IDS, deptIcon, deptOf, NONFOOD } from './depts.js';
 import { shopStatus } from './shop-status.js';
 import { assignItems } from './shops.js';
-import { CATEGORIES, CATEGORY_IDS, categoryIcon, categorize, categoryOf } from './categories.js';
+import { categorize } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
 import { nutritionOf, estimateNutrition } from './nutrition.js';
@@ -901,7 +901,7 @@ function pantryPanel() {
     ${panelFoot(t('nProducts', shown), fs.length > 0, 'p-filter-clear', 'pp-toggle')}
   </div>`;
 }
-function pantryMatchQ(p, q) { return !q || itemMatches(p, q, [p.brand, t(`cat_${categoryOf(p)}`), ...(p.barcodes || [])].filter(Boolean)); }
+function pantryMatchQ(p, q) { return !q || itemMatches(p, q, [p.brand, t(`cat_${deptOf(p)}`), ...(p.barcodes || [])].filter(Boolean)); }
 
 // ----- quick add (the "+" on Spesa and Dispensa): stays open, Enter adds, what was just added shows as chips -----
 const PLUS_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
@@ -979,7 +979,7 @@ function addQuick(kind, value) {
       } else {
         const chosen = qaPlace() === 'auto' ? null : qaPlace();
         const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now(), ...(expires ? { expires } : {}), ...(chosen ? { place: chosen } : {}), ...foodFields(ing.name) }, { silent: true });
-        just.push({ label: [ing.name, t(`place_${placeOf(p)}`).toLowerCase(), expires ? expiryText(daysUntil(expires)) : ''].filter(Boolean).join(' · '), id: p.id });
+        just.push({ label: [ing.name, placeName(placeOf(p)).toLowerCase(), expires ? expiryText(daysUntil(expires)) : ''].filter(Boolean).join(' · '), id: p.id });
       }
     }
     ensureLowItems();
@@ -1811,7 +1811,7 @@ function viewPutAway() {
   <form id="putaway-form">
     <ul class="putaway">${P.rows.map((r, i) => {
       const tg = pantryTargetFor(r);
-      const where = tg ? t('addsTo', tg.name, qtyText(num(tg.qty) || 0, tg.unit) || '0') : t('newIn', `${categoryIcon(r.cat || categorize(r.name))} ${t(`cat_${r.cat || categorize(r.name)}`)}`);
+      const where = tg ? t('addsTo', tg.name, qtyText(num(tg.qty) || 0, tg.unit) || '0') : t('newIn', deptLabel(deptOf({ name: r.name, cat: r.cat })));
       return `<li class="${i === P.flash ? 'flash' : ''} ${r.include ? '' : 'off'}">
         <input type="checkbox" class="pa-inc" id="pa-include-${i}" data-pa="include" data-i="${i}" ${r.include ? 'checked' : ''} aria-label="${esc(r.name)}">
         <div class="pa-main">
@@ -1820,7 +1820,7 @@ function viewPutAway() {
             <input class="pa-qty" id="pa-qty-${i}" data-pa="qty" data-i="${i}" inputmode="decimal" value="${esc(r.qty ?? '')}" aria-label="${esc(t('quantity'))}">
             <select id="pa-unit-${i}" data-pa="unit" data-i="${i}" aria-label="${esc(t('unit'))}">${UNITS.map((u) => `<option value="${u}" ${u === (r.unit || '') ? 'selected' : ''}>${esc(unitOptionLabel(u))}</option>`).join('')}</select>
             <label class="pa-exp"><span>${esc(t('expires'))}</span><input type="date" id="pa-expires-${i}" data-pa="expires" data-i="${i}" value="${esc(r.expires || '')}"></label>
-            <select class="pa-place" id="pa-place-${i}" data-pa="place" data-i="${i}" aria-label="${esc(t('placeLabel'))}">${(() => { const cur = r.place || (tg ? placeOf(tg) : guessPlace({ name: r.name, cat: r.cat })); return PLACES.map((k) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(t(`place_${k}`))}</option>`).join(''); })()}</select>
+            <select class="pa-place" id="pa-place-${i}" data-pa="place" data-i="${i}" aria-label="${esc(t('placeLabel'))}">${(() => { const cur = r.place || (tg ? placeOf(tg) : guessPlace({ name: r.name, cat: r.cat })); return PLACES.map((k) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(placeName(k))}</option>`).join(''); })()}</select>
           </div>
           <small>→ ${esc(where)}${r.barcode ? ` · 🏷️ ${esc(r.brand || r.barcode)}` : ''}${r.stocked ? ` · ${esc(t('alreadyCounted'))}` : ''}${P.receiptId && r.itemId ? ` · ${esc(t('offTheList'))}` : ''}${r.raw ? ` · <span class="pa-raw">${esc(r.raw)}</span>` : ''}</small>
         </div>
@@ -1851,7 +1851,7 @@ function pantryRow(p, { mode = 'dept' } = {}) {
   // staples show their level as the control itself; no badge needed
   const badge = level ? '' : out ? ` <span class="badge bad">${esc(t('outOfStock'))}</span>` : low ? ` <span class="badge warn">${esc(t('low'))}</span>` : '';
   return `<li class="${lowCls ? 'low' : ''} ${level ? 'staple' : ''} ${st === 'expired' ? 'expired' : ''}">
-    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${mode !== 'dept' ? `<span class="p-dept" title="${esc(t(`cat_${categoryOf(p)}`))}">${categoryIcon(categoryOf(p))}</span> ` : ''}${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${badge}${exp}${pantryPlace() === 'all' && mode !== 'expiry' ? ` <small class="p-place">${esc(t(`place_${placeOf(p)}`))}</small>` : ''}${mode === 'newest' && pAddedOf(p) ? ` <small>＋ ${esc(addedDay(p))}</small>` : ''}</button>
+    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${mode !== 'dept' ? `<span class="p-dept" title="${esc(t(`cat_${deptOf(p)}`))}">${deptIcon(deptOf(p))}</span> ` : ''}${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${badge}${exp}${pantryPlace() === 'all' && mode !== 'expiry' ? ` <small class="p-place">${esc(placeName(placeOf(p)))}</small>` : ''}${mode === 'newest' && pAddedOf(p) ? ` <small>＋ ${esc(addedDay(p))}</small>` : ''}</button>
     ${level ? levelSeg(p) : `<div class="stepper">
       <button class="round" data-action="p-dec" data-id="${esc(p.id)}" aria-label="−">−</button>
       <span class="q">${esc(qtyText(num(p.qty) || 0, p.unit) || '0')}</span>
@@ -1879,7 +1879,7 @@ function openStaplesPicker(fromSuggestion) {
   openModal(`
     <h2>🫙 ${esc(t('staplesPickTitle'))}</h2>
     <p class="hint small">${esc(t('staplesPickHint'))}</p>
-    <ul class="pick-list staples-pick">${list.map((p) => `<li><label class="check"><input type="checkbox" name="staple" value="${esc(p.id)}" ${on(p) ? 'checked' : ''}> ${categoryIcon(categoryOf(p))} ${esc(p.name)} <small>${esc(isLevel(p) ? t(`level_${levelOf(p)}`) : qtyText(num(p.qty) || 0, p.unit) || '0')}</small></label></li>`).join('')}</ul>
+    <ul class="pick-list staples-pick">${list.map((p) => `<li><label class="check"><input type="checkbox" name="staple" value="${esc(p.id)}" ${on(p) ? 'checked' : ''}> ${deptIcon(deptOf(p))} ${esc(p.name)} <small>${esc(isLevel(p) ? t(`level_${levelOf(p)}`) : qtyText(num(p.qty) || 0, p.unit) || '0')}</small></label></li>`).join('')}</ul>
     <div class="button-row">
       <button class="btn primary" value="ok">${esc(t('save'))}</button>
       <button class="btn ghost" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
@@ -1948,17 +1948,112 @@ const PANTRY_TEST = {
 };
 // out first, then running low, then the rest; by name inside
 // v50: where a product is kept. Missing `place` = not chosen yet: shown as a guess, never written back.
-const PLACES = ['shelf', 'fridge', 'freezer', 'home']; // v53: home = Casa e pulizia (cleaning, household, personal care)
+const PLACES = ['shelf', 'fridge', 'freezer', 'home', 'baby']; // v53: home = Casa e pulizia; v54: baby = Bambino
 const FROZEN_WORDS = /surgel|frozen|tiefk[üu]hl|gelato|ghiaccioli/i;
+// v54: where each department goes when a product has no place of its own (shared pref `deptPlaces`, editable in
+// Settings → Reparti and from a place's page); missing departments use these defaults
+const DEPT_PLACE_DEFAULT = { meatfish: 'fridge', dairy: 'fridge', frozen: 'freezer', household: 'home', care: 'home', baby: 'baby' };
+function deptPlace(d) { const v = (pref('deptPlaces', {}) || {})[d]; return PLACES.includes(v) ? v : (DEPT_PLACE_DEFAULT[d] || 'shelf'); }
 function guessPlace(p) {
-  const d = deptOf(p);
-  if (d === 'household' || d === 'care') return 'home';
-  const c = categoryOf(p);
-  if (c === 'frozen' || FROZEN_WORDS.test(p.name || '')) return 'freezer';
-  return c === 'dairy' || c === 'meatfish' ? 'fridge' : 'shelf';
+  let d = deptOf(p);
+  if (d !== 'frozen' && !NONFOOD.includes(d) && FROZEN_WORDS.test(p.name || '')) d = 'frozen';
+  return deptPlace(d);
 }
 function placeOf(p) { return PLACES.includes(p.place) ? p.place : guessPlace(p); }
-function pantryPlace() { const v = state.settings.pantryPlace; return PLACES.includes(v) ? v : 'all'; } // per device
+// v54: places as tabs, like Everyday's Viste (shared pref `places`: { order, hidden, names })
+function placesPref() { const v = pref('places', {}); return v && typeof v === 'object' ? v : {}; }
+function placeOrder() { const o = (placesPref().order || []).filter((x) => PLACES.includes(x)); return [...new Set([...o, ...PLACES])]; }
+function placeHidden(id) { return (placesPref().hidden || []).includes(id); }
+function visiblePlaces() { return placeOrder().filter((id) => !placeHidden(id)); }
+function placeName(id) { const n = (placesPref().names || {})[id]; return (typeof n === 'string' && n.trim()) || t(`place_${id}`); }
+function savePlaces(patch) { setPref('places', { ...placesPref(), ...patch }); changed(); }
+// ✎ Posti: which places are tabs, their order, their names (one sheet, redrawn after every change)
+function wireSheet() { modal.onclick = (e) => { if (e.target === modal) { modal.close(); return; } onViewClick(e); }; modal.onchange = onViewChange; }
+function openPlacesEditor() {
+  const order = placeOrder();
+  openModal(`
+    <h2>✎ ${esc(t('placesTitle'))}</h2>
+    <p class="hint small">${esc(t('placesHint'))}</p>
+    <ul class="pl-edit">
+      <li class="pl-row fixed"><span class="pl-fixed" aria-hidden="true">✓</span><span class="pl-name">${esc(t('place_all'))}</span><small>${esc(t('alwaysFirst'))}</small></li>
+      ${order.map((id, i) => `<li class="pl-row" data-id="${id}">
+        <label class="pl-show"><input type="checkbox" data-action="pl-show" data-id="${id}" ${placeHidden(id) ? '' : 'checked'}><span class="pl-name">${esc(placeName(id))}</span></label>
+        <button type="button" class="icon-btn" data-action="pl-up" data-id="${id}" ${i ? '' : 'disabled'} aria-label="${esc(t('moveUpName', placeName(id)))}">▲</button>
+        <button type="button" class="icon-btn" data-action="pl-down" data-id="${id}" ${i < order.length - 1 ? '' : 'disabled'} aria-label="${esc(t('moveDownName', placeName(id)))}">▼</button>
+        <button type="button" class="icon-btn" data-action="pl-more" data-id="${id}" aria-label="${esc(t('placeOpen', placeName(id)))}">⋯</button>
+      </li>`).join('')}
+    </ul>
+    <div class="button-row"><button class="btn primary" value="ok">${esc(t('done'))}</button></div>`, () => {}, { sheet: true });
+  wireSheet();
+}
+function movePlace(id, d) {
+  const o = placeOrder(); const i = o.indexOf(id); const j = i + d;
+  if (i < 0 || j < 0 || j >= o.length) return;
+  [o[i], o[j]] = [o[j], o[i]];
+  savePlaces({ order: o });
+}
+// one place: its name and the departments that land there
+function openPlacePage(id) {
+  const here = deptOrder().filter((d) => deptPlace(d) === id);
+  const names = placesPref().names || {};
+  openModal(`
+    <h2>${esc(placeName(id))}</h2>
+    <label>${esc(t('nameLabel'))}<input name="placeName" value="${esc(names[id] || '')}" placeholder="${esc(t(`place_${id}`))}" autocomplete="off"></label>
+    <div class="field-label">${esc(t('placeDeptsHere'))}</div>
+    <div class="f-chips pl-depts">${here.map((d) => `<button type="button" class="chip on" data-action="dept-open" data-value="${d}" data-back="${id}">${deptIcon(d)} ${esc(t(`cat_${d}`))}</button>`).join('')}
+      <button type="button" class="chip add" data-action="pl-add-dept" data-id="${id}">+ ${esc(t('deptOne'))}</button></div>
+    ${here.length ? '' : `<p class="hint small">${esc(t('placeNoDepts'))}</p>`}
+    <p class="hint small">${esc(t('placeDeptsHint'))}</p>
+    <div class="button-row">
+      <button class="btn primary" value="ok">${esc(t('save'))}</button>
+      <button type="button" class="btn" data-action="pl-reset" data-id="${id}">${esc(t('restore'))}</button>
+      <button type="button" class="btn ghost" data-action="places-edit">${esc(t('back'))}</button>
+    </div>`, (form) => {
+    const v = form.elements.placeName.value.trim();
+    const n = { ...(placesPref().names || {}) };
+    if (v && v !== t(`place_${id}`)) n[id] = v; else delete n[id];
+    savePlaces({ names: n });
+    setTimeout(openPlacesEditor, 0);
+  }, { sheet: true });
+  wireSheet();
+}
+function openPlaceAddDept(id) {
+  const others = deptOrder().filter((d) => deptPlace(d) !== id);
+  openModal(`
+    <h2>${esc(t('placeAddDept', placeName(id)))}</h2>
+    <ul class="pick-list">${others.map((d) => `<li><button type="button" class="pl-take" data-action="pl-take" data-value="${d}" data-id="${id}">${deptIcon(d)} ${esc(t(`cat_${d}`))} <small>${esc(t('nowIn', placeName(deptPlace(d))))}</small></button></li>`).join('')}</ul>
+    <div class="button-row"><button type="button" class="btn ghost" data-action="pl-more" data-id="${id}">${esc(t('back'))}</button></div>`, () => {}, { sheet: true });
+  wireSheet();
+}
+function setDeptPlace(d, place) {
+  const m = { ...(pref('deptPlaces', {}) || {}) };
+  if (place === (DEPT_PLACE_DEFAULT[d] || 'shelf')) delete m[d]; else m[d] = place;
+  setPref('deptPlaces', m);
+  changed();
+}
+function pantryCountIn(d) { return live('pantry').filter((p) => deptOf(p) === d).length; }
+// the department panel: one home, opened from Settings → Reparti and from a place's page
+function openDeptSheet(d, back) {
+  const cur = deptPlace(d);
+  openModal(`
+    <h2>${deptIcon(d)} ${esc(t(`cat_${d}`))}</h2>
+    <div class="field-label">${esc(t('deptGoesTo'))}</div>
+    <div class="dept-places" role="radiogroup" aria-label="${esc(t('deptGoesTo'))}">${PLACES.map((k) => `<button type="button" role="radio" aria-checked="${k === cur}" class="chip ${k === cur ? 'on' : ''}" data-action="dept-place" data-value="${d}" data-place="${k}" data-back="${esc(back || '')}">${esc(placeName(k))}</button>`).join('')}</div>
+    <p class="hint small">${esc(t('deptPlaceHint'))}</p>
+    <div class="button-row">${back
+      ? `<button type="button" class="btn primary" data-action="pl-more" data-id="${esc(back)}">${esc(t('done'))}</button>`
+      : `<button class="btn primary" value="ok">${esc(t('done'))}</button>`}</div>`, () => {}, { sheet: true });
+  wireSheet();
+}
+function deptSettings() {
+  const custom = pref('deptOrder', []).length > 0;
+  return `
+  <p class="hint">${esc(t('deptsHint'))}</p>
+  <ul class="dept-order dept-rows" data-sortable="dept-settings">${deptOrder().map((c) => { const n = pantryCountIn(c); return `<li data-sort-key="${esc(c)}">${grip(`d-${c}`, t(`cat_${c}`))}<button type="button" class="dept-row" data-action="dept-open" data-value="${c}"><span>${esc(deptLabel(c))}</span><small>${esc(t('deptRowSub', placeName(deptPlace(c)), n))}</small></button></li>`; }).join('')}</ul>
+  <p class="hint small">${esc(t('deptOrderHint'))}</p>
+  ${custom ? `<button type="button" class="btn small ghost" data-action="dept-reset">↺ ${esc(t('resetOrder'))}</button>` : ''}`;
+}
+function pantryPlace() { const v = state.settings.pantryPlace; return visiblePlaces().includes(v) ? v : 'all'; } // per device
 const pStockRank = (p) => (pIsOut(p) ? 0 : pIsLow(p) ? 1 : 2);
 // v49: a product whose level was just changed keeps its place in the list (no jump under the finger);
 // the order catches up when you leave Dispensa, change the view or search.
@@ -1986,7 +2081,7 @@ function pantryGroups(items, mode) {
     ];
     return g.filter(([, , l]) => l.length);
   }
-  return groupByDept(items, categoryOf).map(([c, l]) => [c, `${categoryIcon(c)} ${t(`cat_${c}`)}`, l.sort((a, b) => pSortRank(a) - pSortRank(b) || pByName(a, b))]);
+  return groupByDept(items, deptOf).map(([c, l]) => [c, `${deptIcon(c)} ${t(`cat_${c}`)}`, l.sort((a, b) => pSortRank(a) - pSortRank(b) || pByName(a, b))]);
 }
 
 function viewPantry() {
@@ -2018,7 +2113,7 @@ function viewPantry() {
     <h1>${esc(t('tabPantry'))}</h1>
     <button type="button" class="icon-btn" data-action="pantry-menu" aria-label="${esc(t('more'))}">⋯</button>
   </div>
-  ${every.length ? `<div class="seg five p-places" role="tablist" aria-label="${esc(t('placeLabel'))}">${['all', ...PLACES].map((k) => `<button type="button" role="tab" class="seg-btn ${k === place ? 'on' : ''}" aria-selected="${k === place}" data-action="p-place" data-value="${k}">${esc(t(`place_${k}`))} <small>${k === 'all' ? every.length : every.filter((p) => placeOf(p) === k).length}</small></button>`).join('')}</div>` : ''}
+  ${every.length ? `<div class="seg place-tabs p-places" role="tablist" aria-label="${esc(t('placeLabel'))}">${['all', ...visiblePlaces()].map((k) => `<button type="button" role="tab" class="seg-btn ${k === place ? 'on' : ''}" aria-selected="${k === place}" data-action="p-place" data-value="${k}"><span class="pt-name">${esc(k === 'all' ? t('place_all') : placeName(k))}</span> <small>${k === 'all' ? every.length : every.filter((p) => placeOf(p) === k).length}</small></button>`).join('')}<button type="button" class="seg-btn pt-edit" data-action="places-edit"><span aria-hidden="true">✎</span> ${esc(t('placesTitle'))}</button></div>` : ''}
   ${every.length ? `
   ${toolbarHtml({ filterAction: 'pp-toggle', count: fs.length, open: panelOpen, input: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="search" id="pantry-q" value="${esc(ui.pantryQ || '')}" placeholder="${esc(t('searchPantryPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchPantryPh'))}">
@@ -2029,11 +2124,11 @@ function viewPantry() {
   ${plain ? staplesCard() : ''}
   ${plain && groups.length > 1 ? `<div class="dept-overview">${groups.map(([c, , list]) => {
     const n = counts(list);
-    return `<button type="button" class="dept-chip ${n.out ? 'bad' : n.low ? 'warn' : ''}" data-action="dept-jump" data-value="${c}">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${list.length}</small>${n.out + n.low ? ` <b>${n.out + n.low}</b>` : ''}</button>`;
+    return `<button type="button" class="dept-chip ${n.out ? 'bad' : n.low ? 'warn' : ''}" data-action="dept-jump" data-value="${c}">${deptIcon(c)} ${esc(t(`cat_${c}`))} <small>${list.length}</small>${n.out + n.low ? ` <b>${n.out + n.low}</b>` : ''}</button>`;
   }).join('')}</div>` : ''}
   ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map((p) => pantryRow(p, { mode: 'expiry' })).join('')}</ul>` : ''}
   ${!every.length ? emptyPantry()
-    : !all.length ? emptyState({ size: 'small', icon: 'search', title: t(`placeEmpty_${place}`), main: { label: t('showAll'), action: 'p-place', data: { value: 'all' } } })
+    : !all.length ? emptyState({ size: 'small', icon: 'search', title: t('placeEmptyAny', placeName(place)), main: { label: t('showAll'), action: 'p-place', data: { value: 'all' } } })
     : !items.length ? emptyState({ size: 'small', icon: 'search', title: t(q ? 'noPantryMatch' : 'noPantryFilter'),
       main: q ? { label: t('clearSearch'), action: 'pantry-q-clear' } : fs.length ? { label: t('showAll'), action: 'p-filter-clear' } : null })
       : body}
@@ -2072,15 +2167,15 @@ function fileSizesBlock() {
 
 // ---------- settings (v37): an index and one page per topic ----------
 
-const SETTINGS_PAGES = ['sync', 'list', 'pantry', 'recipes', 'foods', 'language', 'backup', 'guide'];
-const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', backup: '💾', guide: '📖' };
+const SETTINGS_PAGES = ['sync', 'list', 'depts', 'pantry', 'recipes', 'foods', 'language', 'backup', 'guide'];
+const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', backup: '💾', guide: '📖', depts: '🏷️' };
 // v52 (Everyday's handover, v62): a page that would hold several topics is a list of rows, each opening its own page
 const SETTINGS_SUBS = { list: ['view', 'shops'], pantry: ['remind', 'staples'], recipes: ['people', 'tags', 'online'] };
 const SUB_ICON = { view: '⇅', shops: '🏪', remind: '🔔', staples: '🧂', people: '👥', tags: '🏷️', online: '🌐' };
 
 function subSummary(page, sub) {
   switch (`${page}/${sub}`) {
-    case 'list/view': return `${t(`listMode_${listMode()}`)} · ${t(pref('deptOrder', []).length ? 'deptOrderCustom' : 'deptOrderStandard')}`;
+    case 'list/view': return t(`listMode_${listMode()}`);
     case 'list/shops': return t('nShops', shopsSorted().length);
     case 'pantry/remind': return `${t('remindDaysShort', remindDefault())} · ${t(pushOn() ? 'notifyOnShort' : 'notifyOffShort')}`;
     case 'pantry/staples': { const n = live('pantry').filter(isLevel).length; return n ? t('staplesSaved', n) : t('staplesNone'); }
@@ -2102,6 +2197,7 @@ function settingsSummary(page) {
     case 'list': return `${t(`listMode_${listMode()}`)} · ${t('nShops', shopsSorted().length)}`;
     case 'pantry': return `${t(pushOn() ? 'notifyOnShort' : 'notifyOffShort')} · ${t('remindDaysShort', remindDefault())}`;
     case 'recipes': return t('recipesSettingsSummary');
+    case 'depts': return `${t('nDepts', DEPT_IDS.length)} · ${t(pref('deptOrder', []).length ? 'orderCustom' : 'orderStandard')}`;
     case 'foods': { const n = unknownFoodNames().length; return n ? t('foodsUnknownN', n) : t('foodsAllKnown'); }
     case 'language': return `${LANGS[getLang()]} · ${t(`theme_${themeChoice()}`)} · ${t(`accent_${accentChoice()}`)}`;
     case 'backup': return t('exportData');
@@ -2174,6 +2270,7 @@ function settingsPage(page) {
   switch (page) {
     case 'sync': return syncSettings();
     case 'foods': return foodsSettings();
+    case 'depts': return deptSettings();
     case 'language': return `
   <form class="form" id="lang-form">
     <label>${esc(t('language'))}
@@ -2508,15 +2605,11 @@ function onlineSettings() {
 
 function listSettings() {
   const mode = listMode();
-  const custom = pref('deptOrder', []).length > 0;
   return `
   <div class="field-label">${esc(t('listView'))}</div>
   <label class="sort-pick">⇅ <select id="settings-list-mode" aria-label="${esc(t('listView'))}">${availableModes(hasShops()).map((m) => `<option value="${m}" ${m === mode ? 'selected' : ''}>${esc(t(`listMode_${m}`))}</option>`).join('')}</select></label>
   <p class="hint small">${esc(t('listViewHint'))}</p>
-  <div class="field-label">${esc(t('deptOrderTitle'))}</div>
-  <p class="hint small">${esc(t('deptOrderHint'))}</p>
-  <ul class="dept-order" data-sortable="dept-settings">${deptOrder().map((c) => `<li data-sort-key="${esc(c)}">${grip(`d-${c}`, t(`cat_${c}`))}<span>${esc(deptLabel(c))}</span></li>`).join('')}</ul>
-  ${custom ? `<button type="button" class="btn small ghost" data-action="dept-reset">↺ ${esc(t('resetOrder'))}</button>` : ''}`;
+  <p class="hint small">${esc(t('deptOrderMoved'))} <a href="#/settings/depts">${esc(t('setPage_depts'))}</a></p>`;
 }
 
 // ---------- shops (shared with Everyday: data/shops.json, same format) ----------
@@ -3171,7 +3264,7 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
     at: opened === 'prod' ? 'home' : item.checked ? 'cart' : 'list',
     list: item ? { qty: item.qty ?? '', unit: item.unit || '' } : null,
     home: null,
-    startCat: opened === 'item' ? shopCat(item) : categoryOf(prod),
+    startCat: opened === 'item' ? shopCat(item) : deptOf(prod),
     shops: [...((start.shops && start.shops.length ? start.shops : (opened === 'item' ? prod?.shops : item?.shops)) || [])],
     note: start.note || (opened === 'item' ? prod?.note : item?.note) || '',
   };
@@ -3185,7 +3278,7 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
   const radio = (name, value, label, on) => `<label class="lvl ${on ? 'on' : ''}"><input type="radio" name="${name}" value="${value}" ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
   const qtyLabel = (q, u) => qtyText(num(q) || 0, u) || '';
   const tabs = () => {
-    const homeSub = prod ? `${t(`place_${S.home.place || guessPlace(prod)}`)} · ${S.home.track === 'level' ? t(`level_${S.home.level}`) : qtyLabel(S.home.qty, S.home.unit) || '0'}` : '—';
+    const homeSub = prod ? `${placeName(S.home.place || guessPlace(prod))} · ${S.home.track === 'level' ? t(`level_${S.home.level}`) : qtyLabel(S.home.qty, S.home.unit) || '0'}` : '—';
     const T = [
       ['list', t('psAtList'), item && !item.checked ? qtyLabel(S.list.qty, S.list.unit) || '✓' : '—'],
       ['cart', t('psAtCart'), item && item.checked ? qtyLabel(S.list.qty, S.list.unit) || '✓' : '—'],
@@ -3213,7 +3306,7 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
     const H = S.home; const level = H.track === 'level';
     const curPlace = H.place || guessPlace(prod);
     return `<div class="sl-field"><span>${esc(t('placeLabel'))}</span>
-        <div class="lvl-seg place-seg" role="radiogroup" aria-label="${esc(t('placeLabel'))}">${PLACES.map((k) => radio('place', k, t(`place_${k}`), k === curPlace)).join('')}</div>
+        <div class="lvl-seg place-seg" role="radiogroup" aria-label="${esc(t('placeLabel'))}">${PLACES.map((k) => radio('place', k, placeName(k), k === curPlace)).join('')}</div>
         ${H.place ? '' : `<small class="sl-hint">${esc(t('placeGuessHint'))}</small>`}</div>
       <div class="sl-field"><span>${esc(t('trackLabel'))}</span>
         <div class="lvl-seg track-seg" role="radiogroup" aria-label="${esc(t('trackLabel'))}">${radio('track', 'qty', t('track_qty'), !level)}${radio('track', 'level', t('track_level'), level)}</div>
@@ -3307,8 +3400,8 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
       else if (wasLevel) next = setTrack(next, 'qty');
       if (H.track === 'qty') Object.assign(next, { qty: num(H.qty) ?? 0, unit: H.unit, min: num(H.min), target: num(H.target) });
       const prodName = renamed && fold(cur.name) === fold(startName) ? name : cur.name;
-      next = applyFoodChoice(next, fst, prodName, CATEGORY_IDS.includes(cat) ? cat : categoryOf(cur), cur.name);
-      const pcat = CATEGORY_IDS.includes(cat) ? (cat === categorize(prodName) && !cur.cat ? null : cat) : (cur.cat ?? null);
+      next = applyFoodChoice(next, fst, prodName, DEPT_IDS.includes(cat) ? cat : deptOf(cur), cur.name);
+      const pcat = DEPT_IDS.includes(cat) ? (cat === deptOf({ name: prodName }) && !cur.cat ? null : cat) : (cur.cat ?? null);
       next = { ...next, name: prodName, cat: pcat, barcode: H.codes[0] || null, barcodes: [...H.codes], expires: H.expires || null,
         remindDays: H.remindDays === '' ? null : Math.max(0, parseInt(H.remindDays, 10) || 0), shops: [...S.shops] };
       if (note) next.note = note; else delete next.note;
@@ -3490,6 +3583,13 @@ document.addEventListener('pointerup', pointerReleased, true);
 document.addEventListener('pointercancel', pointerReleased, true);
 
 function onViewChange(e) {
+  if (e.target.dataset?.action === 'pl-show') {
+    const id = e.target.dataset.id; const h = new Set(placesPref().hidden || []);
+    if (e.target.checked) h.delete(id); else h.add(id);
+    savePlaces({ hidden: [...h] });
+    if (state.settings.pantryPlace === id && !e.target.checked) saveSettings({ pantryPlace: 'all' });
+    return;
+  }
   const el = e.target;
   if (el.dataset.action === 'sl-toggle') setChecked(el.dataset.id, el.checked);
   if (el.id === 'list-mode' || el.id === 'settings-list-mode') { setListMode(el.value); changed(); render(); return; }
@@ -3798,6 +3898,15 @@ function onViewClick(e) {
     case 'p-filter': { const fs = pantryFilters(); const v = btn.dataset.value; ui.pantryFilters = fs.includes(v) ? fs.filter((x) => x !== v) : [...fs, v]; render(); break; }
     case 'p-filter-clear': ui.pantryFilters = []; render(); break;
     case 'p-place': pRankHold.clear(); saveSettings({ pantryPlace: btn.dataset.value }).then(render); break;
+    case 'places-edit': openPlacesEditor(); break;
+    case 'pl-up': movePlace(id, -1); openPlacesEditor(); break;
+    case 'pl-down': movePlace(id, 1); openPlacesEditor(); break;
+    case 'pl-more': openPlacePage(id); break;
+    case 'pl-reset': { const n = { ...(placesPref().names || {}) }; delete n[id]; savePlaces({ names: n }); openPlacePage(id); break; }
+    case 'pl-add-dept': openPlaceAddDept(id); break;
+    case 'pl-take': setDeptPlace(btn.dataset.value, id); openPlacePage(id); break;
+    case 'dept-open': openDeptSheet(btn.dataset.value, btn.dataset.back || ''); break;
+    case 'dept-place': setDeptPlace(btn.dataset.value, btn.dataset.place); openDeptSheet(btn.dataset.value, btn.dataset.back || ''); break;
     case 'p-mode': pRankHold.clear(); ui.pvOpen = false; saveSettings({ pantryMode: btn.dataset.value }).then(render); break;
     case 'p-level': setLevel(get('pantry', id), btn.dataset.value); break;
     case 'pantry-menu': openPantryMenu(); break;

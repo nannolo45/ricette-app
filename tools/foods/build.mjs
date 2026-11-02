@@ -10,7 +10,7 @@ const js = (f) => path.join(root, 'app/js', f);
 const simple = (s) => String(s || '').toLowerCase().replace(/ß/g, 'ss').normalize('NFD').replace(/\p{M}/gu, '')
   .replace(/\(.*?\)/g, ' ').replace(/['’`-]/g, ' ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
-const DEPTS = ['produce', 'bakery', 'meatfish', 'dairy', 'grains', 'staples', 'condiments', 'sweets', 'drinks', 'frozen', 'household', 'care', 'other'];
+const DEPTS = ['produce', 'bakery', 'meatfish', 'dairy', 'grains', 'staples', 'condiments', 'sweets', 'drinks', 'frozen', 'household', 'care', 'baby', 'other'];
 const errors = []; const notes = [];
 
 // old nutrition table (frozen copy kept for the build: tools/foods/nutrition-v38.js)
@@ -38,7 +38,7 @@ for (const f of fs.readdirSync(here).filter((x) => /^src-.*\.txt$/.test(x)).sort
       const v = nutByKey.get(simple(nut));
       if (!v) errors.push(`${where}: no nutrition entry "${nut}"`);
       else Object.assign(r, { kcal: v.kcal, prot: v.prot, w: v.extra, nut: simple(nut) });
-    } else if (!['household', 'care'].includes(dept)) notes.push(`${where}: ${id} has no nutrition`);
+    } else if (!['household', 'care', 'baby'].includes(dept)) notes.push(`${where}: ${id} has no nutrition`);
     for (const tok of extra.split(/\s+/).filter(Boolean)) {
       if (tok === 'basic') r.basic = true;
       else if (tok.startsWith('of:')) r.of = tok.slice(3);

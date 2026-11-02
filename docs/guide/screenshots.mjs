@@ -78,6 +78,7 @@ const seed = (pg) => pg.evaluate(async ({ lang }) => {
   P('p9', L('pomodori pelati', 'tinned tomatoes', 'Dosentomaten'), 3, ''); P('p10', L('spinaci', 'spinach', 'Spinat'), 1, '', { expires: iso(1) });
   P('p11', 'parmigiano', 300, 'g', { min: 100, target: 400, expires: iso(20), shops: ['s2'], place: 'fridge' });
   P('p12', L('detersivo piatti', 'washing-up liquid', 'Spülmittel'), 1, ''); // v53: shows Casa e pulizia
+  P('p13', L('pannolini', 'nappies', 'Windeln'), 2, '', { food: 'nappies' }); // v54: shows Bambino
   m.upsert('pantry', { id: 'salt', name: L('sale', 'salt', 'Salz'), track: 'level', level: 'ok', food: 'salt' });
   m.upsert('pantry', { id: 'oil', name: L('olio d\'oliva', 'olive oil', 'Olivenöl'), track: 'level', level: 'low', food: 'olive-oil' });
   m.upsert('pantry', { id: 'pepper', name: L('pepe nero', 'black pepper', 'schwarzer Pfeffer'), track: 'level', level: 'ok' });
@@ -242,6 +243,9 @@ if (!DESK) { await p.click('.f-toggle').catch(() => {}); await wait(); }
 await p.click('[data-action=p-place][data-value=fridge]'); await wait();
 await shot('45-pantry-fridge');
 await p.click('[data-action=p-place][data-value=all]'); await wait();
+await p.click('[data-action=places-edit]'); await wait(300);
+await shot('46-pantry-places'); // v54: the ✎ Posti editor
+await closeSheet();
 
 // ---- 6. On a computer: wide pictures in the phone guide (the computer set doesn't need them) ----
 if (!DESK) {
