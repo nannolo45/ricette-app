@@ -680,7 +680,7 @@ dialog.sheet::before { content: ''; display: block; width: 40px; height: 4px; bo
   .sync .dot { width: 10px; height: 10px; }
   #sync-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }
-@media (min-width: 1100px) { .top .icon-link { order: 3; } }
+@media (min-width: 1100px) { .top .icon-link, .top .gear { order: 3; } }
 
 .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin: 0 0 12px; }
 .seg-btn { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -846,19 +846,6 @@ details.tag-group > summary small { color: var(--muted); font-weight: 400; }
 details.tag-group > summary::after { content: '▸'; color: var(--muted); transition: transform .15s; }
 details.tag-group[open] > summary::after { transform: rotate(90deg); }
 details.tag-group[open] { padding-bottom: 10px; }
-.guide section { margin: 0 0 14px; }
-.guide h2 { margin: 1.2rem 0 .3rem; font-size: 1.1rem; }
-.guide p { margin: 0; line-height: 1.55; }
-.guide-dev { position: sticky; top: 72px; z-index: 2; margin: 4px 0 10px; box-shadow: 0 -12px 0 var(--bg), 0 6px 14px -8px #0008; }
-.guide-shots { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 4px; align-items: flex-start; }
-.gshot { margin: 0; }
-.gshot.phone { flex: 1 1 150px; max-width: 240px; }
-.gshot.wide { flex: 1 1 100%; }
-.gshot a { display: block; }
-.gshot img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line, #3a302a); background: #1b1512; }
-.gshot.phone img { aspect-ratio: 1 / 2; }
-.gshot.wide img { aspect-ratio: 1400 / 860; }
-.gshot figcaption { font-size: .82rem; opacity: .75; margin-top: 5px; line-height: 1.35; }
 
 /* ---------- v38: pantry in the list layout, staples (C'è / Poca / Finita) ---------- */
 .pantry-title .icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
@@ -1139,3 +1126,52 @@ p.center { text-align: center; }
   .preview .pv-ings small.have { color: var(--green); }
   .preview .pv-ings small.miss { color: var(--warn); }
 }
+
+/* v49: the settings gear shared by Ricette, Everyday and Palestra (Everyday's handover, 2 Nov) */
+.gear { height: 40px; min-width: 40px; margin-left: 8px; padding: 0 9px; gap: 8px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ink) 22%, var(--line)); background: var(--surface); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 600; font-size: .9rem; flex: none; box-sizing: border-box; transition: border-color .15s, color .15s, background .15s; }
+.gear svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.gear:hover { border-color: var(--accent); color: var(--accent); }
+.gear.active { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.gear-label { display: none; }
+@media (min-width: 1100px) { .gear { padding: 0 14px 0 11px; } .gear-label { display: inline; } }
+
+/* v50: places in the pantry (Credenza / Frigo / Freezer) and one product sheet for list, cart and home */
+.seg.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.p-places { margin-top: 2px; }
+.p-place { color: var(--muted); font-weight: 400; }
+.qa-place { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 2px; }
+.qa-place > span { font-size: .85rem; color: var(--muted); margin-right: 2px; }
+.qa-place .chip { min-height: 36px; }
+.pa-place { min-width: 0; }
+.ps-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 4px 0 2px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.ps-tab { min-height: 54px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 6px; cursor: pointer; min-width: 0; }
+.ps-tab span { font-size: .88rem; font-weight: 600; }
+.ps-tab small { font-size: .74rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-tab.on { background: var(--accent); color: var(--accent-ink); }
+.ps-tab.on small { color: inherit; opacity: .85; }
+.ps-ctx { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 2px; }
+.ps-ctx > .btn { align-self: flex-start; }
+.ps-h { margin: 14px 0 2px; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.seg.four .seg-btn { font-size: .84rem; padding: 0 2px; }
+.seg.four .seg-btn small { font-size: .72rem; }
+/* v50: recipe from photos, step by step */
+.cap-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
+.cap-step { border: 0; background: none; padding: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; font: inherit; font-size: .8rem; color: var(--muted); cursor: pointer; }
+.cap-step .bar { height: 4px; border-radius: 2px; background: var(--line); }
+.cap-step.on, .cap-step.done { color: var(--ink); }
+.cap-step.on { font-weight: 700; }
+.cap-step.on .bar, .cap-step.done .bar { background: var(--accent); }
+.cap-step.skip { text-decoration: line-through; opacity: .55; }
+.cap-step:disabled { cursor: default; }
+.cap-h { margin: 4px 0 2px; font-family: var(--serif); font-size: 1.25rem; }
+.cap-same { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.cap-review { list-style: none; margin: 6px 0 12px; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.cap-review li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 60px; }
+.cap-review li + li { border-top: 1px solid var(--line); }
+.cap-thumbs { display: flex; gap: 4px; min-width: 40px; }
+.cap-thumbs .shot.mini { width: 34px; height: 44px; margin: 0; }
+.cap-thumbs .shot.mini img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+.cap-what { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.cap-what small { color: var(--muted); }
+.capture.guided:not(.is-book) .book-only { display: none; }
+.capture .seg:has(label) { grid-template-columns: repeat(2, minmax(0, 1fr)); }

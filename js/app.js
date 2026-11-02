@@ -7,9 +7,8 @@ import { emptyState } from './ui/empty.js';
 import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/format.js';
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
-import { GUIDE, GUIDE_SHOTS } from './guide.js';
 
-const APP_VERSION = 'v48.3';
+const APP_VERSION = 'v50';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -206,7 +205,15 @@ function updatePantryBadge() {
   b.textContent = n;
 }
 
-function ensureLowItems() { kitchen.ensureLowItems(); }
+function ensureLowItems() {
+  kitchen.ensureLowItems();
+  // v50: an item back on the list because the product runs low comes with the product's shops (unless it has its own)
+  for (const it of live('shopping')) {
+    if (!it.auto || !String(it.id).startsWith('low_') || (it.shops || []).length) continue;
+    const p = get('pantry', it.pantryId || it.id.slice(4));
+    if (p && Array.isArray(p.shops) && p.shops.length) upsert('shopping', { ...it, shops: [...p.shops] }, { silent: true });
+  }
+}
 
 function setChecked(id, checked) {
   const it = get('shopping', id);
@@ -918,6 +925,7 @@ function qaSheetHtml(kind, inline = false) {
     : `<form id="${formId}" class="qa-form">
     <div class="qa-row"><input name="item" id="${formId}-input" required placeholder="${esc(t(isList ? 'qaListPh' : 'qaPantryPh'))}" autocomplete="off" enterkeyhint="done" aria-label="${esc(t(isList ? 'qaListPh' : 'qaPantryPh'))}">
       ${inline ? `<button class="btn primary add-btn" aria-label="${esc(t('add'))}">+</button>` : ''}</div>
+    ${isList ? '' : `<div class="qa-place" role="group" aria-label="${esc(t('placeGoes'))}"><span>${esc(t('placeGoes'))}</span>${['auto', ...PLACES].map((k) => `<button type="button" class="chip ${qaPlace() === k ? 'on' : ''}" aria-pressed="${qaPlace() === k}" data-action="qa-place" data-value="${k}">${esc(t(k === 'auto' ? 'placeAuto' : `place_${k}`))}</button>`).join('')}</div>`}
     <div class="qa-just" aria-live="polite">${qaJustHtml(kind)}</div>
     <p class="hint small">${esc(t(isList ? 'qaListHint' : 'qaPantryHint'))}</p>
     ${inline ? '' : `<div class="sheet-foot"><button class="btn primary">${esc(t('add'))}</button><button type="button" class="btn ghost" data-action="sheet-close">${esc(t('close'))}</button></div>`}
@@ -965,11 +973,12 @@ function addQuick(kind, value) {
         just.push({ label: `${existing.name} · ${t('level_ok')}`, id: existing.id });
       } else if (existing) {
         const add = ing.qty == null ? 0 : convert(ing.qty, ing.unit, existing.unit);
-        upsert('pantry', { ...existing, qty: round((num(existing.qty) || 0) + (add ?? 0)), ...(expires ? { expires: earlier(existing.expires, expires) || expires } : {}) }, { silent: true });
+        upsert('pantry', { ...existing, qty: round((num(existing.qty) || 0) + (add ?? 0)), ...(expires ? { expires: earlier(existing.expires, expires) || expires } : {}), ...(qaPlace() !== 'auto' ? { place: qaPlace() } : {}) }, { silent: true });
         just.push({ label: existing.name, id: existing.id });
       } else {
-        const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now(), ...(expires ? { expires } : {}), ...foodFields(ing.name) }, { silent: true });
-        just.push({ label: expires ? `${ing.name} · ${expiryText(daysUntil(expires))}` : ing.name, id: p.id });
+        const chosen = qaPlace() === 'auto' ? null : qaPlace();
+        const p = upsert('pantry', { id: uid(), name: ing.name, qty: ing.qty ?? 1, unit: ing.unit, min: null, target: null, addedAt: Date.now(), ...(expires ? { expires } : {}), ...(chosen ? { place: chosen } : {}), ...foodFields(ing.name) }, { silent: true });
+        just.push({ label: [ing.name, t(`place_${placeOf(p)}`).toLowerCase(), expires ? expiryText(daysUntil(expires)) : ''].filter(Boolean).join(' · '), id: p.id });
       }
     }
     ensureLowItems();
@@ -978,7 +987,10 @@ function addQuick(kind, value) {
   pushJust(kind, just);
   changed();
 }
+// v50: where the pantry's quick add puts new things: 'auto' (each by its guess, nothing stored) or a place
+function qaPlace() { return ui.qaPlace || (pantryPlace() === 'all' ? 'auto' : pantryPlace()); }
 function openQuickAdd(kind) {
+  if (kind === 'pantry') ui.qaPlace = null;
   ui.qaJust ||= {};
   ui.qaJust[kind] = [];
   if (isWide()) { document.getElementById(kind === 'list' ? 'add-item-input' : 'add-pantry-input')?.focus(); return; }
@@ -1739,7 +1751,14 @@ function commitPutAway() {
   if (!P) return;
   let n = 0;
   for (const r of P.rows.filter((x) => x.include && x.name.trim())) {
-    kitchen.putAwayRow(r);
+    const isNew = !pantryTargetFor(r);
+    const rec = kitchen.putAwayRow(r);
+    // v50: the place you picked, and a new product keeps the shops it was bought at (an existing one keeps its own)
+    const item = r.itemId ? get('shopping', r.itemId) : null;
+    const extra = {};
+    if (r.place && PLACES.includes(r.place) && r.place !== rec.place) extra.place = r.place;
+    if (isNew && item && Array.isArray(item.shops) && item.shops.length && !(rec.shops || []).length) extra.shops = [...item.shops];
+    if (Object.keys(extra).length) upsert('pantry', { ...get('pantry', rec.id), ...extra }, { silent: true });
     if (r.itemId) remove('shopping', r.itemId);
     n++;
   }
@@ -1800,6 +1819,7 @@ function viewPutAway() {
             <input class="pa-qty" id="pa-qty-${i}" data-pa="qty" data-i="${i}" inputmode="decimal" value="${esc(r.qty ?? '')}" aria-label="${esc(t('quantity'))}">
             <select id="pa-unit-${i}" data-pa="unit" data-i="${i}" aria-label="${esc(t('unit'))}">${UNITS.map((u) => `<option value="${u}" ${u === (r.unit || '') ? 'selected' : ''}>${esc(unitOptionLabel(u))}</option>`).join('')}</select>
             <label class="pa-exp"><span>${esc(t('expires'))}</span><input type="date" id="pa-expires-${i}" data-pa="expires" data-i="${i}" value="${esc(r.expires || '')}"></label>
+            <select class="pa-place" id="pa-place-${i}" data-pa="place" data-i="${i}" aria-label="${esc(t('placeLabel'))}">${(() => { const cur = r.place || (tg ? placeOf(tg) : guessPlace({ name: r.name, cat: r.cat })); return PLACES.map((k) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(t(`place_${k}`))}</option>`).join(''); })()}</select>
           </div>
           <small>→ ${esc(where)}${r.barcode ? ` · 🏷️ ${esc(r.brand || r.barcode)}` : ''}${r.stocked ? ` · ${esc(t('alreadyCounted'))}` : ''}${P.receiptId && r.itemId ? ` · ${esc(t('offTheList'))}` : ''}${r.raw ? ` · <span class="pa-raw">${esc(r.raw)}</span>` : ''}</small>
         </div>
@@ -1830,7 +1850,7 @@ function pantryRow(p, { mode = 'dept' } = {}) {
   // staples show their level as the control itself; no badge needed
   const badge = level ? '' : out ? ` <span class="badge bad">${esc(t('outOfStock'))}</span>` : low ? ` <span class="badge warn">${esc(t('low'))}</span>` : '';
   return `<li class="${lowCls ? 'low' : ''} ${level ? 'staple' : ''} ${st === 'expired' ? 'expired' : ''}">
-    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${mode !== 'dept' ? `<span class="p-dept" title="${esc(t(`cat_${categoryOf(p)}`))}">${categoryIcon(categoryOf(p))}</span> ` : ''}${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${badge}${exp}${mode === 'newest' && pAddedOf(p) ? ` <small>＋ ${esc(addedDay(p))}</small>` : ''}</button>
+    <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${mode !== 'dept' ? `<span class="p-dept" title="${esc(t(`cat_${categoryOf(p)}`))}">${categoryIcon(categoryOf(p))}</span> ` : ''}${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${badge}${exp}${pantryPlace() === 'all' && mode !== 'expiry' ? ` <small class="p-place">${esc(t(`place_${placeOf(p)}`))}</small>` : ''}${mode === 'newest' && pAddedOf(p) ? ` <small>＋ ${esc(addedDay(p))}</small>` : ''}</button>
     ${level ? levelSeg(p) : `<div class="stepper">
       <button class="round" data-action="p-dec" data-id="${esc(p.id)}" aria-label="−">−</button>
       <span class="q">${esc(qtyText(num(p.qty) || 0, p.unit) || '0')}</span>
@@ -1886,6 +1906,7 @@ function setTrack(p, track) {
 
 function setLevel(p, level) {
   if (!p || levelOf(p) === level) return;
+  if (!pRankHold.has(p.id)) pRankHold.set(p.id, pStockRank(p));
   upsert('pantry', { ...p, level }, { silent: true });
   ensureLowItems();
   changed();
@@ -1925,7 +1946,21 @@ const PANTRY_TEST = {
   out: pIsOut,
 };
 // out first, then running low, then the rest; by name inside
+// v50: where a product is kept. Missing `place` = not chosen yet: shown as a guess, never written back.
+const PLACES = ['shelf', 'fridge', 'freezer'];
+const FROZEN_WORDS = /surgel|frozen|tiefk[üu]hl|gelato|ghiaccioli/i;
+function guessPlace(p) {
+  const c = categoryOf(p);
+  if (c === 'frozen' || FROZEN_WORDS.test(p.name || '')) return 'freezer';
+  return c === 'dairy' || c === 'meatfish' ? 'fridge' : 'shelf';
+}
+function placeOf(p) { return PLACES.includes(p.place) ? p.place : guessPlace(p); }
+function pantryPlace() { const v = state.settings.pantryPlace; return PLACES.includes(v) ? v : 'all'; } // per device
 const pStockRank = (p) => (pIsOut(p) ? 0 : pIsLow(p) ? 1 : 2);
+// v49: a product whose level was just changed keeps its place in the list (no jump under the finger);
+// the order catches up when you leave Dispensa, change the view or search.
+const pRankHold = new Map();
+const pSortRank = (p) => (pRankHold.has(p.id) ? pRankHold.get(p.id) : pStockRank(p));
 const pAddedOf = (p) => p.addedAt || p.createdAt || 0;
 const pByName = (a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name), getLang());
 
@@ -1948,11 +1983,13 @@ function pantryGroups(items, mode) {
     ];
     return g.filter(([, , l]) => l.length);
   }
-  return groupByDept(items, categoryOf).map(([c, l]) => [c, `${categoryIcon(c)} ${t(`cat_${c}`)}`, l.sort((a, b) => pStockRank(a) - pStockRank(b) || pByName(a, b))]);
+  return groupByDept(items, categoryOf).map(([c, l]) => [c, `${categoryIcon(c)} ${t(`cat_${c}`)}`, l.sort((a, b) => pSortRank(a) - pSortRank(b) || pByName(a, b))]);
 }
 
 function viewPantry() {
-  const all = live('pantry');
+  const every = live('pantry');
+  const place = pantryPlace();
+  const all = place === 'all' ? every : every.filter((p) => placeOf(p) === place);
   const mode = pantryMode();
   const q = (ui.pantryQ || '').trim();
   const fs = pantryFilters();
@@ -1963,7 +2000,7 @@ function viewPantry() {
   const counts = (list) => ({ out: list.filter(pIsOut).length, low: list.filter(pIsLow).length });
   // department shortcuts and the "expiring" box only on the plain departments view
   const plain = mode === 'dept' && !q && !fs.length;
-  const expiring = plain ? expiringItems().map((x) => x.p) : [];
+  const expiring = plain ? expiringItems().map((x) => x.p).filter((p) => place === 'all' || placeOf(p) === place) : [];
   const chips = fs.map((f) => `<button type="button" class="chip on x" data-action="p-filter" data-value="${f}" aria-label="${esc(t('removeFilter', t(`pFilter_${f}`)))}">${esc(t(`pFilter_${f}`))} ✕</button>`);
   const head = ([k, label, list]) => {
     const n = mode === 'dept' ? counts(list) : { out: 0, low: 0 };
@@ -1978,7 +2015,8 @@ function viewPantry() {
     <h1>${esc(t('tabPantry'))}</h1>
     <button type="button" class="icon-btn" data-action="pantry-menu" aria-label="${esc(t('more'))}">⋯</button>
   </div>
-  ${all.length ? `
+  ${every.length ? `<div class="seg four p-places" role="tablist" aria-label="${esc(t('placeLabel'))}">${['all', ...PLACES].map((k) => `<button type="button" role="tab" class="seg-btn ${k === place ? 'on' : ''}" aria-selected="${k === place}" data-action="p-place" data-value="${k}">${esc(t(`place_${k}`))} <small>${k === 'all' ? every.length : every.filter((p) => placeOf(p) === k).length}</small></button>`).join('')}</div>` : ''}
+  ${every.length ? `
   ${toolbarHtml({ filterAction: 'pp-toggle', count: fs.length, open: panelOpen, input: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input type="search" id="pantry-q" value="${esc(ui.pantryQ || '')}" placeholder="${esc(t('searchPantryPh'))}" autocomplete="off" enterkeyhint="search" aria-label="${esc(t('searchPantryPh'))}">
     ${q ? `<button type="button" class="search-clear" data-action="pantry-q-clear" aria-label="${esc(t('clearSearch'))}">${CLEAR_ICO}</button>` : ''}` })}
@@ -1991,7 +2029,8 @@ function viewPantry() {
     return `<button type="button" class="dept-chip ${n.out ? 'bad' : n.low ? 'warn' : ''}" data-action="dept-jump" data-value="${c}">${categoryIcon(c)} ${esc(t(`cat_${c}`))} <small>${list.length}</small>${n.out + n.low ? ` <b>${n.out + n.low}</b>` : ''}</button>`;
   }).join('')}</div>` : ''}
   ${expiring.length ? `<h2>${esc(t('expiringTitle'))}</h2><ul class="list pantry expiring">${expiring.map((p) => pantryRow(p, { mode: 'expiry' })).join('')}</ul>` : ''}
-  ${!all.length ? emptyPantry()
+  ${!every.length ? emptyPantry()
+    : !all.length ? emptyState({ size: 'small', icon: 'search', title: t(`placeEmpty_${place}`), main: { label: t('showAll'), action: 'p-place', data: { value: 'all' } } })
     : !items.length ? emptyState({ size: 'small', icon: 'search', title: t(q ? 'noPantryMatch' : 'noPantryFilter'),
       main: q ? { label: t('clearSearch'), action: 'pantry-q-clear' } : fs.length ? { label: t('showAll'), action: 'p-filter-clear' } : null })
       : body}
@@ -2049,6 +2088,7 @@ function settingsSummary(page) {
 }
 
 function viewSettings(page) {
+  if (page === 'guide') { location.replace(guideHref()); return ''; } // v49: the guide is its own page (guide-<lang>.html)
   if (!SETTINGS_PAGES.includes(page)) return settingsIndex();
   const back = `<a class="back" href="#/settings">← ${esc(t('tabSettings'))}</a>`;
   return `${back}<h1>${SETTINGS_ICON[page]} ${esc(t(`setPage_${page}`))}</h1>${settingsPage(page)}`;
@@ -2065,7 +2105,7 @@ function settingsIndex() {
     ${isConnected() ? `<button type="button" class="btn small" data-action="sync-now">${esc(t('syncShort'))}</button>` : `<a class="btn small primary" href="#/settings/sync">${esc(t('connect'))}</a>`}
   </div>
   <nav class="set-list" aria-label="${esc(t('tabSettings'))}">${SETTINGS_PAGES.map((p) => `
-    <a class="set-item" href="#/settings/${p}"><span class="set-ico" aria-hidden="true">${SETTINGS_ICON[p]}</span><span class="set-text"><strong>${esc(t(`setPage_${p}`))}</strong><small>${esc(settingsSummary(p))}</small></span><span class="set-chev" aria-hidden="true">›</span></a>`).join('')}
+    <a class="set-item" href="${p === 'guide' ? guideHref() : `#/settings/${p}`}"><span class="set-ico" aria-hidden="true">${SETTINGS_ICON[p]}</span><span class="set-text"><strong>${esc(t(`setPage_${p}`))}</strong><small>${esc(settingsSummary(p))}</small></span><span class="set-chev" aria-hidden="true">›</span></a>`).join('')}
   </nav>
   <p class="hint small set-version">Ricette ${esc(APP_VERSION)}</p>`;
 }
@@ -2103,29 +2143,12 @@ function settingsPage(page) {
   <button class="btn" data-action="export">${esc(t('exportData'))}</button>
   <p class="hint">${esc(t('backupHint'))}</p>
   <p class="hint">${esc(t('installHint'))}</p>`;
-    case 'guide': return guideHtml();
     default: return '';
   }
 }
 
-function guideDev() { return ui.guideDev || (isWide() ? 'd' : 'm'); }
-
-function guideHtml() {
-  const secs = GUIDE[getLang()] || GUIDE.en;
-  const rich = (x) => esc(x).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  const lang = GUIDE[getLang()] ? getLang() : 'en';
-  const dev = guideDev();
-  const shots = (i) => {
-    const list = GUIDE_SHOTS[i] && GUIDE_SHOTS[i][dev];
-    if (!list || !list.length) return '';
-    return `<div class="guide-shots">${list.map(([name, cap]) => {
-      const src = `img/guide/${lang}-${dev}-${name}.webp`; const c = cap[lang] || cap.en;
-      return `<figure class="gshot ${dev === 'd' ? 'wide' : 'phone'}"><a href="${src}" target="_blank" rel="noopener"><img src="${src}" alt="${esc(c)}" loading="lazy" decoding="async"></a><figcaption>${esc(c)}</figcaption></figure>`;
-    }).join('')}</div>`;
-  };
-  const sw = `<div class="seg two guide-dev" role="radiogroup" aria-label="${esc(t('guideShots'))}">${['m', 'd'].map((k) => `<button type="button" role="radio" aria-checked="${k === dev}" class="seg-btn ${k === dev ? 'on' : ''}" data-action="guide-dev" data-value="${k}">${k === 'm' ? '📱' : '🖥️'} ${esc(t(k === 'm' ? 'guidePhone' : 'guideComputer'))}</button>`).join('')}</div>`;
-  return `<div class="guide">${sw}${secs.map(([h, p], i) => `<section><h2>${esc(h)}</h2><p>${rich(p)}</p>${shots(i)}</section>`).join('')}</div>`;
-}
+// v49: the user guide is a standalone page per language (docs/guide → app/guide-<lang>.html), opened in this tab
+function guideHref() { return `guide-${['it', 'en', 'de'].includes(getLang()) ? getLang() : 'en'}.html`; }
 
 function syncSettings() {
   const s = state.settings;
@@ -2653,80 +2676,7 @@ function shopHead(id) {
 // An item's own shops that still exist, in its order of preference
 function itemShopIds(i) { return (i.shops || []).filter((id) => shopById(id)); }
 
-function openItemEdit(id) {
-  const it = get('shopping', id);
-  if (!it) return;
-  let picked = itemShopIds(it);
-  const startCat = shopCat(it);
-  const units = (UNITS.includes(it.unit || '') ? UNITS : [...UNITS, it.unit]).map((u) => ({ value: u, label: u === '' ? '—' : unitOptionLabel(u) }));
-  const origin = it.auto ? t('itemFromPantry') : (it.sources || []).length ? t('forRecipes', it.sources.join(', ')) : '';
-  const shopList = () => shopsSorted().map((x) => ({ id: x.id, name: x.name }));
-  // the shared item sheet (shoplist-ui.js), the same as Everyday's
-  const fst = foodState(it);
-  openModal(itemSheetHtml({ item: it, labels: listLabels(), units, depts: DEPTS.map((c) => ({ id: c.id, label: `${c.icon} ${t(`cat_${c.id}`)}` })), cat: startCat, shops: shopList(), picked, origin }), (form, action) => {
-    if (action === 'delete') { undoableRemove('shopping', id); return; }
-    const raw = form.qty.value.trim().replace(',', '.');
-    const qty = raw === '' ? null : Number(raw);
-    const cur = get('shopping', id) || it;
-    // every other field (Everyday's too) stays as it is; the department only changes if you changed it
-    const name = form.name.value.trim() || it.name;
-    let next = { ...cur, name, qty: Number.isFinite(qty) ? qty : null, unit: form.unit.value, note: form.note.value.trim(), shops: picked };
-    if (form.cat.value !== startCat) next.cat = form.cat.value;
-    next = applyFoodChoice(next, fst, name, form.cat.value, cur.name);
-    upsert('shopping', next, { silent: true });
-    changed();
-  }, { sheet: true });
-  // which food (Ricette only; Everyday's sheet doesn't show it): after the note
-  modal.querySelector('.sl-sheet input[name=note]').closest('.sl-field').insertAdjacentHTML('afterend', foodFieldHtml(fst, it.name));
-  const ff = modal.querySelector('#food-field');
-  const itemName = () => modal.querySelector('input[name=name]').value.trim() || it.name;
-  wireFoodField(ff, fst, itemName);
-  const refreshChips = () => {
-    const box = modal.querySelector('#sl-shop-chips');
-    const keep = box.querySelector('.sl-newshop');
-    box.innerHTML = shopChipsHtml(shopList(), picked);
-    box.appendChild(keep);
-  };
-  const addShop = () => {
-    const input = modal.querySelector('#sl-new-shop-name');
-    const nm = input.value.trim();
-    if (!nm) { input.focus(); return; }
-    // the same name (case and accents ignored) is the same shop
-    const existing = shopsSorted().find((x) => fold(x.name).trim() === fold(nm));
-    let sid = existing?.id;
-    if (!sid) {
-      const all = shopsSorted();
-      sid = uid();
-      upsert('shops', { id: sid, name: nm, minutes: 30, hours: [], place: '', link: '', order: all.length ? Math.max(...all.map((x) => x.order || 0)) + 1 : 0 }, { silent: true });
-    }
-    if (!picked.includes(sid)) picked = [...picked, sid];
-    input.value = '';
-    refreshChips();
-  };
-  const step = (dir) => {
-    const input = modal.querySelector('input[name=qty]');
-    const unit = modal.querySelector('select[name=unit]').value;
-    const cur = Number(String(input.value).replace(',', '.')) || 0;
-    const by = stepFor(unit) === 100 && cur < 100 ? 10 : (stepFor(unit) || 1);
-    const nextQ = Math.max(0, round(cur + dir * by));
-    input.value = nextQ ? String(nextQ) : '';
-  };
-  modal.onclick = (e) => {
-    if (foodFieldClick(e, fst, ff, itemName)) return;
-    const b = e.target.closest('[data-action]');
-    if (!b) return;
-    if (b.dataset.action === 'sl-new-shop') addShop();
-    if (b.dataset.action === 'sl-qty-dec') step(-1);
-    if (b.dataset.action === 'sl-qty-inc') step(1);
-    if (b.dataset.action === 'sl-pick-shop') {
-      const sid = b.dataset.id;
-      picked = picked.includes(sid) ? picked.filter((x) => x !== sid) : [...picked, sid];
-      refreshChips();
-    }
-  };
-  // Enter in the new-shop field adds the shop instead of saving the item
-  modal.querySelector('#sl-new-shop-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addShop(); } });
-}
+function openItemEdit(id) { openProductSheet({ listId: id }); }
 
 // ---------- Settings → Ingredienti: names nothing recognises, your own foods, extra names ----------
 
@@ -3049,6 +2999,7 @@ function render() {
     setTimeout(() => openSheet('add'), 60);
     return;
   }
+  if (r.name !== 'pantry') pRankHold.clear();
   setActiveTab(r.name);
   let html;
   switch (r.name) {
@@ -3140,113 +3091,288 @@ function openAddToList(r) {
 }
 
 // The product sheet: the list's item sheet look, plus how it's counted, expiry, threshold and barcodes
-function openPantryEdit(p) {
-  if (!p) return;
-  let codes = codesOf(p);
-  const level = isLevel(p);
-  const codesHtml = () => `${codes.map((c, i) => `<span class="tag">🏷️ ${esc(c)}<button type="button" class="tag-x" data-action="code-remove" data-i="${i}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}
-    <button type="button" class="btn small" data-action="code-add">📷 ${esc(t('linkBarcode'))}</button>`;
+function openPantryEdit(p) { if (p) openProductSheet({ pantryId: p.id }); }
+
+// ---------- v50: one sheet for a product wherever it is: on the list, in the cart, at home ----------
+// Opened from a list row, the cart or a pantry row. Tabs show where the product is; the part for that place
+// below them; then what holds everywhere (department, shops, note), written to every copy that exists.
+function counterpartItem(prod) {
+  const all = live('shopping');
+  return get('shopping', `low_${prod.id}`) && !get('shopping', `low_${prod.id}`).deleted ? get('shopping', `low_${prod.id}`)
+    : all.find((i) => i.pantryId === prod.id && !i.checked) || all.find((i) => !i.checked && sameFood(i, prod))
+    || all.find((i) => i.pantryId === prod.id) || all.find((i) => sameFood(i, prod)) || null;
+}
+function openProductSheet({ listId = null, pantryId = null } = {}) {
+  let item = listId ? get('shopping', listId) : null;
+  let prod = pantryId ? get('pantry', pantryId) : null;
+  if (!item && !prod) return;
+  if (item && !prod) prod = (item.pantryId && get('pantry', item.pantryId)) || findPantry(item) || null;
+  if (prod && !item) item = counterpartItem(prod);
+  if (prod?.deleted) prod = null;
+  const opened = listId ? 'item' : 'prod';
+  const start = opened === 'item' ? item : prod;
+  const S = {
+    at: opened === 'prod' ? 'home' : item.checked ? 'cart' : 'list',
+    list: item ? { qty: item.qty ?? '', unit: item.unit || '' } : null,
+    home: null,
+    startCat: opened === 'item' ? shopCat(item) : categoryOf(prod),
+    shops: [...((start.shops && start.shops.length ? start.shops : (opened === 'item' ? prod?.shops : item?.shops)) || [])],
+    note: start.note || (opened === 'item' ? prod?.note : item?.note) || '',
+  };
+  const homeDraft = (x) => ({ track: isLevel(x) ? 'level' : 'qty', level: levelOf(x), qty: x.qty ?? '', unit: x.unit || '', min: x.min ?? '', target: x.target ?? '',
+    expires: x.expires || '', remindDays: x.remindDays ?? '', place: PLACES.includes(x.place) ? x.place : '', codes: [...codesOf(x)] });
+  if (prod) S.home = homeDraft(prod);
+  const fst = foodState(start);
+  const startName = start.name;
+  const units = (cur) => (UNITS.includes(cur || '') ? UNITS : [...UNITS, cur]);
+  const unitSel = (cur) => `<select name="unit">${units(cur).map((u) => `<option value="${esc(u)}" ${u === (cur || '') ? 'selected' : ''}>${esc(u === '' ? '—' : unitOptionLabel(u))}</option>`).join('')}</select>`;
   const radio = (name, value, label, on) => `<label class="lvl ${on ? 'on' : ''}"><input type="radio" name="${name}" value="${value}" ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
-  const fst = foodState(p);
-  openModal(`
-    <h2 class="sl-title">${esc(p.name)}</h2>
-    <div class="sl-sheet p-sheet">
-      <label class="sl-field">${esc(t('name'))}<input name="name" required value="${esc(p.name)}" autocomplete="off"></label>
-      ${foodFieldHtml(fst, p.name)}
+  const qtyLabel = (q, u) => qtyText(num(q) || 0, u) || '';
+  const tabs = () => {
+    const homeSub = prod ? `${t(`place_${S.home.place || guessPlace(prod)}`)} · ${S.home.track === 'level' ? t(`level_${S.home.level}`) : qtyLabel(S.home.qty, S.home.unit) || '0'}` : '—';
+    const T = [
+      ['list', t('psAtList'), item && !item.checked ? qtyLabel(S.list.qty, S.list.unit) || '✓' : '—'],
+      ['cart', t('psAtCart'), item && item.checked ? qtyLabel(S.list.qty, S.list.unit) || '✓' : '—'],
+      ['home', t('psAtHome'), homeSub],
+    ];
+    return T.map(([k, label, sub]) => `<button type="button" role="tab" class="ps-tab ${k === S.at ? 'on' : ''}" aria-selected="${k === S.at}" data-action="ps-at" data-value="${k}"><span>${esc(label)}</span><small>${esc(sub)}</small></button>`).join('');
+  };
+  const ctxHtml = () => {
+    if (S.at === 'list' || S.at === 'cart') {
+      if (!item) return `<p class="hint">${esc(t('psNotOnList'))}</p><button type="button" class="btn" data-action="ps-tolist">🛒 ${esc(t('psAddToList'))}</button>`;
+      if (S.at === 'list' && item.checked) return `<p class="hint">${esc(t('psInCartNow'))}</p><button type="button" class="btn" data-action="ps-uncheck">${esc(t('psBackToList'))}</button>`;
+      if (S.at === 'cart' && !item.checked) return `<p class="hint">${esc(t('psNotInCart'))}</p><button type="button" class="btn" data-action="ps-check">${esc(t('psToCart'))}</button>`;
+      const origin = item.auto ? t('itemFromPantry') : (item.sources || []).length ? t('forRecipes', item.sources.join(', ')) : '';
+      return `<div class="sl-two">
+          <label class="sl-field">${esc(t(S.at === 'cart' ? 'psTaken' : 'quantity'))}<span class="sl-stepper">
+            <button type="button" data-action="sl-qty-dec" aria-label="−">−</button>
+            <input name="qty" inputmode="decimal" value="${esc(S.list.qty)}">
+            <button type="button" data-action="sl-qty-inc" aria-label="+">+</button></span></label>
+          <label class="sl-field">${esc(t('unit'))}${unitSel(S.list.unit)}</label>
+        </div>
+        ${origin ? `<p class="sl-hint">${esc(origin)}</p>` : ''}
+        ${S.at === 'cart' ? `<p class="sl-hint">${esc(t('psCartHint'))}</p>` : ''}`;
+    }
+    if (!prod) return `<p class="hint">${esc(t('psNotHome'))}</p><button type="button" class="btn" data-action="ps-tohome">📦 ${esc(t('psPutHome'))}</button>`;
+    const H = S.home; const level = H.track === 'level';
+    const curPlace = H.place || guessPlace(prod);
+    return `<div class="sl-field"><span>${esc(t('placeLabel'))}</span>
+        <div class="lvl-seg place-seg" role="radiogroup" aria-label="${esc(t('placeLabel'))}">${PLACES.map((k) => radio('place', k, t(`place_${k}`), k === curPlace)).join('')}</div>
+        ${H.place ? '' : `<small class="sl-hint">${esc(t('placeGuessHint'))}</small>`}</div>
       <div class="sl-field"><span>${esc(t('trackLabel'))}</span>
         <div class="lvl-seg track-seg" role="radiogroup" aria-label="${esc(t('trackLabel'))}">${radio('track', 'qty', t('track_qty'), !level)}${radio('track', 'level', t('track_level'), level)}</div>
         <small class="sl-hint">${esc(t('trackHint'))}</small></div>
       <div class="p-level-fields" ${level ? '' : 'hidden'}>
         <div class="sl-field"><span>${esc(t('levelLabel'))}</span>
-          <div class="lvl-seg" role="radiogroup" aria-label="${esc(t('levelLabel'))}">${LEVELS.map((l) => radio('level', l, t(`level_${l}`), l === levelOf(p))).join('')}</div>
+          <div class="lvl-seg" role="radiogroup" aria-label="${esc(t('levelLabel'))}">${LEVELS.map((l) => radio('level', l, t(`level_${l}`), l === H.level)).join('')}</div>
           <small class="sl-hint">${esc(t('levelHint'))}</small></div>
       </div>
       <div class="p-qty-fields" ${level ? 'hidden' : ''}>
         <div class="sl-two">
-          <label class="sl-field">${esc(t('quantity'))}<span class="sl-stepper">
+          <label class="sl-field">${esc(t('psHave'))}<span class="sl-stepper">
             <button type="button" data-action="pq-dec" aria-label="−">−</button>
-            <input name="qty" inputmode="decimal" value="${esc(p.qty ?? '')}">
+            <input name="qty" inputmode="decimal" value="${esc(H.qty)}">
             <button type="button" data-action="pq-inc" aria-label="+">+</button></span></label>
-          <label class="sl-field">${esc(t('unit'))}<select name="unit">${UNITS.map((u) => `<option value="${u}" ${u === (p.unit || '') ? 'selected' : ''}>${esc(unitOptionLabel(u))}</option>`).join('')}</select></label>
+          <label class="sl-field">${esc(t('unit'))}${unitSel(H.unit)}</label>
         </div>
         <div class="sl-two">
-          <label class="sl-field">${esc(t('minQty'))}<input name="min" inputmode="decimal" value="${esc(p.min ?? '')}"></label>
-          <label class="sl-field">${esc(t('target'))}<input name="target" inputmode="decimal" value="${esc(p.target ?? '')}"></label>
+          <label class="sl-field">${esc(t('minQty'))}<input name="min" inputmode="decimal" value="${esc(H.min)}"></label>
+          <label class="sl-field">${esc(t('target'))}<input name="target" inputmode="decimal" value="${esc(H.target)}"></label>
         </div>
         <small class="sl-hint">${esc(t('minHint'))} ${esc(t('targetHint'))}</small>
       </div>
-      <label class="sl-field">${esc(t('department'))}<select name="cat">${CATEGORIES.map((c) => `<option value="${c.id}" ${c.id === categoryOf(p) ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
       <div class="sl-two">
-        <label class="sl-field">${esc(t('expires'))}<input name="expires" type="date" value="${esc(p.expires || '')}"></label>
-        <label class="sl-field">${esc(t('remindBefore'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(p.remindDays ?? '')}" placeholder="${esc(remindDefault())}"></label>
+        <label class="sl-field">${esc(t('expires'))}<input name="expires" type="date" value="${esc(H.expires)}"></label>
+        <label class="sl-field">${esc(t('remindBefore'))}<input name="remindDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(H.remindDays)}" placeholder="${esc(remindDefault())}"></label>
       </div>
       <small class="sl-hint">${esc(t('remindHint', remindDefault()))}</small>
-      <div class="sl-field"><span>${esc(t('barcodes'))}</span><div class="code-row" id="code-row"></div></div>
+      <div class="sl-field"><span>${esc(t('barcodes'))}</span><div class="code-row" id="code-row">${codesHtml()}</div></div>`;
+  };
+  const codesHtml = () => `${(S.home?.codes || []).map((c, i) => `<span class="tag">🏷️ ${esc(c)}<button type="button" class="tag-x" data-action="code-remove" data-i="${i}" aria-label="${esc(t('remove'))}">×</button></span>`).join('')}
+    <button type="button" class="btn small" data-action="code-add">📷 ${esc(t('linkBarcode'))}</button>`;
+  const shopList = () => shopsSorted().map((x) => ({ id: x.id, name: x.name }));
+  const delLabel = () => t(S.at === 'home' ? 'psDelHome' : S.at === 'cart' ? 'psDelCart' : 'psDelList');
+  const canDelete = () => (S.at === 'home' ? Boolean(prod) : Boolean(item) && (S.at === 'cart') === Boolean(item.checked));
+
+  openModal(`
+    <h2 class="sl-title">${esc(startName)}</h2>
+    <div class="sl-sheet ps-sheet p-sheet">
+      <label class="sl-field">${esc(t('name'))}<input name="name" required value="${esc(startName)}" autocomplete="off"></label>
+      ${foodFieldHtml(fst, startName)}
+      <div class="ps-tabs" role="tablist" aria-label="${esc(t('psWhere'))}" id="ps-tabs">${tabs()}</div>
+      <div class="ps-ctx" id="ps-ctx">${ctxHtml()}</div>
+      <h3 class="ps-h">${esc(t('psEverywhere'))}</h3>
+      <label class="sl-field">${esc(t('department'))}<select name="cat">${DEPTS.map((c) => `<option value="${esc(c.id)}" ${c.id === S.startCat ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
+      <div class="sl-field"><span>🏪 ${esc(t('itemShops'))}</span>
+        <div class="sl-chips" id="sl-shop-chips">${shopChipsHtml(shopList(), S.shops)}
+          <span class="sl-newshop"><input id="sl-new-shop-name" placeholder="${esc(listLabels().newShopPh || '')}" autocomplete="off" aria-label="${esc(t('newShop'))}"><button type="button" class="sl-chip dashed" data-action="sl-new-shop">+ ${esc(t('newShop'))}</button></span>
+        </div>
+        <small class="sl-hint">${esc(S.shops.length ? t('psShopsHint') : listLabels().anyShopHint)}</small></div>
+      <label class="sl-field">${esc(t('notes'))}<input name="note" value="${esc(S.note)}" autocomplete="off"></label>
       <div class="sl-actions">
         <button type="submit" class="sl-primary" value="ok">${esc(t('save'))}</button>
         <button type="submit" class="sl-cancel" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
         <span class="sl-gap"></span>
-        <button type="submit" class="sl-danger" value="delete" formnovalidate>${esc(t('delete'))}</button>
+        <button type="submit" class="sl-danger" value="delete" formnovalidate id="ps-del" ${canDelete() ? '' : 'hidden'}>${esc(delLabel())}</button>
       </div>
     </div>`, (form, action) => {
-    if (action === 'delete') { undoableRemove('pantry', p.id, () => ensureLowItems()); return; }
-    // a barcode belongs to one item only
-    for (const other of live('pantry').filter((x) => x.id !== p.id && codesOf(x).some((c) => codes.includes(c)))) {
-      const rest = codesOf(other).filter((c) => !codes.includes(c));
-      upsert('pantry', { ...other, barcode: rest[0] || null, barcodes: rest }, { silent: true });
+    readCtx();
+    if (action === 'delete') {
+      if (S.at === 'home' && prod) undoableRemove('pantry', prod.id, () => ensureLowItems());
+      else if (item) undoableRemove('shopping', item.id);
+      return;
     }
-    const track = form.querySelector('input[name=track]:checked')?.value || 'qty';
-    // a product never switched keeps no `track` field; a staple's qty is left as it was
-    let next = { ...p };
-    if (track === 'level') next = { ...(level ? next : setTrack(next, 'level')), level: form.querySelector('input[name=level]:checked')?.value || 'ok' };
-    else if (level) next = setTrack(next, 'qty');
-    if (track === 'qty') Object.assign(next, { qty: num(form.qty.value) ?? 0, unit: form.unit.value, min: num(form.min.value), target: num(form.target.value) });
-    next = applyFoodChoice(next, fst, form.name.value.trim(), form.cat.value, p.name);
-    upsert('pantry', {
-      ...next, name: form.name.value.trim(),
-      cat: form.cat.value === categorize(form.name.value) && !p.cat ? null : form.cat.value,
-      barcode: codes[0] || null, barcodes: codes,
-      expires: form.expires.value || null,
-      remindDays: form.remindDays.value === '' ? null : Math.max(0, parseInt(form.remindDays.value, 10) || 0),
-    }, { silent: true });
-    ensureLowItems();
+    const name = form.name.value.trim() || startName;
+    const cat = form.cat.value;
+    const note = form.note.value.trim();
+    const renamed = name !== startName;
+    if (item) {
+      const cur = get('shopping', item.id) || item;
+      const qtyRaw = String(S.list.qty).trim().replace(',', '.');
+      const qty = qtyRaw === '' ? null : Number(qtyRaw);
+      const itemName = renamed && fold(cur.name) === fold(startName) ? name : cur.name;
+      let next = { ...cur, name: itemName, qty: Number.isFinite(qty) ? qty : null, unit: S.list.unit, note, shops: [...S.shops] };
+      if (cat !== S.startCat || cur.cat) next.cat = cat === shopCat({ ...cur, cat: null }) && !cur.cat ? cur.cat : cat;
+      if (cat === S.startCat && !cur.cat) delete next.cat;
+      next = applyFoodChoice(next, fst, itemName, cat, cur.name);
+      upsert('shopping', next, { silent: true });
+    }
+    if (prod) {
+      const cur = get('pantry', prod.id) || prod;
+      const H = S.home;
+      // a barcode belongs to one product only
+      for (const other of live('pantry').filter((x) => x.id !== cur.id && codesOf(x).some((c) => H.codes.includes(c)))) {
+        const rest = codesOf(other).filter((c) => !H.codes.includes(c));
+        upsert('pantry', { ...other, barcode: rest[0] || null, barcodes: rest }, { silent: true });
+      }
+      let next = { ...cur };
+      const wasLevel = isLevel(cur);
+      if (H.track === 'level') next = { ...(wasLevel ? next : setTrack(next, 'level')), level: H.level || 'ok' };
+      else if (wasLevel) next = setTrack(next, 'qty');
+      if (H.track === 'qty') Object.assign(next, { qty: num(H.qty) ?? 0, unit: H.unit, min: num(H.min), target: num(H.target) });
+      const prodName = renamed && fold(cur.name) === fold(startName) ? name : cur.name;
+      next = applyFoodChoice(next, fst, prodName, CATEGORY_IDS.includes(cat) ? cat : categoryOf(cur), cur.name);
+      const pcat = CATEGORY_IDS.includes(cat) ? (cat === categorize(prodName) && !cur.cat ? null : cat) : (cur.cat ?? null);
+      next = { ...next, name: prodName, cat: pcat, barcode: H.codes[0] || null, barcodes: [...H.codes], expires: H.expires || null,
+        remindDays: H.remindDays === '' ? null : Math.max(0, parseInt(H.remindDays, 10) || 0), shops: [...S.shops] };
+      if (note) next.note = note; else delete next.note;
+      if (H.place) next.place = H.place;
+      upsert('pantry', next, { silent: true });
+      ensureLowItems();
+    }
     changed();
   }, { sheet: true });
-  const row = () => { const el = modal.querySelector('#code-row'); if (el) el.innerHTML = codesHtml(); };
-  row();
+
+  // the fields of the part on screen → the drafts (the other parts keep theirs)
+  function readCtx() {
+    const box = modal.querySelector('#ps-ctx');
+    if (!box) return;
+    const val = (n) => box.querySelector(`[name=${n}]`)?.value;
+    if ((S.at === 'list' || S.at === 'cart') && item && box.querySelector('[name=qty]')) Object.assign(S.list, { qty: val('qty'), unit: val('unit') });
+    if (S.at === 'home' && prod && S.home) {
+      const pick = (n) => box.querySelector(`input[name=${n}]:checked`)?.value;
+      const place = pick('place');
+      Object.assign(S.home, { track: pick('track') || S.home.track, level: pick('level') || S.home.level, qty: val('qty') ?? S.home.qty, unit: val('unit') ?? S.home.unit,
+        min: val('min') ?? S.home.min, target: val('target') ?? S.home.target, expires: val('expires') ?? S.home.expires, remindDays: val('remindDays') ?? S.home.remindDays });
+      if (place && (S.home.place || place !== guessPlace(prod))) S.home.place = place;
+    }
+  }
+  function redraw() {
+    modal.querySelector('#ps-tabs').innerHTML = tabs();
+    modal.querySelector('#ps-ctx').innerHTML = ctxHtml();
+    const del = modal.querySelector('#ps-del');
+    del.textContent = delLabel(); del.hidden = !canDelete();
+  }
+  const ff = modal.querySelector('#food-field');
+  const curName = () => modal.querySelector('input[name=name]').value.trim() || startName;
+  wireFoodField(ff, fst, curName);
+  const refreshChips = () => {
+    const box = modal.querySelector('#sl-shop-chips');
+    const keep = box.querySelector('.sl-newshop');
+    box.innerHTML = shopChipsHtml(shopList(), S.shops);
+    box.appendChild(keep);
+  };
+  const addShop = () => {
+    const input = modal.querySelector('#sl-new-shop-name');
+    const nm = input.value.trim();
+    if (!nm) { input.focus(); return; }
+    const existing = shopsSorted().find((x) => fold(x.name).trim() === fold(nm));
+    let sid = existing?.id;
+    if (!sid) {
+      const all = shopsSorted();
+      sid = uid();
+      upsert('shops', { id: sid, name: nm, minutes: 30, hours: [], place: '', link: '', order: all.length ? Math.max(...all.map((x) => x.order || 0)) + 1 : 0 }, { silent: true });
+    }
+    if (!S.shops.includes(sid)) S.shops = [...S.shops, sid];
+    input.value = '';
+    refreshChips();
+  };
   modal.onchange = (e) => {
     const el = e.target;
-    if (el.name !== 'track' && el.name !== 'level') return;
+    if (!['track', 'level', 'place'].includes(el.name)) return;
     for (const r of modal.querySelectorAll(`input[name=${el.name}]`)) r.closest('.lvl').classList.toggle('on', r.checked);
+    if (el.name === 'place' && S.home) S.home.place = el.value;
     if (el.name === 'track') {
       modal.querySelector('.p-level-fields').hidden = el.value !== 'level';
       modal.querySelector('.p-qty-fields').hidden = el.value === 'level';
     }
   };
-  const ff = modal.querySelector('#food-field');
-  const prodName = () => modal.querySelector('input[name=name]').value.trim() || p.name;
-  wireFoodField(ff, fst, prodName);
   modal.onclick = async (e) => {
-    if (foodFieldClick(e, fst, ff, prodName)) return;
-    const st = e.target.closest('[data-action=pq-dec],[data-action=pq-inc]');
-    if (st) {
-      const f = modal.querySelector('input[name=qty]');
-      const unit = modal.querySelector('select[name=unit]').value;
-      const step = stepFor(unit);
-      f.value = String(Math.max(0, round((num(f.value) || 0) + (st.dataset.action === 'pq-inc' ? step : -step))));
+    if (foodFieldClick(e, fst, ff, curName)) return;
+    const b = e.target.closest('[data-action]');
+    if (!b) return;
+    const act = b.dataset.action;
+    if (act === 'ps-at') { readCtx(); S.at = b.dataset.value; redraw(); return; }
+    if (act === 'ps-tolist') {
+      item = addToShopping({ name: prod.name, qty: null, unit: '', food: prod.food, foodPinned: prod.foodPinned, ...(S.shops.length ? { shops: [...S.shops] } : {}) }, null);
+      S.list = { qty: item.qty ?? '', unit: item.unit || '' };
+      toast(t('psAddedToList', prod.name)); changed(); S.at = 'list'; redraw(); return;
+    }
+    if (act === 'ps-check' || act === 'ps-uncheck') {
+      item = upsert('shopping', { ...(get('shopping', item.id) || item), checked: act === 'ps-check' }, { silent: true });
+      changed(); S.at = act === 'ps-check' ? 'cart' : 'list'; redraw(); return;
+    }
+    if (act === 'ps-tohome') {
+      readCtx();
+      prod = kitchen.putAwayRow({ name: item.name, qty: num(S.list.qty) ?? 1, unit: S.list.unit, expires: '', ...foodFields(item.name, item) });
+      if (S.shops.length && !(prod.shops || []).length) prod = upsert('pantry', { ...prod, shops: [...S.shops] }, { silent: true });
+      S.home = homeDraft(prod);
+      toast(t('psPutHomeDone', prod.name)); ensureLowItems(); changed(); S.at = 'home'; redraw(); return;
+    }
+    if (act === 'sl-new-shop') { addShop(); return; }
+    if (act === 'sl-pick-shop') {
+      const sid = b.dataset.id;
+      S.shops = S.shops.includes(sid) ? S.shops.filter((x) => x !== sid) : [...S.shops, sid];
+      refreshChips(); return;
+    }
+    if (act === 'sl-qty-dec' || act === 'sl-qty-inc') {
+      const input = modal.querySelector('#ps-ctx input[name=qty]');
+      const unit = modal.querySelector('#ps-ctx select[name=unit]').value;
+      const cur = Number(String(input.value).replace(',', '.')) || 0;
+      const by = stepFor(unit) === 100 && cur < 100 ? 10 : (stepFor(unit) || 1);
+      const nq = Math.max(0, round(cur + (act === 'sl-qty-inc' ? 1 : -1) * by));
+      input.value = nq ? String(nq) : '';
       return;
     }
-    const rm = e.target.closest('[data-action=code-remove]');
-    if (rm) { codes.splice(+rm.dataset.i, 1); row(); return; }
-    if (!e.target.closest('[data-action=code-add]')) return;
-    const code = await scanBarcode($('#scanner'), tt);
-    if (code && !codes.includes(code)) {
-      const owner = live('pantry').find((x) => x.id !== p.id && hasCode(x, code));
-      if (owner) toast(t('barcodeMoved', owner.name));
-      codes.push(code);
-      row();
+    if (act === 'pq-dec' || act === 'pq-inc') {
+      const f = modal.querySelector('#ps-ctx input[name=qty]');
+      const step = stepFor(modal.querySelector('#ps-ctx select[name=unit]').value);
+      f.value = String(Math.max(0, round((num(f.value) || 0) + (act === 'pq-inc' ? step : -step))));
+      return;
+    }
+    if (act === 'code-remove') { S.home.codes.splice(+b.dataset.i, 1); modal.querySelector('#code-row').innerHTML = codesHtml(); return; }
+    if (act === 'code-add') {
+      const code = await scanBarcode($('#scanner'), tt);
+      if (code && !S.home.codes.includes(code)) {
+        const owner = live('pantry').find((x) => x.id !== prod.id && hasCode(x, code));
+        if (owner) toast(t('barcodeMoved', owner.name));
+        S.home.codes.push(code);
+        modal.querySelector('#code-row').innerHTML = codesHtml();
+      }
     }
   };
+  // Enter in the new-shop field adds the shop instead of saving
+  modal.querySelector('#sl-new-shop-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addShop(); } });
 }
 
 // ---------- events ----------
@@ -3360,7 +3486,7 @@ function onViewInput(e) {
   editInput(e);
   // searching the shopping list: not saved, lasts while the screen is open
   if (e.target.id === 'shop-q') { ui.listQ = e.target.value; render(); return; }
-  if (e.target.id === 'pantry-q') { ui.pantryQ = e.target.value; render(); return; }
+  if (e.target.id === 'pantry-q') { pRankHold.clear(); ui.pantryQ = e.target.value; render(); return; }
   if (e.target.id === 'search') {
     ui.search = e.target.value;
     $('#cards').innerHTML = cardsHtml();
@@ -3516,17 +3642,6 @@ function onViewClick(e) {
     case 'put-away': startPutAway(); break;
     case 'pa-scan': putAwayScan(); break;
     case 'dept-jump': document.getElementById(`dept-${btn.dataset.value}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
-    case 'guide-dev': {
-      // keep the section you were reading at the same place: the pictures change height
-      const secs = [...document.querySelectorAll('.guide section')];
-      const bar = document.querySelector('.guide-dev').getBoundingClientRect().bottom;
-      const i = Math.max(0, secs.findIndex((x) => x.getBoundingClientRect().bottom > bar + 8));
-      const off = secs[i] ? secs[i].getBoundingClientRect().top : 0;
-      ui.guideDev = btn.dataset.value; render();
-      const after = document.querySelectorAll('.guide section')[i];
-      if (after && scrollY > 0) window.scrollBy(0, after.getBoundingClientRect().top - off);
-      break;
-    }
     case 'seg': if (!btn.dataset.keep) ui.search = ''; saveSettings({ recipeSeg: btn.dataset.value }).then(() => { if (route().name !== 'recipes') location.hash = '#/recipes'; else render(); }); break;
     case 'pantry-toggle': ui.withPantry = !ui.withPantry; if (route().name !== 'recipes' && route().name !== 'folder') location.hash = '#/recipes'; else render(); break;
     case 'open-add': openSheet('add'); break;
@@ -3555,6 +3670,11 @@ function onViewClick(e) {
     case 'pv-open': ui.pvOpen = !ui.pvOpen; render(); break;
     case 'qa-open': openQuickAdd(btn.dataset.value); break;
     case 'qa-mode': ui.qaMode = btn.dataset.value; ui.qaRebuild = true; render(); break;
+    case 'qa-place': { // just the chips: the field keeps what's typed and its focus
+      ui.qaPlace = btn.dataset.value;
+      for (const b of btn.closest('.qa-place').querySelectorAll('[data-action=qa-place]')) { const on = b.dataset.value === ui.qaPlace; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+      break;
+    }
     case 'qa-scan': if (modal.open) modal.close(); startScan(); break;
     case 'qa-item': {
       if (btn.dataset.kind === 'list') { const it = get('shopping', btn.dataset.id); if (it) openItemEdit(it.id); }
@@ -3617,7 +3737,8 @@ function onViewClick(e) {
     }
     case 'p-filter': { const fs = pantryFilters(); const v = btn.dataset.value; ui.pantryFilters = fs.includes(v) ? fs.filter((x) => x !== v) : [...fs, v]; render(); break; }
     case 'p-filter-clear': ui.pantryFilters = []; render(); break;
-    case 'p-mode': ui.pvOpen = false; saveSettings({ pantryMode: btn.dataset.value }).then(render); break;
+    case 'p-place': pRankHold.clear(); saveSettings({ pantryPlace: btn.dataset.value }).then(render); break;
+    case 'p-mode': pRankHold.clear(); ui.pvOpen = false; saveSettings({ pantryMode: btn.dataset.value }).then(render); break;
     case 'p-level': setLevel(get('pantry', id), btn.dataset.value); break;
     case 'pantry-menu': openPantryMenu(); break;
     case 'staples-pick': openStaplesPicker(btn.dataset.value === 'suggest'); break;
@@ -3853,8 +3974,8 @@ function openParsedText(text, kind, form, c) {
   ui.prefillSource = {
     title: r.title, servings: r.servings, time: r.time, notes: r.notes, steps: r.steps,
     ingredients: parseIngs(r.ingredients),
-    source: { type: kind, book: kind === 'book' ? form.book.value.trim() : '', page: kind === 'book' ? form.page.value.trim() : '' },
-    sourcePhotos: [...c.scans],
+    source: { type: kind, book: kind === 'book' ? (form.book?.value ?? c.book ?? '').trim() : '', page: kind === 'book' ? (form.page?.value ?? c.page ?? '').trim() : '' },
+    sourcePhotos: [...(c.scans || [...(c.roles?.ingredients || []), ...(c.roles?.steps || [])])],
     findImageFor: r.title, lang: r.lang,
   };
   ui.edit = null;
@@ -3889,62 +4010,121 @@ async function lookForDishPhoto(edit, title, lang) {
   }
 }
 
+// v50: a recipe from photos, step by step: the ingredients, then the method, then (optionally) the dish.
+// The queue item keeps `scans` = the pages to read (older importers read just those) and `roles` for the new one.
+const CAP_STEPS = ['ingredients', 'steps', 'dish', 'review'];
 function openPhotoCapture() {
-  const c = ui.capture = { id: uid(), kind: 'book', scans: [], busy: false };
+  const c = ui.capture = { id: uid(), kind: 'book', step: 'ingredients', same: false, roles: { ingredients: [], steps: [], dish: [] }, busy: false, book: '', page: '', pasted: '' };
+  const order = () => (c.same ? ['ingredients', 'dish', 'review'] : CAP_STEPS);
+  const textScans = () => (c.same ? [...c.roles.ingredients] : [...c.roles.ingredients, ...c.roles.steps]);
+  const stepTitle = (k) => t(k === 'ingredients' && c.same ? 'capStep_both' : `capStep_${k}`);
   openModal(`
     <h2>${esc(t('fromPhoto'))}</h2>
     <div class="seg" role="radiogroup">
       <label><input type="radio" name="kind" value="book" checked> 📖 ${esc(t('srcBook'))}</label>
       <label><input type="radio" name="kind" value="note"> ✍️ ${esc(t('srcNote'))}</label>
     </div>
-    <div class="photo-strip" id="scan-strip"></div>
-    <p class="hint">${esc(t('captureHint'))}</p>
-    <div class="two book-only">
-      <label>${esc(t('bookTitle'))}<input name="book" list="books" autocomplete="off" placeholder="${esc(t('optional'))}"></label>
-      <label>${esc(t('page'))}<input name="page" inputmode="numeric" autocomplete="off" placeholder="${esc(t('optional'))}"></label>
-    </div>
-    ${booksDatalist()}
-    <details class="paste" ${c.pasteOpen ? 'open' : ''}>
-      <summary>${esc(t('pasteText'))}</summary>
-      <p class="hint small">${esc(t('pasteHint'))}</p>
-      <textarea name="pasted" rows="7" placeholder="${esc(t('pasteTextPh'))}"></textarea>
-    </details>
+    <div class="cap-steps" id="cap-steps"></div>
+    <div class="cap-body" id="cap-body"></div>
     <p class="hint small">${esc(t(isConfigured() ? 'captureFree' : 'importNeedsGithub'))}</p>
-    <div class="button-row">
-      <button class="btn primary" value="ok" disabled>${esc(t('readRecipe'))}</button>
-      <button class="btn" value="cancel" formnovalidate>${esc(t('cancel'))}</button>
-    </div>`, (form) => {
+    <div class="button-row cap-foot" id="cap-foot"></div>`, (form) => {
     const kind = form.kind.value;
-    const pasted = form.pasted.value.trim();
-    if (pasted) { openParsedText(pasted, kind, form, c); return; }
-    if (!c.scans.length) return;
+    if (c.step === 'ingredients' && c.pasted.trim()) { openParsedText(c.pasted.trim(), kind, form, c); return; }
+    if (!textScans().length) return;
     upsert('queue', {
-      id: c.id, type: 'photo', kind, scans: [...c.scans], status: 'pending', addedAt: Date.now(), folderId: targetFolderId(),
-      book: kind === 'book' ? form.book.value.trim() : '', page: kind === 'book' ? form.page.value.trim() : '',
+      id: c.id, type: 'photo', kind, scans: textScans(),
+      roles: { ingredients: [...c.roles.ingredients], steps: c.same ? [] : [...c.roles.steps], dish: [...c.roles.dish], same: c.same },
+      status: 'pending', addedAt: Date.now(), folderId: targetFolderId(),
+      book: kind === 'book' ? (form.book?.value ?? c.book).trim() : '', page: kind === 'book' ? (form.page?.value ?? c.page).trim() : '',
     }, { silent: true });
     ui.capture = null;
     changed();
   });
-  modal.querySelector('form').classList.add('capture', 'is-book');
-  refreshCapture();
+  const formEl = modal.querySelector('form');
+  formEl.classList.add('capture', 'is-book', 'guided');
+  const draw = () => {
+    const steps = order().filter((k) => k !== 'review');
+    const at = order().indexOf(c.step);
+    modal.querySelector('#cap-steps').innerHTML = CAP_STEPS.filter((k) => k !== 'review').map((k, i) => {
+      const skipped = c.same && k === 'steps';
+      const idx = order().indexOf(k);
+      const cls = skipped ? 'skip' : k === c.step ? 'on' : idx >= 0 && idx < at ? 'done' : '';
+      return `<button type="button" class="cap-step ${cls}" data-action="cap-go" data-value="${k}" ${skipped || idx > at ? 'disabled' : ''}><span class="bar"></span><span>${i + 1}. ${esc(skipped ? t('capStepSame') : stepTitle(k))}</span></button>`;
+    }).join('');
+    const body = modal.querySelector('#cap-body');
+    if (c.step === 'review') {
+      body.innerHTML = `<h3 class="cap-h">${esc(t('capReview'))}</h3>
+        <ul class="cap-review">${steps.map((k) => { const list = c.roles[k]; return `<li>
+          <span class="cap-thumbs">${list.slice(0, 3).map((ph) => `<span class="shot page mini">${photoTag(ph)}</span>`).join('')}</span>
+          <span class="cap-what"><strong>${esc(stepTitle(k))}</strong><small>${esc(list.length ? t('capPhotos', list.length) : t(k === 'dish' ? 'capDishNone' : 'capNone'))}</small></span>
+          <button type="button" class="link-btn" data-action="cap-go" data-value="${k}">${esc(t('capRedo'))}</button></li>`; }).join('')}</ul>
+        <div class="two book-only">
+          <label>${esc(t('bookTitle'))}<input name="book" list="books" autocomplete="off" placeholder="${esc(t('optional'))}" value="${esc(c.book)}"></label>
+          <label>${esc(t('page'))}<input name="page" inputmode="numeric" autocomplete="off" placeholder="${esc(t('optional'))}" value="${esc(c.page)}"></label>
+        </div>
+        ${booksDatalist()}
+        <p class="hint small">${esc(t('capReviewHint'))}</p>`;
+      hydrate(body);
+    } else {
+      const list = c.roles[c.step];
+      body.innerHTML = `<h3 class="cap-h">${esc(stepTitle(c.step))}</h3>
+        <p class="hint">${esc(t(c.step === 'ingredients' && c.same ? 'capHint_both' : `capHint_${c.step}`))}</p>
+        <div class="photo-strip" id="scan-strip">${captureStrip({ scans: list, busy: c.busy })}</div>
+        ${c.step === 'ingredients' ? `<label class="check cap-same"><input type="checkbox" name="same" ${c.same ? 'checked' : ''}> ${esc(t('capSamePage'))}</label>
+        <details class="paste" ${c.pasted ? 'open' : ''}>
+          <summary>${esc(t('pasteText'))}</summary>
+          <p class="hint small">${esc(t('pasteHint'))}</p>
+          <textarea name="pasted" rows="7" placeholder="${esc(t('pasteTextPh'))}">${esc(c.pasted)}</textarea>
+        </details>` : ''}`;
+      hydrate(body);
+    }
+    const foot = modal.querySelector('#cap-foot');
+    const n = c.step === 'review' ? 0 : c.roles[c.step].length;
+    const first = c.step === 'ingredients';
+    foot.innerHTML = `${c.step === 'review'
+      ? `<button class="btn primary" value="ok" ${textScans().length && !c.busy ? '' : 'disabled'}>${esc(t('capImport'))}</button>`
+      : first && c.pasted.trim() ? `<button class="btn primary" value="ok">${esc(t('capUseText'))}</button>`
+        : `<button type="button" class="btn ${n || c.step === 'dish' ? 'primary' : ''}" data-action="cap-next" ${n || c.step === 'dish' ? '' : 'disabled'}>${esc(t(n || c.step !== 'dish' ? 'capNext' : 'capSkip'))}</button>`}
+      ${first ? '' : `<button type="button" class="btn" data-action="cap-back">${esc(t('capBack'))}</button>`}
+      <button class="btn ghost" value="cancel" formnovalidate>${esc(t('cancel'))}</button>`;
+  };
+  const keepFields = () => {
+    const bk = modal.querySelector('input[name=book]'); if (bk) c.book = bk.value;
+    const pg = modal.querySelector('input[name=page]'); if (pg) c.page = pg.value;
+  };
+  const go = (k) => { keepFields(); c.step = k; draw(); };
+  draw();
   modal.onchange = async (e) => {
     const el = e.target;
-    if (el.name === 'kind') modal.querySelector('form').classList.toggle('is-book', el.value === 'book');
+    if (el.name === 'kind') { c.kind = el.value; formEl.classList.toggle('is-book', el.value === 'book'); }
+    if (el.name === 'same') { c.same = el.checked; draw(); }
     if (el.id === 'scan-input' && el.files.length) {
-      const files = [...el.files];
-      c.busy = true; refreshCapture();
-      for (const f of files) {
-        try { c.scans.push(await addScan(c.id, f)); } catch { toast(t('photoError')); }
+      const role = c.step;
+      c.busy = true; draw();
+      for (const f of [...el.files]) {
+        try { c.roles[role].push(await addScan(c.id, f)); } catch { toast(t('photoError')); }
       }
-      c.busy = false; refreshCapture();
+      c.busy = false; draw();
     }
   };
-  modal.oninput = (e) => { if (e.target.name === 'pasted') refreshCapture(); };
+  modal.oninput = (e) => {
+    if (e.target.name !== 'pasted') return;
+    const had = Boolean(c.pasted.trim());
+    c.pasted = e.target.value;
+    if (had !== Boolean(c.pasted.trim())) { // only the buttons change; the text box keeps its focus
+      const ta = e.target; const pos = ta.selectionStart;
+      draw();
+      const again = modal.querySelector('textarea[name=pasted]'); again.focus(); again.setSelectionRange(pos, pos);
+    }
+  };
   modal.onclick = (e) => {
-    const b = e.target.closest('[data-action=scan-remove]');
+    const b = e.target.closest('[data-action]');
     if (!b) return;
-    c.scans.splice(+b.dataset.i, 1);
-    refreshCapture();
+    const act = b.dataset.action;
+    if (act === 'scan-remove' && c.step !== 'review') { c.roles[c.step].splice(+b.dataset.i, 1); draw(); }
+    if (act === 'cap-next') go(order()[order().indexOf(c.step) + 1]);
+    if (act === 'cap-back') go(order()[Math.max(0, order().indexOf(c.step) - 1)]);
+    if (act === 'cap-go') go(b.dataset.value);
   };
 }
 

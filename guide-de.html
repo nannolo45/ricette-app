@@ -1,0 +1,254 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ricette · Anleitung</title><script>(function(){var m;try{m=localStorage.getItem('guideMode')}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)document.documentElement.classList.add('desk')})()</script><style>
+:root{color-scheme:light dark;--bg:#faf6ef;--ink:#2b2420;--muted:#7a6e64;--line:#e9e1d4;--acc:#b5532d;--card:#f3ece1}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#e07a4f;--card:#262220}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px 18px 60px}
+h1{font-family:Georgia,serif;font-size:1.9rem;margin:.4em 0}h2{font-family:Georgia,serif;margin-top:2em;border-top:1px solid var(--line);padding-top:1em}
+h3{margin-top:1.6em}a{color:var(--acc)}code{background:var(--card);padding:1px 5px;border-radius:5px;font-size:.92em}
+img{display:block;max-width:300px;width:100%;margin:14px auto;border:1px solid var(--line);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.18);cursor:zoom-in}
+table{border-collapse:collapse;width:100%;font-size:.95em}th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:.95em}.top a{text-decoration:none}
+.langs{display:inline-flex;gap:12px}
+nav.toc{background:var(--card);border-radius:14px;padding:10px 16px;margin:16px 0}nav.toc a{display:block;padding:3px 0;text-decoration:none}
+html:not(.desk) .dk,html:not(.desk) .desk-only,html.desk .ph,html.desk .phone-only{display:none}
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px}
+.mode button{border:0;background:none;color:var(--muted);font:inherit;font-size:.88em;padding:4px 12px;border-radius:999px;cursor:pointer}
+.mode button[aria-pressed=true]{background:var(--acc);color:var(--bg);font-weight:600}
+html.desk main{max-width:1080px;padding:24px 32px 80px}
+html.desk main>p,html.desk main>ul,html.desk main>ol,html.desk main>table,html.desk main>h2,html.desk main>h3,html.desk main>div,html.desk nav.toc{max-width:780px;margin-left:auto;margin-right:auto}
+html.desk nav.toc{columns:2;column-gap:24px}
+html.desk main>p:has(img.dk),html.desk main>p:has(img.wide){max-width:none}
+html.desk img.dk,html.desk img.wide{max-width:100%;border-radius:12px;margin:18px auto 26px}
+img.wide{max-width:100%;border-radius:12px}
+html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
+.zoom{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;padding:2vw;cursor:zoom-out}
+.zoom img{max-width:100%;max-height:100%;width:auto;margin:0;border:0;box-shadow:none;cursor:zoom-out}
+</style></head><body><main><div class="top"><a href="./#/settings">← Zurück zur App</a><span class="mode" role="group" aria-label="Anleitung anzeigen für"><button type="button" data-mode="phone">📱 Handy</button><button type="button" data-mode="desk">💻 Computer</button></span><span class="langs"><a href="guide-it.html" hreflang="it">Italiano</a><a href="guide-en.html" hreflang="en">English</a></span></div><h1 id="ricette-anleitung">Ricette: Anleitung</h1><nav class="toc"><a href="#was-ricette-ist">Was Ricette ist</a><a href="#einrichtung">Einrichtung</a><a href="#die-drei-reiter">Die drei Reiter</a><a href="#rezepte">Rezepte</a><a href="#rezepte-hinzufugen">Rezepte hinzufügen</a><a href="#der-einkauf">Der Einkauf</a><a href="#der-vorrat">Der Vorrat</a><a href="#mit-everyday">Mit Everyday</a><a href="#eine-typische-woche">Eine typische Woche</a><a href="#am-computer">Am Computer</a><a href="#tipps-und-haufige-probleme">Tipps und häufige Probleme</a></nav>
+<p>Alles, was du brauchst, um Ricette einzurichten und jeden Tag zu nutzen: deine Rezepte, die Einkaufsliste und den Vorrat.</p>
+<div class="desk-only">
+<p><strong>Du liest die Anleitung für den Computer.</strong> Die Bilder zeigen die App auf einem breiten Bildschirm: links die Filter, in der Mitte der Reiter, rechts ein Bereich (siehe <a href="#am-computer">Am Computer</a>). Wo die Anleitung <em>tippe</em> sagt, ist es am Computer ein Klick. Oben zeigt <strong>📱 Handy</strong> die Anleitung fürs Handy (die Wahl bleibt). Klick auf ein Bild, um es zu vergrößern.</p>
+</div>
+<div class="phone-only">
+<p><em>Das ist die Anleitung fürs Handy. Oben zeigt </em><em>💻 Computer</em><em> die für den Computer.</em></p>
+</div>
+<h2 id="was-ricette-ist">Was Ricette ist</h2>
+<p>Ricette sammelt deine Rezepte und verbindet sie mit dem, was du zu Hause hast. Du holst sie aus einem Link, einem Foto oder einem ganzen Kochbuch, oder schreibst sie selbst, und teilst sie in <strong>Favoriten</strong>, die du immer wieder kochst, und <strong>Ausprobieren</strong>. Daneben liegen die <strong>Einkaufsliste</strong> und der <strong>Vorrat</strong>: Jedes Rezept weiß, was dir fehlt, und ein Tippen setzt es auf die Liste.</p>
+<p>Die App läuft im Browser, auf dem Handy oder am Computer, und lässt sich wie eine normale App installieren. Deine Daten bleiben deine: Sie liegen auf deinen Geräten und in einem privaten Bereich auf GitHub, den nur du siehst. Es gibt kein Konto bei uns und nichts zu bezahlen.</p>
+<p>Was sie nicht ist: keine Rezept-Website, und sie schlägt dir keine Gerichte vor, die du nicht selbst gewählt hast. Die Mahlzeiten der Woche plant sie auch nicht: Das macht die App Everyday, mit deinen Rezepten aus Ricette (siehe <a href="#mit-everyday">Mit Everyday</a>).</p>
+<h2 id="einrichtung">Einrichtung</h2>
+<p>Du brauchst zehn Minuten und ein (kostenloses) GitHub-Konto. Alles passiert in den Einstellungen: Tippe oben rechts auf das Zahnrad. Die Einstellungen sind eine kurze Liste, jeder Eintrag öffnet eine eigene Seite. Die Karte oben zeigt, ob deine Daten synchron sind, mit <em>Jetzt synchronisieren</em>.</p>
+<p><img class="ph" loading="lazy" alt="Einstellungen: oben die Synchronisierung, darunter die Seiten" src="guide/de/03-settings.png" /><img class="dk" loading="lazy" alt="Einstellungen: oben die Synchronisierung, darunter die Seiten" src="guide/de/desk/03-settings.webp" /></p>
+<h3 id="1-die-app-installieren">1. Die App installieren</h3>
+<p>Öffne die Adresse der App in Chrome auf dem Handy oder in einem beliebigen Browser am Computer. Unter Android wählst du im Browsermenü <em>App installieren</em>; am Computer klickst du auf das Installationssymbol in der Adressleiste. Die App funktioniert auch offline. Neue Versionen kommen von selbst; unten in den Einstellungen siehst du, welche du hast.</p>
+<h3 id="2-deinen-bereich-auf-github-verbinden">2. Deinen Bereich auf GitHub verbinden</h3>
+<p>Hier werden deine Daten gespeichert, und so bleiben Handy und Computer auf dem gleichen Stand. Ohne geht Ricette auch, aber nur auf diesem Gerät und ohne Importe.</p>
+<ol>
+<li>Lege auf GitHub ein leeres, privates Repository an, zum Beispiel <code>ricette-data</code>. Ein Repository ist einfach ein Ordner auf GitHub.</li>
+<li>Erstelle ein Zugriffstoken (GitHub → Settings → Developer settings → Fine-grained tokens), das die <em>Contents</em> dieses Repositorys lesen und schreiben darf. Ein Token ist wie ein Passwort für Apps.</li>
+<li>Gib unter Einstellungen → <em>GitHub-Verbindung</em> deinen <em>GitHub-Benutzer</em>, das <em>Repository</em> und das <em>Zugriffstoken</em> ein und tippe auf <em>Speichern und prüfen</em>.</li>
+</ol>
+<p><img class="ph" loading="lazy" alt="Benutzer, Repository und Token" src="guide/de/01-sync-form.png" /><img class="dk" loading="lazy" alt="Benutzer, Repository und Token" src="guide/de/desk/01-sync-form.webp" /></p>
+<p>Wenn es klappt, steht auf der Seite <strong>Verbunden mit</strong>, und die Anzeige oben wird grün. Das Token bleibt nur auf diesem Gerät: Wiederhole den Schritt auf jedem Handy und Computer, den du nutzt.</p>
+<p><img class="ph" loading="lazy" alt="Verbunden: das Repository und die letzte Synchronisierung" src="guide/de/02-sync-connected.png" /><img class="dk" loading="lazy" alt="Verbunden: das Repository und die letzte Synchronisierung" src="guide/de/desk/02-sync-connected.webp" /></p>
+<h3 id="3-optional-erinnerungen-ans-ablaufdatum">3. Optional: Erinnerungen ans Ablaufdatum</h3>
+<p>Tippe unter Einstellungen → <em>Vorrat und Erinnerungen</em> auf <em>Mitteilungen aktivieren</em>. Jeden Morgen bekommst du einen Hinweis, wenn im Vorrat etwas bald abläuft, auch bei geschlossener App. Hier stellst du auch ein, wie viele Tage vorher.</p>
+<p><img class="ph" loading="lazy" alt="Vorrat und Erinnerungen" src="guide/de/04-settings-pantry.png" /><img class="dk" loading="lazy" alt="Vorrat und Erinnerungen" src="guide/de/desk/04-settings-pantry.webp" /></p>
+<h3 id="4-optional-personen-und-sprache">4. Optional: Personen und Sprache</h3>
+<p>Unter Einstellungen → <em>Rezepte</em> wählst du, für wie viele Personen du meistens kochst: Mengen, Einkaufsliste und <em>Mit dem Vorrat</em> richten sich danach. Unter <em>Sprache</em> wählst du Deutsch, Englisch oder Italienisch.</p>
+<h3 id="5-eine-zweite-person">5. Eine zweite Person</h3>
+<p>Jede Person hat ihr eigenes Repository und Token. Öffne auf ihrem Handy dieselbe Adresse und verbinde ihr Repository. Waren auf dem Gerät die Daten von jemand anderem, fragt die App, ob sie leer starten soll: Wähle das. <em>Dieses Gerät leeren</em> unter <em>GitHub-Verbindung</em> macht das jederzeit.</p>
+<h2 id="die-drei-reiter">Die drei Reiter</h2>
+<table>
+<thead>
+<tr>
+<th>Reiter</th>
+<th>Wofür</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rezepte</td>
+<td>Deine Sammlung, aufgeteilt in Favoriten, Ausprobieren und Alle. Hier suchst, filterst und ergänzt du Rezepte.</td>
+</tr>
+<tr>
+<td>Einkauf</td>
+<td>Die Einkaufsliste, nach Abteilung, Rezept oder Laden, mit dem Wagen.</td>
+</tr>
+<tr>
+<td>Vorrat</td>
+<td>Was du zu Hause hast, in Schrank, Kühlschrank und Gefrierfach: Mengen, Ablaufdaten und Grundvorrat, der zur Neige geht.</td>
+</tr>
+</tbody>
+</table>
+<p>Alle drei funktionieren gleich: oben die Suche mit <strong>Filter</strong> daneben, unten rechts das orange <strong>+</strong> zum Hinzufügen. Das Zahnrad oben öffnet die Einstellungen. Der Punkt daneben zeigt, ob deine Daten synchron sind: grün heißt alles in Ordnung; tippe darauf, um sofort zu synchronisieren.</p>
+<h2 id="rezepte">Rezepte</h2>
+<p><img class="ph" loading="lazy" alt="Rezepte: oben die Ordner, dann alle Rezepte" src="guide/de/10-recipes.png" /><img class="dk" loading="lazy" alt="Rezepte: oben die Ordner, dann alle Rezepte" src="guide/de/desk/10-recipes.webp" /></p>
+<h3 id="favoriten-ausprobieren-alle">Favoriten, Ausprobieren, Alle</h3>
+<p>Jedes Rezept hat einen Status. <strong>Favoriten</strong> sind die, die du immer wieder kochst. <strong>Ausprobieren</strong> sind importierte Rezepte, die du noch nicht bewertet hast: Jeder Import landet hier. <strong>Alle</strong> zeigt auch deine Ordner, etwa <em>Schnelle Abendessen</em> oder <em>Kuchen</em>.</p>
+<p><img class="ph" loading="lazy" alt="Favoriten: die Rezepte, die du wieder kochst" src="guide/de/11-favourites.png" /><img class="dk" loading="lazy" alt="Favoriten: die Rezepte, die du wieder kochst" src="guide/de/desk/11-favourites.webp" /></p>
+<p>Um den Status zu ändern, tippe auf der Rezeptseite auf den ☆. Archivierte Rezepte bleiben, aber versteckt.</p>
+<h3 id="finden-und-filtern">Finden und filtern</h3>
+<p>Gib in die Suche einen Namen oder eine Zutat ein: Sie sucht in deiner ganzen Sammlung. <strong>Filter</strong> öffnet direkt darunter ein Feld:</p>
+<ul>
+<li>oben die Reihenfolge (<em>Zuletzt hinzugefügt</em>, <em>Schnellste</em>, <em>Am häufigsten gekocht</em>… auch <em>Umgekehrt</em>) und <em>Liste</em> oder <em>Raster</em>;</li>
+<li>die Schnellschalter: <em>Mit dem Vorrat</em>, <strong>≤ 15 / 30 / 60 min</strong> und deine angehefteten Tags;</li>
+<li>die Abschnitte <em>Gang</em>, <em>Ernährung</em>, <em>Herkunft</em>, <em>Weitere Tags</em> und <em>Arbeit, Kalorien, Quelle</em>, die sich einzeln öffnen.</li>
+</ul>
+<p><img class="ph" loading="lazy" alt="Das Filter-Feld, mit offenem Gang" src="guide/de/12-filters.png" /><img class="dk" loading="lazy" alt="Das Filter-Feld, mit offenem Gang" src="guide/de/desk/12-filters.webp" /></p>
+<p>Ist das Feld zu, bleiben die aktiven Filter unter der Suche: Tippe auf ✕, um einen zu entfernen.</p>
+<h3 id="mit-dem-vorrat">Mit dem Vorrat</h3>
+<p>Der Schalter <strong>Mit dem Vorrat</strong> stellt die Rezepte nach oben, für die fast alles da ist, und zeigt, was fehlt. <em>Fehlendes auf die Einkaufsliste</em> setzt es auf die Liste. Salz, Pfeffer und Öl kann man als vorhanden annehmen.</p>
+<p><img class="ph" loading="lazy" alt="Mit dem Vorrat: zuerst, was du kochen kannst" src="guide/de/13-with-pantry.png" /><img class="dk" loading="lazy" alt="Mit dem Vorrat: zuerst, was du kochen kannst" src="guide/de/desk/13-with-pantry.webp" /></p>
+<h3 id="die-rezeptseite">Die Rezeptseite</h3>
+<p>Neben den Zutaten ändern − und + die Personenzahl. Jede Zutat zeigt, ob sie <em>da</em> ist oder <em>fehlt</em>. Unten:</p>
+<ul>
+<li><strong>auf die Liste</strong> setzt nur das Fehlende auf die Einkaufsliste;</li>
+<li><strong>Gekocht</strong> nimmt das Verbrauchte aus dem Vorrat;</li>
+<li><strong>⋯</strong> zum Bearbeiten, Verschieben in einen Ordner, Teilen oder Löschen.</li>
+</ul>
+<p><img class="ph" loading="lazy" alt="Eine Rezeptseite: was da ist und was fehlt" src="guide/de/14-recipe.png" /><img class="dk" loading="lazy" alt="Eine Rezeptseite: was da ist und was fehlt" src="guide/de/desk/14-recipe.webp" /></p>
+<p>Nach <em>Gekocht</em> bei einem Rezept zum Ausprobieren fragt die App <strong>Wie war es?</strong>: <em>Wieder kochen: Favorit</em>, <em>Gut, ausprobiert</em> oder <em>Nichts für uns: archivieren</em>.</p>
+<p><img class="ph" loading="lazy" alt="Wie war es? nach dem ersten Mal" src="guide/de/15-how-was-it.png" /><img class="dk" loading="lazy" alt="Wie war es? nach dem ersten Mal" src="guide/de/desk/15-how-was-it.webp" /></p>
+<h2 id="rezepte-hinzufugen">Rezepte hinzufügen</h2>
+<p>Tippe bei Rezepte auf <strong>+</strong>. Das Blatt hat einen Reiter für jeden Weg und unten <em>Speichern in</em> für den Ordner. Alles, was du importierst, landet nach ein, zwei Minuten unter <em>Ausprobieren</em>.</p>
+<h3 id="aus-einem-link">Aus einem Link</h3>
+<p>Füge die Adresse des Rezepts ein und tippe auf <em>Importieren</em>. Du kannst einen Link auch aus einer anderen App direkt mit Ricette teilen.</p>
+<p><img class="ph" loading="lazy" alt="Link: die Adresse einfügen" src="guide/de/20-add-link.png" /><img class="dk" loading="lazy" alt="Link: die Adresse einfügen" src="guide/de/desk/20-add-link.webp" /></p>
+<h3 id="aus-einem-foto">Aus einem Foto</h3>
+<p>Für ein Rezept aus einem Buch oder einer Notiz. Tippe auf <em>Fotos aufnehmen oder wählen</em>: Die App führt dich in drei Schritten.</p>
+<ol>
+<li><strong>Zutaten:</strong> Fotografiere die Zutatenliste; geht sie über mehrere Seiten, ein Foto pro Seite.</li>
+<li><strong>Zubereitung:</strong> die Schritte, in der Reihenfolge, in der du sie liest. Stehen sie auf derselben Seite wie die Zutaten, hake <em>Zutaten und Zubereitung stehen auf derselben Seite</em> an, und dieser Schritt entfällt.</li>
+<li><strong>Das Gericht:</strong> optional. Es wird das Titelbild und nicht gelesen; mit <em>Überspringen</em> suche ich eins.</li>
+</ol>
+<p><img class="ph" loading="lazy" alt="Aus einem Foto: zuerst die Zutaten" src="guide/de/21-add-photo.png" /><img class="dk" loading="lazy" alt="Aus einem Foto: zuerst die Zutaten" src="guide/de/desk/21-add-photo.webp" /></p>
+<p>Am Ende fasst <em>Alles in Ordnung?</em> die Fotos zusammen: <em>Neu</em> ändert eine Gruppe, <em>Rezept importieren</em> schickt es ab. Hast du den Text schon (Live Text, Google Lens), füge ihn im ersten Schritt unter <em>Oder Text einfügen</em> ein. Der Text wird auf deinem GitHub gelesen, nicht von einem fremden Dienst.</p>
+<h3 id="ein-ganzes-kochbuch">Ein ganzes Kochbuch</h3>
+<p><em>Buch</em> importiert ein ganzes Kochbuch, als PDF oder EPUB. Jedes Rezept darin wird ein eigenes Rezept, mit der Seitenzahl und, wenn vorhanden, seinem Bild. Ein Buch mit einigen hundert Seiten kann eine Stunde dauern.</p>
+<p><img class="ph" loading="lazy" alt="Buch: ein ganzes PDF oder EPUB" src="guide/de/22-add-book.png" /><img class="dk" loading="lazy" alt="Buch: ein ganzes PDF oder EPUB" src="guide/de/desk/22-add-book.webp" /></p>
+<h3 id="neu">Neu</h3>
+<p><em>Neu</em> öffnet das leere Formular. Unter <em>Kommt zu</em> wählst du, ob das Rezept zu den <em>Favoriten</em> oder zu <em>Ausprobieren</em> kommt.</p>
+<p><img class="ph" loading="lazy" alt="Neu: das Formular, mit Kommt zu" src="guide/de/23-new-recipe.png" /><img class="dk" loading="lazy" alt="Neu: das Formular, mit Kommt zu" src="guide/de/desk/23-new-recipe.webp" /></p>
+<h3 id="ein-rezept-bearbeiten">Ein Rezept bearbeiten</h3>
+<p>Tippe auf der Rezeptseite auf ⋯ → <em>Bearbeiten</em>. <em>Speichern</em> bleibt oben; verlässt du die Seite mit ungespeicherten Änderungen, fragt die App vorher.</p>
+<table>
+<thead>
+<tr>
+<th>Teil</th>
+<th>Was du einstellst</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fotos</td>
+<td>Das Titelbild und weitere Fotos; <em>Online suchen</em> findet ein Bild des Gerichts</td>
+</tr>
+<tr>
+<td>Titel, Personen</td>
+<td>Der Name und für wie viele Personen die Mengen sind</td>
+</tr>
+<tr>
+<td>Zeit, Ordner, Quelle</td>
+<td>Gesamt- und Arbeitszeit, der Ordner, der Link oder das Buch mit Seite</td>
+</tr>
+<tr>
+<td>Zutaten</td>
+<td>Eine Zeile pro Zutat: Menge, Name, Detail. <em>+ Gruppe</em> für „Für die Soße“</td>
+</tr>
+<tr>
+<td>Zubereitung</td>
+<td>Ein Schritt pro Karte; zum Umsortieren ⠿ ziehen</td>
+</tr>
+<tr>
+<td>Tags</td>
+<td>Die grünen sind automatisch; eigene fügst du mit <em>+ Tag</em> hinzu</td>
+</tr>
+</tbody>
+</table>
+<p><img class="ph" loading="lazy" alt="Die Zutaten als Zeilen" src="guide/de/24-edit.png" /><img class="dk" loading="lazy" alt="Die Zutaten als Zeilen" src="guide/de/desk/24-edit.webp" /></p>
+<p>Tippe auf eine Zutat, um sie zu ändern. Unter dem Namen steht das erkannte Lebensmittel; ist es falsch oder fehlt es, tippe auf <strong>Korrigieren</strong>. <em>Als Text schreiben</em> zeigt die ganze Liste als Text, praktisch zum Einfügen.</p>
+<p><img class="ph" loading="lazy" alt="Eine Zutat: Menge, Gruppe und Korrigieren" src="guide/de/25-ingredient.png" /><img class="dk" loading="lazy" alt="Eine Zutat: Menge, Gruppe und Korrigieren" src="guide/de/desk/25-ingredient.webp" /></p>
+<h3 id="zutaten-und-lebensmittel">Zutaten und Lebensmittel</h3>
+<p>Ricette kennt Lebensmittel auf Deutsch, Englisch und Italienisch: So sind die Eier im Rezept die Eier im Vorrat, und alles landet in der richtigen Abteilung. Unter Einstellungen → <em>Zutaten und Lebensmittel</em> stehen die Namen, die sie nicht erkannt hat: Verknüpfe sie mit einem Lebensmittel oder lege ein eigenes an. Das gilt für alle Rezepte, die Einkaufsliste und den Vorrat.</p>
+<p><img class="ph" loading="lazy" alt="Zutaten und Lebensmittel: die Namen zum Klären" src="guide/de/26-foods.png" /><img class="dk" loading="lazy" alt="Zutaten und Lebensmittel: die Namen zum Klären" src="guide/de/desk/26-foods.webp" /></p>
+<h2 id="der-einkauf">Der Einkauf</h2>
+<p><img class="ph" loading="lazy" alt="Die Einkaufsliste, nach Abteilungen" src="guide/de/30-list.png" /><img class="dk" loading="lazy" alt="Die Einkaufsliste, nach Abteilungen" src="guide/de/desk/30-list.webp" /></p>
+<h3 id="hinzufugen">Hinzufügen</h3>
+<p>Tippe auf <strong>+</strong> und schreib zum Beispiel <code>2 l Milch, Eier, 1,5 kg Mehl</code>, dann Enter. Menge und Abteilung werden erkannt, und das Feld bleibt für das Nächste offen. Darunter steht, was du gerade hinzugefügt hast: Tippe auf einen Namen, um ihn zu ändern.</p>
+<p><img class="ph" loading="lazy" alt="Das + bei Einkauf: mehreres auf einmal" src="guide/de/31-list-add.png" /><img class="dk" loading="lazy" alt="Das + bei Einkauf: mehreres auf einmal" src="guide/de/desk/31-list-add.webp" /></p>
+<p>Aus einem Rezept setzt <em>zur Einkaufsliste</em> die fehlenden Zutaten mit Menge auf die Liste. Was im Vorrat zur Neige geht, kommt von selbst auf die Liste.</p>
+<h3 id="ansichten-und-filter">Ansichten und Filter</h3>
+<p><strong>Filter</strong> öffnet die Wahl der Ansicht: <em>Gruppieren nach</em> Abteilung, Rezept oder Laden, oder <em>Als Liste</em>: <em>Meine Reihenfolge</em>, <em>A–Z</em>, neueste. Darunter die Schnellfilter nach Laden. Abteilungen, Rezepte und deine Reihenfolge gelten auf allen Geräten, auch in Everyday.</p>
+<p><img class="ph" loading="lazy" alt="Die Ansicht wählen" src="guide/de/32-list-views.png" /><img class="dk" loading="lazy" alt="Die Ansicht wählen" src="guide/de/desk/32-list-views.webp" /></p>
+<h3 id="das-blatt-eines-produkts">Das Blatt eines Produkts</h3>
+<p>Tippe auf den Namen eines Eintrags: Das Blatt des Produkts öffnet sich, dasselbe wie im Wagen und im Vorrat. Oben zeigen drei Reiter, wo es ist: <em>Auf der Liste</em>, <em>Im Wagen</em> und <em>Zu Hause</em>, mit Menge und Ort.</p>
+<ul>
+<li>Darunter der Teil für diesen Ort: wie viel kaufen, wie viel genommen, oder wie viel zu Hause da ist.</li>
+<li>Unten <em>Das Produkt, überall</em>: Abteilung, Läden unter <em>Gibt es bei</em> und Notiz, überall gleich. Kein Laden heißt „überall“.</li>
+<li>Steht das Produkt nicht auf der Liste, setzt <em>Auf die Liste</em> es drauf; ist es nicht zu Hause, <em>In den Vorrat</em>.</li>
+<li>Der rote Knopf sagt, was er entfernt: <em>Von der Liste nehmen</em>, <em>Aus dem Wagen nehmen</em> oder <em>Aus dem Vorrat nehmen</em> (mit <em>Rückgängig</em> direkt danach).</li>
+</ul>
+<p><img class="ph" loading="lazy" alt="Das Blatt eines Produkts: wo es ist, wie viel, Läden" src="guide/de/33-list-item.png" /><img class="dk" loading="lazy" alt="Das Blatt eines Produkts: wo es ist, wie viel, Läden" src="guide/de/desk/33-list-item.webp" /></p>
+<h3 id="der-wagen-und-in-den-vorrat">Der Wagen und In den Vorrat</h3>
+<p>Hake ab, was in den Wagen kommt: Es rutscht nach unten in <strong>Im Wagen</strong>. Zu Hause tippst du auf <strong>In den Vorrat</strong>: Mengen, Ablaufdaten und den Ort prüfen (Schrank, Kühlschrank oder Gefrierfach), dann kommt alles in den Vorrat und von der Liste. Ein neues Produkt nimmt die Läden des Eintrags mit.</p>
+<p><img class="ph" loading="lazy" alt="Der Wagen" src="guide/de/34-cart.png" /><img class="dk" loading="lazy" alt="Der Wagen" src="guide/de/desk/34-cart.webp" /></p>
+<p><img class="ph" loading="lazy" alt="In den Vorrat: Mengen und Ablaufdaten" src="guide/de/35-put-away.png" /><img class="dk" loading="lazy" alt="In den Vorrat: Mengen und Ablaufdaten" src="guide/de/desk/35-put-away.webp" /></p>
+<h3 id="der-nachste-einkauf">Der nächste Einkauf</h3>
+<p>Nutzt du Everyday und planst dort einen Einkauf, zeigt die Liste <strong>Nächster Einkauf</strong>: wann und in welchen Läden. Jeder Eintrag zeigt, bei welchem Einkauf er dran ist; <em>Nur diesen zeigen</em> lässt nur diese stehen.</p>
+<p><img class="ph" loading="lazy" alt="Der nächste Einkauf, geplant in Everyday" src="guide/de/36-trips.png" /><img class="dk" loading="lazy" alt="Der nächste Einkauf, geplant in Everyday" src="guide/de/desk/36-trips.webp" /></p>
+<h2 id="der-vorrat">Der Vorrat</h2>
+<p><img class="ph" loading="lazy" alt="Der Vorrat: oben was bald abläuft, dann nach Abteilung" src="guide/de/40-pantry.png" /><img class="dk" loading="lazy" alt="Der Vorrat: oben was bald abläuft, dann nach Abteilung" src="guide/de/desk/40-pantry.webp" /></p>
+<h3 id="schrank-kuhlschrank-und-gefrierfach">Schrank, Kühlschrank und Gefrierfach</h3>
+<p>Oben wählst du, wo du schaust: <em>Alles</em>, <em>Schrank</em>, <em>Kühlschrank</em> oder <em>Gefrierfach</em>, jeweils mit der Zahl der Produkte. Jedes Produkt hat seinen Ort. Bis du ihn wählst, schätzt die App ihn nach der Abteilung: Milchprodukte, Fleisch und Fisch in den Kühlschrank, Tiefkühlware ins Gefrierfach, der Rest in den Schrank. Zum Umräumen öffnest du das Blatt und tippst den Ort unter <em>Wo</em> an.</p>
+<p><img class="ph" loading="lazy" alt="Nur der Kühlschrank" src="guide/de/45-pantry-fridge.png" /><img class="dk" loading="lazy" alt="Nur der Kühlschrank" src="guide/de/desk/45-pantry-fridge.webp" /></p>
+<h3 id="hinzufugen-und-scannen">Hinzufügen und scannen</h3>
+<p>Tippe auf <strong>+</strong> und schreib zum Beispiel <code>6 Eier bis 20.11., 1 kg Mehl</code>: „bis 20.11.“ setzt das Ablaufdatum. <em>Kommt in</em> wählt den Ort: den, den du gerade ansiehst, oder <em>Automatisch</em>, dann kommt alles an seinen Platz. Mit <em>Scannen</em> hältst du den Barcode vor die Kamera, und das Produkt wird erkannt.</p>
+<p><img class="ph" loading="lazy" alt="Das + beim Vorrat" src="guide/de/41-pantry-add.png" /><img class="dk" loading="lazy" alt="Das + beim Vorrat" src="guide/de/desk/41-pantry-add.webp" /></p>
+<h3 id="ablaufdaten-und-schwellen">Ablaufdaten und Schwellen</h3>
+<p>Tippe auf ein Produkt für sein Blatt, dasselbe wie beim Einkauf (siehe <a href="#das-blatt-eines-produkts">Das Blatt eines Produkts</a>). <em>Erinnern, wenn es sinkt auf</em> ist die Schwelle: darunter kommt das Produkt von selbst auf die Einkaufsliste. <em>Auffüllen bis</em> sagt, wie viel du kaufen sollst. <em>Haltbar bis</em> und <em>Tage vorher erinnern</em> bestimmen die Erinnerung am Morgen. Die Läden unter <em>Gibt es bei</em> kommen mit dem Produkt zurück auf die Liste, wenn es ausgeht.</p>
+<p><img class="ph" loading="lazy" alt="Ein Produkt: Menge, Schwelle, Ablaufdatum" src="guide/de/42-pantry-product.png" /><img class="dk" loading="lazy" alt="Ein Produkt: Menge, Schwelle, Ablaufdatum" src="guide/de/desk/42-pantry-product.webp" /></p>
+<h3 id="grundvorrat-da-wenig-leer">Grundvorrat: Da, Wenig, Leer</h3>
+<p>Bei Salz, Öl, Gewürzen und Ähnlichem musst du keine Gramm zählen. Unter <em>Wie du es zählst</em> wählst du <strong>Da / Wenig / Leer</strong>: <em>Wenig</em> und <em>Leer</em> setzen es auf die Liste, und beim Einräumen wird es wieder <em>Da</em>. Kochen zieht davon nichts ab.</p>
+<p><img class="ph" loading="lazy" alt="Grundvorrat: Da, Wenig, Leer" src="guide/de/43-staple.png" /><img class="dk" loading="lazy" alt="Grundvorrat: Da, Wenig, Leer" src="guide/de/desk/43-staple.webp" /></p>
+<h3 id="filter">Filter</h3>
+<p><strong>Filter</strong> wählt die Ansicht (Abteilungen, Haltbarkeit, Bestand, A–Z) und die Filter <em>Läuft bald ab</em>, <em>Abgelaufen</em>, <em>Wird knapp</em> und <em>Leer</em>, auch zusammen. <em>Rezepte mit dem, was da ist</em> öffnet Rezepte mit eingeschaltetem <em>Mit dem Vorrat</em>.</p>
+<p><img class="ph" loading="lazy" alt="Nur was bald abläuft" src="guide/de/44-pantry-filters.png" /><img class="dk" loading="lazy" alt="Nur was bald abläuft" src="guide/de/desk/44-pantry-filters.webp" /></p>
+<h3 id="kassenbons">Kassenbons</h3>
+<p>Unter ⋯ → <em>Kassenbon lesen</em> fotografierst du den Bon gerade und gut beleuchtet. Er wird auf deinem GitHub gelesen und danach gelöscht; ist er fertig, erscheint er im Vorrat, und du räumst ihn ein wie den Wagen.</p>
+<h2 id="mit-everyday">Mit Everyday</h2>
+<p>Everyday ist die App, mit der du deine Tage planst. Die beiden teilen Einkaufsliste, Läden und Vorrat, sobald du in Everyday das Repository von Ricette einträgst.</p>
+<ul>
+<li><strong>Es gibt eine einzige Einkaufsliste.</strong> Was du in Everyday hinzufügst, steht auch hier, und umgekehrt.</li>
+<li><strong>Mahlzeiten.</strong> In Everyday wählst du ein Rezept für eine Mahlzeit, zuerst aus den Favoriten. Ist die Mahlzeit erledigt, zählt das Rezept einmal mehr (<em>4× gekocht</em>).</li>
+<li><strong>Einräumen.</strong> Auch in Everyday kommt der eingeräumte Einkauf in den Vorrat, mit den Läden des Eintrags. Den Ort zu Hause wählst du in Ricette; bis dahin gilt die Schätzung.</li>
+<li><strong>Einkäufe.</strong> Everyday entscheidet, wann eingekauft wird; Ricette zeigt es auf der Liste als <a href="#der-nachste-einkauf">nächsten Einkauf</a>.</li>
+</ul>
+<p>Wer was entscheidet: Ricette entscheidet über Rezepte, Liste und Vorrat; Everyday entscheidet, wann gekocht und wann eingekauft wird.</p>
+<h2 id="eine-typische-woche">Eine typische Woche</h2>
+<p><strong>Sonntagabend.</strong> Du öffnest <em>Ausprobieren</em> und wählst zwei neue Rezepte: die rote Linsensuppe und das Zitronenhähnchen. Bei jedem tippst du auf <em>zur Einkaufsliste</em>: Nur was fehlt, kommt drauf. In Everyday kommt die Suppe auf Dienstag.</p>
+<p><strong>Montag, auf dem Wochenmarkt.</strong> Du öffnest den Einkauf nach Läden: Auf dem Wochenmarkt holst du Fenchel und Zitronen und hakst sie ab, während sie in die Tasche wandern. Zu Hause tippst du auf <em>In den Vorrat</em> und trägst das Ablaufdatum des Feta ein.</p>
+<p><strong>Dienstagabend.</strong> Rote Linsensuppe. Danach tippst du auf <em>Gekocht</em>: Der Vorrat zieht die Linsen ab, und auf <em>Wie war es?</em> antwortest du <em>Wieder kochen: Favorit</em>.</p>
+<p><strong>Donnerstag, wenig Zeit.</strong> Bei Rezepte schaltest du <em>Mit dem Vorrat</em> und <strong>≤ 30 min</strong> ein: Pasta e ceci geht mit dem, was da ist. Das Olivenöl wird knapp: Du tippst auf <em>Wenig</em>, und es steht schon auf der Liste für Samstag.</p>
+<h2 id="am-computer">Am Computer</h2>
+<p>Auf einem breiten Bildschirm nutzt Ricette drei Spalten. Links die Filter, immer offen. In der Mitte der Reiter. Rechts ein Bereich, der sich mit dem Reiter ändert:</p>
+<ul>
+<li><strong>Rezepte:</strong> <em>Rezept hinzufügen</em> und eine Vorschau des angeklickten Rezepts, mit dem, was fehlt. <em>Rezept öffnen</em> zeigt es ganz.</li>
+<li><strong>Einkauf:</strong> das Feld zum Hinzufügen und der Wagen, mit <em>In den Vorrat</em>. Die Liste verteilt sich auf mehrere Spalten.</li>
+<li><strong>Vorrat:</strong> das Feld zum Hinzufügen und Scannen.</li>
+</ul>
+<p><img loading="lazy" class="wide" alt="Rezepte am Computer: Filter, Rezepte, Vorschau" src="guide/de/60-wide-recipes.png" /></p>
+<p><img loading="lazy" class="wide" alt="Einkauf am Computer" src="guide/de/61-wide-list.png" /></p>
+<p><img loading="lazy" class="wide" alt="Vorrat am Computer" src="guide/de/62-wide-pantry.png" /></p>
+<h2 id="tipps-und-haufige-probleme">Tipps und häufige Probleme</h2>
+<p><strong>Die Synchronisierung startet nicht.</strong> Prüfe unter Einstellungen → <em>GitHub-Verbindung</em>, ob das Token die <em>Contents</em> des Repositorys schreiben darf und nicht abgelaufen ist. Mit <em>Verbindung ändern</em> fügst du ein neues ein.</p>
+<p><strong>Ein Import bleibt in der Warteschlange.</strong> Importe laufen auf deinem GitHub: Sie brauchen die Verbindung und ein, zwei Minuten. Lässt sich eine Seite nicht lesen, steht das oben unter <em>Ausprobieren</em>: Versuch es mit einem Foto des Rezepts.</p>
+<p><strong>Eine Zutat landet in der falschen Abteilung.</strong> Tippe auf den Eintrag, dann auf <em>Korrigieren</em>, und wähle das richtige Lebensmittel: Das gilt ab dann überall.</p>
+<p><strong>Ich habe aus Versehen etwas gelöscht.</strong> Tippe gleich danach unten in der Meldung auf <em>Rückgängig</em>.</p>
+<p><strong>Ich möchte eine Kopie meiner Daten.</strong> Einstellungen → <em>Sicherung</em> → <em>Kopie der Daten herunterladen</em>. Dein Repository auf GitHub enthält ohnehin dieselben Daten.</p>
+<p><strong>Das Handy erinnert nicht an Ablaufdaten.</strong> Mitteilungen musst du auf jedem Gerät einschalten, unter <em>Vorrat und Erinnerungen</em>. Auf dem iPhone funktionieren sie nur in der App auf dem Home-Bildschirm.</p></main><script>
+document.addEventListener('click',function(e){var z=document.querySelector('.zoom');if(z){z.remove();return;}var i=e.target.closest('main img');if(!i)return;var d=document.createElement('div');d.className='zoom';var b=document.createElement('img');b.src=i.currentSrc||i.src;b.alt=i.alt;d.appendChild(b);document.body.appendChild(d);});
+function setMode(m,keep){document.documentElement.classList.toggle('desk',m==='desk');document.querySelectorAll('.mode button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.mode===m));});if(keep){try{localStorage.setItem('guideMode',m)}catch(e){}}}
+setMode(document.documentElement.classList.contains('desk')?'desk':'phone',false);
+document.querySelectorAll('.mode button').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();setMode(b.dataset.mode,true);});});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var z=document.querySelector('.zoom');if(z)z.remove();}});
+</script></body></html>

@@ -24,6 +24,8 @@ export function renderShell() {
   }
   const gear = $('#settings-link');
   if (gear) { gear.setAttribute('aria-label', t('tabSettings')); gear.title = t('tabSettings'); }
+  const gl = $('#gear-label');
+  if (gl) gl.textContent = t('tabSettings');
 }
 
 export function setActiveTab(routeName) {

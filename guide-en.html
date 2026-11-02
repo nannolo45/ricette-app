@@ -1,0 +1,254 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ricette · Guide</title><script>(function(){var m;try{m=localStorage.getItem('guideMode')}catch(e){}var w=innerWidth,d=m?m==='desk':w>=1000||(w>=700&&matchMedia('(pointer:fine)').matches);if(d)document.documentElement.classList.add('desk')})()</script><style>
+:root{color-scheme:light dark;--bg:#faf6ef;--ink:#2b2420;--muted:#7a6e64;--line:#e9e1d4;--acc:#b5532d;--card:#f3ece1}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1916;--ink:#f1ebe3;--muted:#a99d91;--line:#3a3430;--acc:#e07a4f;--card:#262220}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px 18px 60px}
+h1{font-family:Georgia,serif;font-size:1.9rem;margin:.4em 0}h2{font-family:Georgia,serif;margin-top:2em;border-top:1px solid var(--line);padding-top:1em}
+h3{margin-top:1.6em}a{color:var(--acc)}code{background:var(--card);padding:1px 5px;border-radius:5px;font-size:.92em}
+img{display:block;max-width:300px;width:100%;margin:14px auto;border:1px solid var(--line);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.18);cursor:zoom-in}
+table{border-collapse:collapse;width:100%;font-size:.95em}th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:.95em}.top a{text-decoration:none}
+.langs{display:inline-flex;gap:12px}
+nav.toc{background:var(--card);border-radius:14px;padding:10px 16px;margin:16px 0}nav.toc a{display:block;padding:3px 0;text-decoration:none}
+html:not(.desk) .dk,html:not(.desk) .desk-only,html.desk .ph,html.desk .phone-only{display:none}
+.mode{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px}
+.mode button{border:0;background:none;color:var(--muted);font:inherit;font-size:.88em;padding:4px 12px;border-radius:999px;cursor:pointer}
+.mode button[aria-pressed=true]{background:var(--acc);color:var(--bg);font-weight:600}
+html.desk main{max-width:1080px;padding:24px 32px 80px}
+html.desk main>p,html.desk main>ul,html.desk main>ol,html.desk main>table,html.desk main>h2,html.desk main>h3,html.desk main>div,html.desk nav.toc{max-width:780px;margin-left:auto;margin-right:auto}
+html.desk nav.toc{columns:2;column-gap:24px}
+html.desk main>p:has(img.dk),html.desk main>p:has(img.wide){max-width:none}
+html.desk img.dk,html.desk img.wide{max-width:100%;border-radius:12px;margin:18px auto 26px}
+img.wide{max-width:100%;border-radius:12px}
+html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
+.zoom{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;padding:2vw;cursor:zoom-out}
+.zoom img{max-width:100%;max-height:100%;width:auto;margin:0;border:0;box-shadow:none;cursor:zoom-out}
+</style></head><body><main><div class="top"><a href="./#/settings">← Back to the app</a><span class="mode" role="group" aria-label="Show the guide for"><button type="button" data-mode="phone">📱 Phone</button><button type="button" data-mode="desk">💻 Computer</button></span><span class="langs"><a href="guide-it.html" hreflang="it">Italiano</a><a href="guide-de.html" hreflang="de">Deutsch</a></span></div><h1 id="ricette-user-guide">Ricette: user guide</h1><nav class="toc"><a href="#what-ricette-is">What Ricette is</a><a href="#first-setup">First setup</a><a href="#the-three-tabs">The three tabs</a><a href="#recipes">Recipes</a><a href="#adding-recipes">Adding recipes</a><a href="#shopping">Shopping</a><a href="#the-pantry">The pantry</a><a href="#with-everyday">With Everyday</a><a href="#a-typical-week">A typical week</a><a href="#on-a-computer">On a computer</a><a href="#tips-and-troubleshooting">Tips and troubleshooting</a></nav>
+<p>Everything you need to set up Ricette and use it every day: your recipes, the shopping list and the pantry.</p>
+<div class="desk-only">
+<p><strong>You're reading the guide for a computer.</strong> The pictures show the app on a wide screen: filters on the left, the tab in the middle and a panel on the right (see <a href="#on-a-computer">On a computer</a>). Where the guide says <em>tap</em>, on a computer it's a click. At the top, <strong>📱 Phone</strong> shows the guide for a phone (your choice is kept). Click a picture to enlarge it.</p>
+</div>
+<div class="phone-only">
+<p><em>This is the guide for a phone. At the top, </em><em>💻 Computer</em><em> shows the one for a computer.</em></p>
+</div>
+<h2 id="what-ricette-is">What Ricette is</h2>
+<p>Ricette keeps your recipes together with what's in your kitchen. You bring them in from a link, a photo or a whole cookbook, or type them yourself, and sort them into <strong>Favourites</strong>, the ones you make again, and <strong>To try</strong>. Next to them sit the <strong>shopping list</strong> and the <strong>pantry</strong>: every recipe knows what you're missing, and one tap puts it on the list.</p>
+<p>It runs in the browser, on a phone or a computer, and installs like any other app. Your data stays yours: it lives on your devices and in a private space on GitHub that only you can see. There's no account with us and nothing to pay.</p>
+<p>What it isn't: it isn't a recipe website, and it won't suggest dishes you didn't pick. It doesn't plan the week's meals either: the Everyday app does that, using your recipes from Ricette (see <a href="#with-everyday">With Everyday</a>).</p>
+<h2 id="first-setup">First setup</h2>
+<p>It takes ten minutes and a GitHub account (free). Everything happens in Settings: tap the gear at the top right. Settings is a short list, and each entry opens its own page. The card at the top says whether your data is synced, with <em>Sync now</em>.</p>
+<p><img class="ph" loading="lazy" alt="Settings: sync at the top, then the pages" src="guide/en/03-settings.png" /><img class="dk" loading="lazy" alt="Settings: sync at the top, then the pages" src="guide/en/desk/03-settings.webp" /></p>
+<h3 id="1-install-the-app">1. Install the app</h3>
+<p>Open the app's address in Chrome on your phone, or in any browser on a computer. On Android choose <em>Install app</em> from the browser menu; on a computer click the install icon in the address bar. The app works offline too. New versions arrive by themselves; the bottom of Settings shows which one you have.</p>
+<h3 id="2-connect-your-space-on-github">2. Connect your space on GitHub</h3>
+<p>This is where your data is saved, and how your phone and computer stay in step. Without it Ricette still works, but only on this device and without imports.</p>
+<ol>
+<li>On GitHub, create an empty private repository, for example <code>ricette-data</code>. A repository is just a folder on GitHub.</li>
+<li>Create an access token (GitHub → Settings → Developer settings → Fine-grained tokens) that can read and write the <em>Contents</em> of that repository. A token is like a password made for apps.</li>
+<li>In Settings → <em>GitHub connection</em>, enter your <em>GitHub user</em>, the <em>Repository</em> and the <em>Access token</em>, then tap <em>Save and check</em>.</li>
+</ol>
+<p><img class="ph" loading="lazy" alt="User, repository and token" src="guide/en/01-sync-form.png" /><img class="dk" loading="lazy" alt="User, repository and token" src="guide/en/desk/01-sync-form.webp" /></p>
+<p>When it works, the page says <strong>Connected</strong> and the label at the top turns green. The token stays on this device only: repeat this step on every phone or computer you use.</p>
+<p><img class="ph" loading="lazy" alt="Connected: the repository and the last sync" src="guide/en/02-sync-connected.png" /><img class="dk" loading="lazy" alt="Connected: the repository and the last sync" src="guide/en/desk/02-sync-connected.webp" /></p>
+<h3 id="3-optional-expiry-reminders">3. Optional: expiry reminders</h3>
+<p>In Settings → <em>Pantry and reminders</em>, tap <em>Turn on notifications</em>. Every morning you get a heads-up when something in the pantry is about to expire, even with the app closed. This is also where you choose how many days ahead.</p>
+<p><img class="ph" loading="lazy" alt="Pantry and reminders" src="guide/en/04-settings-pantry.png" /><img class="dk" loading="lazy" alt="Pantry and reminders" src="guide/en/desk/04-settings-pantry.webp" /></p>
+<h3 id="4-optional-people-and-language">4. Optional: people and language</h3>
+<p>In Settings → <em>Recipes</em>, choose how many people you usually cook for: quantities, the shopping list and <em>With the pantry</em> follow it. In <em>Language</em>, choose English, Italian or German.</p>
+<h3 id="5-a-second-person">5. A second person</h3>
+<p>Everyone has their own repository and token. On their phone, open the same address and connect their repository. If the device held someone else's data, the app asks whether to start empty: choose that. <em>Empty this device</em>, under <em>GitHub connection</em>, does the same whenever you like.</p>
+<h2 id="the-three-tabs">The three tabs</h2>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>What it's for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recipes</td>
+<td>Your collection, split into Favourites, To try and All. Search, filter and add recipes here.</td>
+</tr>
+<tr>
+<td>Shopping</td>
+<td>The shopping list, by aisle, recipe or shop, with the cart.</td>
+</tr>
+<tr>
+<td>Pantry</td>
+<td>What you have at home, in the cupboard, fridge and freezer: quantities, expiry dates and staples running low.</td>
+</tr>
+</tbody>
+</table>
+<p>All three work the same way: search at the top with <strong>Filters</strong> beside it, and the orange <strong>+</strong> at the bottom right to add. The gear at the top opens Settings. The dot next to it shows whether your data is synced: green means all is well; tap it to sync right away.</p>
+<h2 id="recipes">Recipes</h2>
+<p><img class="ph" loading="lazy" alt="Recipes: folders at the top, then all your recipes" src="guide/en/10-recipes.png" /><img class="dk" loading="lazy" alt="Recipes: folders at the top, then all your recipes" src="guide/en/desk/10-recipes.webp" /></p>
+<h3 id="favourites-to-try-all">Favourites, To try, All</h3>
+<p>Every recipe has a status. <strong>Favourites</strong> are the ones you make again. <strong>To try</strong> are the ones you imported and haven't judged yet: every import lands here. <strong>All</strong> also shows your folders, such as <em>Quick dinners</em> or <em>Baking</em>.</p>
+<p><img class="ph" loading="lazy" alt="Favourites: the recipes you make again" src="guide/en/11-favourites.png" /><img class="dk" loading="lazy" alt="Favourites: the recipes you make again" src="guide/en/desk/11-favourites.webp" /></p>
+<p>To change the status, tap the ☆ on the recipe's page. Archived recipes stay, but hidden.</p>
+<h3 id="finding-and-filtering">Finding and filtering</h3>
+<p>Type a name or an ingredient in the search: it looks through your whole collection. <strong>Filters</strong> opens a panel right underneath:</p>
+<ul>
+<li>at the top, the order (<em>Recently added</em>, <em>Quickest</em>, <em>Most cooked</em>… also <em>Reverse</em>) and <em>List</em> or <em>Grid</em>;</li>
+<li>the quick switches: <em>With the pantry</em>, <strong>≤ 15 / 30 / 60 min</strong> and your pinned tags;</li>
+<li>the sections <em>Course</em>, <em>Diet</em>, <em>Origin</em>, <em>More tags</em> and <em>Work, calories, source</em>, which open one at a time.</li>
+</ul>
+<p><img class="ph" loading="lazy" alt="The Filters panel, with Course open" src="guide/en/12-filters.png" /><img class="dk" loading="lazy" alt="The Filters panel, with Course open" src="guide/en/desk/12-filters.webp" /></p>
+<p>With the panel closed, the filters in use stay under the search: tap ✕ to remove one.</p>
+<h3 id="with-the-pantry">With the pantry</h3>
+<p>The <strong>With the pantry</strong> switch puts the recipes you have almost everything for at the top, and says what's missing. <em>Add missing to shopping list</em> puts it on the list. Salt, pepper and oil can be taken for granted.</p>
+<p><img class="ph" loading="lazy" alt="With the pantry: what you can cook comes first" src="guide/en/13-with-pantry.png" /><img class="dk" loading="lazy" alt="With the pantry: what you can cook comes first" src="guide/en/desk/13-with-pantry.webp" /></p>
+<h3 id="a-recipes-page">A recipe's page</h3>
+<p>Next to the ingredients, − and + change the number of people. Each ingredient says whether you have it: <em>at home</em> or <em>missing</em>. At the bottom:</p>
+<ul>
+<li><strong>to the list</strong> puts only what's missing on the shopping list;</li>
+<li><strong>I cooked it</strong> takes what you used out of the pantry;</li>
+<li><strong>⋯</strong> to edit, move to a folder, share or delete.</li>
+</ul>
+<p><img class="ph" loading="lazy" alt="A recipe's page: what you have and what's missing" src="guide/en/14-recipe.png" /><img class="dk" loading="lazy" alt="A recipe's page: what you have and what's missing" src="guide/en/desk/14-recipe.webp" /></p>
+<p>After <em>I cooked it</em> on a recipe you were trying, the app asks <strong>How was it?</strong>: <em>Make it again: favourite</em>, <em>Good, tried</em> or <em>Not for us: archive</em>.</p>
+<p><img class="ph" loading="lazy" alt="How was it? after the first time" src="guide/en/15-how-was-it.png" /><img class="dk" loading="lazy" alt="How was it? after the first time" src="guide/en/desk/15-how-was-it.webp" /></p>
+<h2 id="adding-recipes">Adding recipes</h2>
+<p>Tap <strong>+</strong> on Recipes. The sheet has a tab for each way in, and <em>Save in</em> at the bottom to pick the folder. Everything you import lands in <em>To try</em> within a minute or two.</p>
+<h3 id="from-a-link">From a link</h3>
+<p>Paste the recipe's address and tap <em>Import</em>. You can also share a link from another app straight to Ricette.</p>
+<p><img class="ph" loading="lazy" alt="Link: paste the address" src="guide/en/20-add-link.png" /><img class="dk" loading="lazy" alt="Link: paste the address" src="guide/en/desk/20-add-link.webp" /></p>
+<h3 id="from-a-photo">From a photo</h3>
+<p>For a recipe in a book or a handwritten note. Tap <em>Take or choose photos</em>: the app walks you through three steps.</p>
+<ol>
+<li><strong>Ingredients:</strong> photograph the ingredient list; if it runs over several pages, one photo per page.</li>
+<li><strong>Method:</strong> the steps, in the order you read them. If they're on the same page as the ingredients, tick <em>Ingredients and method are on the same page</em> and this step is skipped.</li>
+<li><strong>The dish:</strong> optional. It becomes the cover and isn't read; with <em>Skip</em> I'll look for one.</li>
+</ol>
+<p><img class="ph" loading="lazy" alt="From a photo: the ingredients first" src="guide/en/21-add-photo.png" /><img class="dk" loading="lazy" alt="From a photo: the ingredients first" src="guide/en/desk/21-add-photo.webp" /></p>
+<p>At the end, <em>All good?</em> sums up the photos: <em>Redo</em> changes a group, <em>Import the recipe</em> sends it. If you already have the text (Live Text, Google Lens), paste it at the first step under <em>Or paste the text</em>. The text is read on your own GitHub, not by an outside service.</p>
+<h3 id="a-whole-cookbook">A whole cookbook</h3>
+<p><em>Book</em> imports an entire cookbook, PDF or EPUB. Every recipe in it becomes a recipe of its own, with the book's page number and its picture when there is one. A book of a few hundred pages can take an hour.</p>
+<p><img class="ph" loading="lazy" alt="Book: a whole PDF or EPUB" src="guide/en/22-add-book.png" /><img class="dk" loading="lazy" alt="Book: a whole PDF or EPUB" src="guide/en/desk/22-add-book.webp" /></p>
+<h3 id="from-scratch">From scratch</h3>
+<p><em>From scratch</em> opens the empty form. Under <em>Goes to</em>, choose whether the recipe joins <em>Favourites</em> or <em>To try</em>.</p>
+<p><img class="ph" loading="lazy" alt="From scratch: the form, with Goes to" src="guide/en/23-new-recipe.png" /><img class="dk" loading="lazy" alt="From scratch: the form, with Goes to" src="guide/en/desk/23-new-recipe.webp" /></p>
+<h3 id="editing-a-recipe">Editing a recipe</h3>
+<p>On the recipe's page, tap ⋯ → <em>Edit</em>. <em>Save</em> stays at the top; if you leave with unsaved changes, the app asks first.</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>What you set</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Photos</td>
+<td>The cover and other photos; <em>Search online</em> finds a picture of the dish</td>
+</tr>
+<tr>
+<td>Title, people</td>
+<td>The name and how many people the amounts are for</td>
+</tr>
+<tr>
+<td>Time, Folder, Source</td>
+<td>Total and hands-on time, the folder, the link or the book with its page</td>
+</tr>
+<tr>
+<td>Ingredients</td>
+<td>One row per ingredient: amount, name, detail. <em>+ Group</em> for "For the sauce"</td>
+</tr>
+<tr>
+<td>Method</td>
+<td>One step per card; drag ⠿ to reorder</td>
+</tr>
+<tr>
+<td>Tags</td>
+<td>The green ones are automatic; add your own with <em>+ Tag</em></td>
+</tr>
+</tbody>
+</table>
+<p><img class="ph" loading="lazy" alt="Ingredients as rows" src="guide/en/24-edit.png" /><img class="dk" loading="lazy" alt="Ingredients as rows" src="guide/en/desk/24-edit.webp" /></p>
+<p>Tap an ingredient to change it. Under the name is the food Ricette recognised; if it's wrong or missing, tap <strong>Fix</strong>. <em>Write as text</em> shows the whole list as text, handy for pasting.</p>
+<p><img class="ph" loading="lazy" alt="An ingredient: amount, group and Fix" src="guide/en/25-ingredient.png" /><img class="dk" loading="lazy" alt="An ingredient: amount, group and Fix" src="guide/en/desk/25-ingredient.webp" /></p>
+<h3 id="ingredients-and-foods">Ingredients and foods</h3>
+<p>Ricette knows foods in English, Italian and German: that way the eggs in a recipe are the eggs in your pantry, and everything lands in the right aisle. Settings → <em>Ingredients and foods</em> lists the names it didn't recognise: link each to a food or create your own. It applies to every recipe, the shopping list and the pantry.</p>
+<p><img class="ph" loading="lazy" alt="Ingredients and foods: the names to sort out" src="guide/en/26-foods.png" /><img class="dk" loading="lazy" alt="Ingredients and foods: the names to sort out" src="guide/en/desk/26-foods.webp" /></p>
+<h2 id="shopping">Shopping</h2>
+<p><img class="ph" loading="lazy" alt="The shopping list, by aisle" src="guide/en/30-list.png" /><img class="dk" loading="lazy" alt="The shopping list, by aisle" src="guide/en/desk/30-list.webp" /></p>
+<h3 id="adding">Adding</h3>
+<p>Tap <strong>+</strong> and type, for example, <code>2 l milk, eggs, 1.5 kg flour</code>, then Enter. Amounts and aisles are worked out for you, and the field stays open for the next one. What you've just added shows underneath: tap a name to change it.</p>
+<p><img class="ph" loading="lazy" alt="The + on Shopping: several at once" src="guide/en/31-list-add.png" /><img class="dk" loading="lazy" alt="The + on Shopping: several at once" src="guide/en/desk/31-list-add.webp" /></p>
+<p>From a recipe, <em>to the list</em> adds the missing ingredients with their amounts. Anything running low in the pantry joins the list by itself.</p>
+<h3 id="views-and-filters">Views and filters</h3>
+<p><strong>Filters</strong> opens the choice of view: <em>Group by</em> aisle, recipe or shop, or as a <em>Single list</em>: <em>My order</em>, <em>A–Z</em>, newest. Below are quick filters by shop. Departments, recipes and your own order apply on every device, Everyday included.</p>
+<p><img class="ph" loading="lazy" alt="Choosing the view" src="guide/en/32-list-views.png" /><img class="dk" loading="lazy" alt="Choosing the view" src="guide/en/desk/32-list-views.webp" /></p>
+<h3 id="a-products-sheet">A product's sheet</h3>
+<p>Tap an item's name: the product's sheet opens, the same one you open from the cart and the pantry. At the top, three tabs say where it is: <em>On the list</em>, <em>In the cart</em> and <em>At home</em>, with amounts and place.</p>
+<ul>
+<li>Below is the part for that place: how much to buy, how much you took, or how much you have at home.</li>
+<li>At the bottom, <em>The product, everywhere</em>: aisle, shops under <em>Can be bought at</em> and a note, the same wherever you look. No shop means "anywhere".</li>
+<li>If the product isn't on the list, <em>Add to the list</em> puts it there; if it isn't at home, <em>Put it in the pantry</em>.</li>
+<li>The red button says what it removes: <em>Remove from the list</em>, <em>Remove from the cart</em> or <em>Remove from the pantry</em> (with <em>Undo</em> right after).</li>
+</ul>
+<p><img class="ph" loading="lazy" alt="A product's sheet: where it is, how much, shops" src="guide/en/33-list-item.png" /><img class="dk" loading="lazy" alt="A product's sheet: where it is, how much, shops" src="guide/en/desk/33-list-item.webp" /></p>
+<h3 id="the-cart-and-put-in-pantry">The cart and Put in pantry</h3>
+<p>Tick what goes in your cart: it moves down to <strong>In the cart</strong>. At home, tap <strong>Put in pantry</strong>: check amounts, expiry dates and where each thing goes (cupboard, fridge or freezer), and everything goes into the pantry and off the list. A new product takes the item's shops with it.</p>
+<p><img class="ph" loading="lazy" alt="The cart" src="guide/en/34-cart.png" /><img class="dk" loading="lazy" alt="The cart" src="guide/en/desk/34-cart.webp" /></p>
+<p><img class="ph" loading="lazy" alt="Put in pantry: amounts and expiry dates" src="guide/en/35-put-away.png" /><img class="dk" loading="lazy" alt="Put in pantry: amounts and expiry dates" src="guide/en/desk/35-put-away.webp" /></p>
+<h3 id="the-next-trip">The next trip</h3>
+<p>If you use Everyday and plan a shopping trip, the list shows <strong>Next trip</strong>: when, and which shops. Each item says which trip it's for; <em>Show only this</em> keeps just those.</p>
+<p><img class="ph" loading="lazy" alt="The next trip, planned in Everyday" src="guide/en/36-trips.png" /><img class="dk" loading="lazy" alt="The next trip, planned in Everyday" src="guide/en/desk/36-trips.webp" /></p>
+<h2 id="the-pantry">The pantry</h2>
+<p><img class="ph" loading="lazy" alt="The pantry: expiring first, then by aisle" src="guide/en/40-pantry.png" /><img class="dk" loading="lazy" alt="The pantry: expiring first, then by aisle" src="guide/en/desk/40-pantry.webp" /></p>
+<h3 id="cupboard-fridge-and-freezer">Cupboard, fridge and freezer</h3>
+<p>At the top, choose where to look: <em>All</em>, <em>Cupboard</em>, <em>Fridge</em> or <em>Freezer</em>, each with how many products it holds. Every product has its place. Until you choose one, the app guesses it from the aisle: dairy, meat and fish in the fridge, frozen food in the freezer, the rest in the cupboard. To move a product, open its sheet and tap the place under <em>Where</em>.</p>
+<p><img class="ph" loading="lazy" alt="Just the fridge" src="guide/en/45-pantry-fridge.png" /><img class="dk" loading="lazy" alt="Just the fridge" src="guide/en/desk/45-pantry-fridge.webp" /></p>
+<h3 id="adding-and-scanning">Adding and scanning</h3>
+<p>Tap <strong>+</strong> and type, for example, <code>6 eggs exp 20/11, 1 kg flour</code>: "exp 20/11" sets the expiry date. <em>Goes in</em> picks the place: the one you're looking at, or <em>Automatic</em> and each thing goes to its own. With <em>Scan</em>, point the camera at the barcode and the product is recognised.</p>
+<p><img class="ph" loading="lazy" alt="The + on Pantry" src="guide/en/41-pantry-add.png" /><img class="dk" loading="lazy" alt="The + on Pantry" src="guide/en/desk/41-pantry-add.webp" /></p>
+<h3 id="expiry-dates-and-thresholds">Expiry dates and thresholds</h3>
+<p>Tap a product for its sheet, the same as on the shopping list (see <a href="#a-products-sheet">A product's sheet</a>). <em>Remind me when it drops to</em> is the threshold: below it, the product goes on the shopping list by itself. <em>Restock up to</em> says how much to buy. <em>Expires</em> and <em>Remind days before</em> decide the morning reminder. The shops under <em>Can be bought at</em> come back with the product when it runs out and goes on the list.</p>
+<p><img class="ph" loading="lazy" alt="A product: amount, threshold, expiry" src="guide/en/42-pantry-product.png" /><img class="dk" loading="lazy" alt="A product: amount, threshold, expiry" src="guide/en/desk/42-pantry-product.webp" /></p>
+<h3 id="staples-have-it-low-out">Staples: Have it, Low, Out</h3>
+<p>For salt, oil, spices and the like there's no need to count grams. Under <em>How you count it</em>, choose <strong>Have it / Low / Out</strong>: <em>Low</em> and <em>Out</em> put it on the list, and putting it away sets it back to <em>Have it</em>. Cooking doesn't subtract from it.</p>
+<p><img class="ph" loading="lazy" alt="A staple: Have it, Low, Out" src="guide/en/43-staple.png" /><img class="dk" loading="lazy" alt="A staple: Have it, Low, Out" src="guide/en/desk/43-staple.webp" /></p>
+<h3 id="filters">Filters</h3>
+<p><strong>Filters</strong> picks the view (aisles, expiry, stock, A–Z) and the filters <em>Expiring</em>, <em>Expired</em>, <em>Running low</em> and <em>Out</em>, together if you like. <em>Recipes with what you have</em> opens Recipes with <em>With the pantry</em> on.</p>
+<p><img class="ph" loading="lazy" alt="Only what's expiring" src="guide/en/44-pantry-filters.png" /><img class="dk" loading="lazy" alt="Only what's expiring" src="guide/en/desk/44-pantry-filters.webp" /></p>
+<h3 id="receipts">Receipts</h3>
+<p>Under ⋯ → <em>Read a receipt</em>, photograph the receipt straight and well lit. It's read on your GitHub and then deleted; when it's ready it shows up in Pantry, and you put it away like the cart.</p>
+<h2 id="with-everyday">With Everyday</h2>
+<p>Everyday is the app for planning your days. The two share the shopping list, the shops and the pantry once you enter Ricette's repository in Everyday.</p>
+<ul>
+<li><strong>There's one shopping list.</strong> What you add in Everyday shows up here, and the other way round.</li>
+<li><strong>Meals.</strong> In Everyday you pick a recipe for a meal, starting from your Favourites. When the meal is done, the recipe counts one more time (<em>cooked 4 times</em>).</li>
+<li><strong>Putting away.</strong> In Everyday too, shopping you put away goes into the pantry, with the item's shops. You choose its place at home in Ricette; until then the guess applies.</li>
+<li><strong>Shopping trips.</strong> Everyday decides when to go shopping; Ricette shows it on the list as the <a href="#the-next-trip">next trip</a>.</li>
+</ul>
+<p>Who decides what: Ricette decides the recipes, the list and the pantry; Everyday decides when to cook and when to shop.</p>
+<h2 id="a-typical-week">A typical week</h2>
+<p><strong>Sunday evening.</strong> Open <em>To try</em> and pick two new recipes: the red lentil soup and the lemon chicken. On each, tap <em>to the list</em>: only what's missing goes on. In Everyday, the soup goes on Tuesday.</p>
+<p><strong>Monday, at the market.</strong> Open Shopping grouped by shop: at the Covered Market you pick up fennel and lemons, ticking them as they go in the bag. At home you tap <em>Put in pantry</em> and type the feta's expiry date.</p>
+<p><strong>Tuesday evening.</strong> Red lentil soup. Afterwards you tap <em>I cooked it</em>: the pantry takes off the lentils, and to <em>How was it?</em> you answer <em>Make it again: favourite</em>.</p>
+<p><strong>Thursday, short on time.</strong> On Recipes, turn on <em>With the pantry</em> and <strong>≤ 30 min</strong>: pasta e ceci, with what you already have. The olive oil is getting low: you tap <em>Low</em>, and it's already on Saturday's list.</p>
+<h2 id="on-a-computer">On a computer</h2>
+<p>On a wide screen Ricette uses three columns. On the left, the filters, always open. In the middle, the tab. On the right, a panel that changes with the tab:</p>
+<ul>
+<li><strong>Recipes:</strong> <em>Add a recipe</em> and a preview of the recipe you clicked, with what's missing. <em>Open the recipe</em> opens it in full.</li>
+<li><strong>Shopping:</strong> the field to add and the cart, with <em>Put in pantry</em>. The list spreads over several columns.</li>
+<li><strong>Pantry:</strong> the field to add and scan.</li>
+</ul>
+<p><img loading="lazy" class="wide" alt="Recipes on a computer: filters, recipes, preview" src="guide/en/60-wide-recipes.png" /></p>
+<p><img loading="lazy" class="wide" alt="Shopping on a computer" src="guide/en/61-wide-list.png" /></p>
+<p><img loading="lazy" class="wide" alt="Pantry on a computer" src="guide/en/62-wide-pantry.png" /></p>
+<h2 id="tips-and-troubleshooting">Tips and troubleshooting</h2>
+<p><strong>Sync doesn't start.</strong> In Settings → <em>GitHub connection</em>, check that the token can write the repository's <em>Contents</em> and hasn't expired. <em>Change connection</em> lets you paste a new one.</p>
+<p><strong>An import stays in the queue.</strong> Imports run on your GitHub: they need the connection and a minute or two. If a page can't be read, the app says so at the top of <em>To try</em>: try a photo of the recipe instead.</p>
+<p><strong>An ingredient lands in the wrong aisle.</strong> Tap the item, then <em>Fix</em>, and pick the right food: it applies from then on, everywhere.</p>
+<p><strong>I deleted something by mistake.</strong> Tap <em>Undo</em> in the message at the bottom, straight away.</p>
+<p><strong>I want a copy of my data.</strong> Settings → <em>Backup</em> → <em>Download a copy of your data</em>. Your GitHub repository holds the same data anyway.</p>
+<p><strong>My phone doesn't warn me about expiry dates.</strong> Notifications have to be turned on on each device, in <em>Pantry and reminders</em>. On an iPhone they only work from the app installed on the Home Screen.</p></main><script>
+document.addEventListener('click',function(e){var z=document.querySelector('.zoom');if(z){z.remove();return;}var i=e.target.closest('main img');if(!i)return;var d=document.createElement('div');d.className='zoom';var b=document.createElement('img');b.src=i.currentSrc||i.src;b.alt=i.alt;d.appendChild(b);document.body.appendChild(d);});
+function setMode(m,keep){document.documentElement.classList.toggle('desk',m==='desk');document.querySelectorAll('.mode button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.mode===m));});if(keep){try{localStorage.setItem('guideMode',m)}catch(e){}}}
+setMode(document.documentElement.classList.contains('desk')?'desk':'phone',false);
+document.querySelectorAll('.mode button').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();setMode(b.dataset.mode,true);});});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var z=document.querySelector('.zoom');if(z)z.remove();}});
+</script></body></html>
