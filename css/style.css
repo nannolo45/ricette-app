@@ -1244,3 +1244,57 @@ p.center { text-align: center; }
 @media (min-width: 1100px) { :root:not(.dark) .tabs { background: transparent; } }
 /* v54: five places in the product sheet's Dove: three per row */
 .lvl-seg.place-seg { display: grid; grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* v55: "finished: on the list?" — a prompt above the tab bar, the card at the top of Dispensa, Settings → Quando qualcosa finisce */
+.low-prompt { position: fixed; left: 10px; right: 10px; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 10px); z-index: 30; max-width: 520px; margin: 0 auto;
+  padding: 14px 14px 12px; border-radius: 18px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--line)); box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 1100px) { .low-prompt { left: auto; right: 24px; bottom: 24px; width: 400px; } }
+body.has-low-prompt .fab { display: none; }
+.lp-head { display: flex; align-items: flex-start; gap: 10px; }
+.lp-dot { width: 12px; height: 12px; margin-top: 5px; border-radius: 50%; flex: none; background: var(--warn); }
+.lp-dot.bad { background: var(--danger); }
+.lp-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lp-text strong { font-size: 1rem; }
+.lp-text small { color: var(--muted); font-size: .84rem; }
+.lp-head .icon-btn { width: 34px; height: 34px; color: var(--muted); }
+.lp-qty { display: flex; align-items: center; gap: 10px; }
+.lp-qty span { flex: 1; color: var(--muted); font-size: .86rem; }
+.lp-qty b { min-width: 64px; text-align: center; color: var(--accent); }
+.lp-actions { display: flex; gap: 8px; }
+.lp-actions .btn { min-height: 46px; margin: 0; }
+.lp-actions .btn.primary { flex: 1; }
+.lp-auto { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .84rem; font-weight: 400; color: var(--muted); }
+.lp-auto input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.card.low-card { display: flex; flex-direction: row; text-align: left; align-items: center; gap: 10px; padding: 10px 12px; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.low-card > span { font-size: 1.25rem; }
+.low-card p { flex: 1; min-width: 0; margin: 0; font-size: .92rem; line-height: 1.35; }
+.low-card p small { display: block; color: var(--muted); font-size: .8rem; }
+.low-card .btn { margin: 0; flex: none; }
+body:has(.action-bar) .low-prompt { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 80px); }
+.low-card .icon-btn { color: var(--muted); }
+.badge.listed { background: var(--accent-soft); color: var(--accent); }
+.set-radio { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; margin: 8px 0 14px; }
+.set-radio-row { display: flex; align-items: flex-start; gap: 12px; padding: 14px; margin: 0; cursor: pointer; font-weight: 400; color: var(--ink); }
+.set-radio-row + .set-radio-row { border-top: 1px solid var(--line); }
+.set-radio-row input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.set-radio-row span { display: flex; flex-direction: column; gap: 2px; }
+.set-radio-row small { color: var(--muted); font-size: .84rem; line-height: 1.35; }
+.low-skipped li { align-items: center; }
+.low-skipped .name { flex: 1; }
+@media (min-width: 1100px) { body:has(.action-bar) .low-prompt { bottom: 90px; } }
+
+/* v55.1: a new shop from the product sheet; shops with only a name */
+.ns-panel:not([hidden]) { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 2px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.ns-title { font-size: 1rem; }
+.ns-panel .sl-field small { color: var(--muted); font-weight: 400; }
+.ns-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ns-chips .chip { min-height: 38px; }
+.ns-dup { color: var(--warn); font-size: .84rem; }
+.ns-hint { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.ns-actions { display: flex; gap: 8px; }
+.ns-actions .btn { margin: 0; min-height: 44px; }
+.ns-actions .btn.primary { flex: 1; }
+.shops-todo { padding: 10px 12px; border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); font-size: .9rem; line-height: 1.4; }
+.shop-info .shop-todo { color: var(--warn); }
+.form input.todo, input.todo { border-color: var(--warn); }

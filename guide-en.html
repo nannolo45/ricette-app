@@ -177,7 +177,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <h3 id="adding">Adding</h3>
 <p>Tap <strong>+</strong> and type, for example, <code>2 l milk, eggs, 1.5 kg flour</code>, then Enter. Amounts and aisles are worked out for you, and the field stays open for the next one. What you've just added shows underneath: tap a name to change it.</p>
 <p><img class="ph" loading="lazy" alt="The + on Shopping: several at once" src="guide/en/31-list-add.webp" /><img class="dk" loading="lazy" alt="The + on Shopping: several at once" src="guide/en/desk/31-list-add.webp" /></p>
-<p>From a recipe, <em>to the list</em> adds the missing ingredients with their amounts. Anything running low in the pantry joins the list by itself.</p>
+<p>From a recipe, <em>to the list</em> adds the missing ingredients with their amounts. When something runs out in the pantry, the app asks whether to put it on the list (see <a href="#when-something-runs-out">When something runs out</a>).</p>
 <h3 id="views-and-filters">Views and filters</h3>
 <p><strong>Filters</strong> opens the choice of view: <em>Group by</em> aisle, recipe or shop, or as a <em>Single list</em>: <em>My order</em>, <em>A–Z</em>, newest. Below are quick filters by shop. Departments, recipes and your own order apply on every device, Everyday included.</p>
 <p><img class="ph" loading="lazy" alt="Choosing the view" src="guide/en/32-list-views.webp" /><img class="dk" loading="lazy" alt="Choosing the view" src="guide/en/desk/32-list-views.webp" /></p>
@@ -185,7 +185,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p>Tap an item's name: the product's sheet opens, the same one you open from the cart and the pantry. At the top, three tabs say where it is: <em>On the list</em>, <em>In the cart</em> and <em>At home</em>, with amounts and place.</p>
 <ul>
 <li>Below is the part for that place: how much to buy, how much you took, or how much you have at home.</li>
-<li>At the bottom, <em>The product, everywhere</em>: aisle, shops under <em>Can be bought at</em> and a note, the same wherever you look. No shop means "anywhere".</li>
+<li>At the bottom, <em>The product, everywhere</em>: aisle, shops under <em>Can be bought at</em> and a note, the same wherever you look. No shop means "anywhere". <em>+ New shop</em> asks for the name and, if you like, the address, hours and how long you usually spend; finish the rest later in Settings → <em>Shopping and shops</em> → <em>Shops</em>, where shops with only a name are marked <em>to finish</em>.</li>
 <li>If the product isn't on the list, <em>Add to the list</em> puts it there; if it isn't at home, <em>Put it in the pantry</em>.</li>
 <li>The red button says what it removes: <em>Remove from the list</em>, <em>Remove from the cart</em> or <em>Remove from the pantry</em> (with <em>Undo</em> right after).</li>
 </ul>
@@ -208,11 +208,15 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p>Tap <strong>+</strong> and type, for example, <code>6 eggs exp 20/11, 1 kg flour</code>: "exp 20/11" sets the expiry date. <em>Goes in</em> picks the place: the one you're looking at, or <em>Automatic</em> and each thing goes to its own. With <em>Scan</em>, point the camera at the barcode and the product is recognised.</p>
 <p><img class="ph" loading="lazy" alt="The + on Pantry" src="guide/en/41-pantry-add.webp" /><img class="dk" loading="lazy" alt="The + on Pantry" src="guide/en/desk/41-pantry-add.webp" /></p>
 <h3 id="expiry-dates-and-thresholds">Expiry dates and thresholds</h3>
-<p>Tap a product for its sheet, the same as on the shopping list (see <a href="#a-products-sheet">A product's sheet</a>). <em>Remind me when it drops to</em> is the threshold: below it, the product goes on the shopping list by itself. <em>Restock up to</em> says how much to buy. <em>Expires</em> and <em>Remind days before</em> decide the morning reminder. The shops under <em>Can be bought at</em> come back with the product when it runs out and goes on the list.</p>
+<p>Tap a product for its sheet, the same as on the shopping list (see <a href="#a-products-sheet">A product's sheet</a>). <em>Remind me when it drops to</em> is the threshold: when it gets there, the app asks whether to put it on the shopping list. <em>Restock up to</em> says how much to buy. <em>Expires</em> and <em>Remind days before</em> decide the morning reminder. The shops under <em>Can be bought at</em> come back with the product when it runs out and goes on the list.</p>
 <p><img class="ph" loading="lazy" alt="A product: amount, threshold, expiry" src="guide/en/42-pantry-product.webp" /><img class="dk" loading="lazy" alt="A product: amount, threshold, expiry" src="guide/en/desk/42-pantry-product.webp" /></p>
 <h3 id="staples-have-it-low-out">Staples: Have it, Low, Out</h3>
-<p>For salt, oil, spices and the like there's no need to count grams. Under <em>How you count it</em>, choose <strong>Have it / Low / Out</strong>: <em>Low</em> and <em>Out</em> put it on the list, and putting it away sets it back to <em>Have it</em>. Cooking doesn't subtract from it.</p>
+<p>For salt, oil, spices and the like there's no need to count grams. Under <em>How you count it</em>, choose <strong>Have it / Low / Out</strong>: <em>Low</em> and <em>Out</em> ask whether to put it on the list, and putting it away sets it back to <em>Have it</em>. Cooking doesn't subtract from it.</p>
 <p><img class="ph" loading="lazy" alt="A staple: Have it, Low, Out" src="guide/en/43-staple.webp" /><img class="dk" loading="lazy" alt="A staple: Have it, Low, Out" src="guide/en/desk/43-staple.webp" /></p>
+<h3 id="when-something-runs-out">When something runs out</h3>
+<p>When a staple goes to <em>Low</em> or <em>Out</em>, or a product reaches 0 (or its threshold), a message appears at the bottom: <em>H-Vollmilch: run out</em>. <strong>Add</strong> puts it on the list; for products with an amount it suggests how much to buy, up to the full stock or one pack like the one you had, and − and + change it. <strong>No, thanks</strong> leaves it off until it's back home. <em>From now on, add without asking</em> stops the question.</p>
+<p>Anything that runs out on another phone, or in Everyday when you cook, shows at the top of the pantry: <em>Add</em> puts it on the list. On the list, the row shows <em>🛒 on the list</em>. In Settings → <em>Pantry and reminders</em> → <em>When something runs out</em> choose <em>Ask me</em>, <em>Add by itself</em> or <em>Do nothing</em>; it applies in Everyday too.</p>
+<p><img class="ph" loading="lazy" alt="Run out: on the list?" src="guide/en/44b-pantry-low.webp" /><img class="dk" loading="lazy" alt="Run out: on the list?" src="guide/en/desk/44b-pantry-low.webp" /></p>
 <h3 id="filters">Filters</h3>
 <p><strong>Filters</strong> picks the view (aisles, expiry, stock, A–Z) and the filters <em>Expiring</em>, <em>Expired</em>, <em>Running low</em> and <em>Out</em>, together if you like. <em>Recipes with what you have</em> opens Recipes with <em>With the pantry</em> on.</p>
 <p><img class="ph" loading="lazy" alt="Only what's expiring" src="guide/en/44-pantry-filters.webp" /><img class="dk" loading="lazy" alt="Only what's expiring" src="guide/en/desk/44-pantry-filters.webp" /></p>
@@ -231,7 +235,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p><strong>Sunday evening.</strong> Open <em>To try</em> and pick two new recipes: the red lentil soup and the lemon chicken. On each, tap <em>to the list</em>: only what's missing goes on. In Everyday, the soup goes on Tuesday.</p>
 <p><strong>Monday, at the market.</strong> Open Shopping grouped by shop: at the Covered Market you pick up fennel and lemons, ticking them as they go in the bag. At home you tap <em>Put in pantry</em> and type the feta's expiry date.</p>
 <p><strong>Tuesday evening.</strong> Red lentil soup. Afterwards you tap <em>I cooked it</em>: the pantry takes off the lentils, and to <em>How was it?</em> you answer <em>Make it again: favourite</em>.</p>
-<p><strong>Thursday, short on time.</strong> On Recipes, turn on <em>With the pantry</em> and <strong>≤ 30 min</strong>: pasta e ceci, with what you already have. The olive oil is getting low: you tap <em>Low</em>, and it's already on Saturday's list.</p>
+<p><strong>Thursday, short on time.</strong> On Recipes, turn on <em>With the pantry</em> and <strong>≤ 30 min</strong>: pasta e ceci, with what you already have. The olive oil is getting low: you tap <em>Low</em>, then <em>Add to shopping</em>, and it's on Saturday's list.</p>
 <h2 id="on-a-computer">On a computer</h2>
 <p>On a wide screen Ricette uses three columns. On the left, the filters, always open. In the middle, the tab. On the right, a panel that changes with the tab:</p>
 <ul>

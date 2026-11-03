@@ -178,7 +178,7 @@ Tippe auf **+** und schreib zum Beispiel `2 l Milch, Eier, 1,5 kg Mehl`, dann En
 
 ![Das + bei Einkauf: mehreres auf einmal](guide/de/31-list-add.webp)
 
-Aus einem Rezept setzt *zur Einkaufsliste* die fehlenden Zutaten mit Menge auf die Liste. Was im Vorrat zur Neige geht, kommt von selbst auf die Liste.
+Aus einem Rezept setzt *zur Einkaufsliste* die fehlenden Zutaten mit Menge auf die Liste. Wenn im Vorrat etwas ausgeht, fragt die App, ob es auf die Liste soll (siehe [Wenn etwas ausgeht](#wenn-etwas-ausgeht)).
 
 ### Ansichten und Filter
 
@@ -191,7 +191,7 @@ Aus einem Rezept setzt *zur Einkaufsliste* die fehlenden Zutaten mit Menge auf d
 Tippe auf den Namen eines Eintrags: Das Blatt des Produkts öffnet sich, dasselbe wie im Wagen und im Vorrat. Oben zeigen drei Reiter, wo es ist: *Auf der Liste*, *Im Wagen* und *Zu Hause*, mit Menge und Ort.
 
 - Darunter der Teil für diesen Ort: wie viel kaufen, wie viel genommen, oder wie viel zu Hause da ist.
-- Unten *Das Produkt, überall*: Abteilung, Läden unter *Gibt es bei* und Notiz, überall gleich. Kein Laden heißt „überall“.
+- Unten *Das Produkt, überall*: Abteilung, Läden unter *Gibt es bei* und Notiz, überall gleich. Kein Laden heißt „überall“. *+ Neuer Laden* fragt nach dem Namen und, wenn du willst, nach Adresse, Öffnungszeiten und wie lange du meistens brauchst; den Rest ergänzt du später unter Einstellungen → *Einkauf und Läden* → *Geschäfte*, wo Läden mit nur einem Namen als *noch offen* markiert sind.
 - Steht das Produkt nicht auf der Liste, setzt *Auf die Liste* es drauf; ist es nicht zu Hause, *In den Vorrat*.
 - Der rote Knopf sagt, was er entfernt: *Von der Liste nehmen*, *Aus dem Wagen nehmen* oder *Aus dem Vorrat nehmen* (mit *Rückgängig* direkt danach).
 
@@ -233,15 +233,23 @@ Tippe auf **+** und schreib zum Beispiel `6 Eier bis 20.11., 1 kg Mehl`: „bis 
 
 ### Ablaufdaten und Schwellen
 
-Tippe auf ein Produkt für sein Blatt, dasselbe wie beim Einkauf (siehe [Das Blatt eines Produkts](#das-blatt-eines-produkts)). *Erinnern, wenn es sinkt auf* ist die Schwelle: darunter kommt das Produkt von selbst auf die Einkaufsliste. *Auffüllen bis* sagt, wie viel du kaufen sollst. *Haltbar bis* und *Tage vorher erinnern* bestimmen die Erinnerung am Morgen. Die Läden unter *Gibt es bei* kommen mit dem Produkt zurück auf die Liste, wenn es ausgeht.
+Tippe auf ein Produkt für sein Blatt, dasselbe wie beim Einkauf (siehe [Das Blatt eines Produkts](#das-blatt-eines-produkts)). *Erinnern, wenn es sinkt auf* ist die Schwelle: wird sie erreicht, fragt die App, ob das Produkt auf die Einkaufsliste soll. *Auffüllen bis* sagt, wie viel du kaufen sollst. *Haltbar bis* und *Tage vorher erinnern* bestimmen die Erinnerung am Morgen. Die Läden unter *Gibt es bei* kommen mit dem Produkt zurück auf die Liste, wenn es ausgeht.
 
 ![Ein Produkt: Menge, Schwelle, Ablaufdatum](guide/de/42-pantry-product.webp)
 
 ### Grundvorrat: Da, Wenig, Leer
 
-Bei Salz, Öl, Gewürzen und Ähnlichem musst du keine Gramm zählen. Unter *Wie du es zählst* wählst du **Da / Wenig / Leer**: *Wenig* und *Leer* setzen es auf die Liste, und beim Einräumen wird es wieder *Da*. Kochen zieht davon nichts ab.
+Bei Salz, Öl, Gewürzen und Ähnlichem musst du keine Gramm zählen. Unter *Wie du es zählst* wählst du **Da / Wenig / Leer**: *Wenig* und *Leer* fragen, ob es auf die Liste soll, und beim Einräumen wird es wieder *Da*. Kochen zieht davon nichts ab.
 
 ![Grundvorrat: Da, Wenig, Leer](guide/de/43-staple.webp)
+
+### Wenn etwas ausgeht
+
+Wenn ein Grundvorrat auf *Wenig* oder *Leer* geht oder ein Produkt bei 0 (oder seiner Schwelle) ankommt, erscheint unten eine Nachricht: *H-Vollmilch: leer*. **Auf die Liste** setzt es auf die Einkaufsliste; bei Produkten mit Menge schlägt sie vor, wie viel du kaufst, bis zum vollen Vorrat oder eine Packung wie die, die du hattest, mit − und + änderbar. **Nein, danke** lässt es weg, bis es wieder da ist. Mit *Ab jetzt ohne Nachfrage auf die Liste setzen* fragt sie nicht mehr.
+
+Was auf einem anderen Handy oder in Everyday beim Kochen ausgeht, erscheint oben im Vorrat: *Hinzufügen* setzt es auf die Liste. Auf der Liste zeigt die Zeile *🛒 auf der Liste*. Unter Einstellungen → *Vorrat und Erinnerungen* → *Wenn etwas ausgeht* wählst du *Nachfragen*, *Selbst auf die Liste setzen* oder *Nichts tun*; das gilt auch in Everyday.
+
+![Leer: auf die Liste?](guide/de/44b-pantry-low.webp)
 
 ### Filter
 
@@ -272,7 +280,7 @@ Wer was entscheidet: Ricette entscheidet über Rezepte, Liste und Vorrat; Everyd
 
 **Dienstagabend.** Rote Linsensuppe. Danach tippst du auf *Gekocht*: Der Vorrat zieht die Linsen ab, und auf *Wie war es?* antwortest du *Wieder kochen: Favorit*.
 
-**Donnerstag, wenig Zeit.** Bei Rezepte schaltest du *Mit dem Vorrat* und **≤ 30 min** ein: Pasta e ceci geht mit dem, was da ist. Das Olivenöl wird knapp: Du tippst auf *Wenig*, und es steht schon auf der Liste für Samstag.
+**Donnerstag, wenig Zeit.** Bei Rezepte schaltest du *Mit dem Vorrat* und **≤ 30 min** ein: Pasta e ceci geht mit dem, was da ist. Das Olivenöl wird knapp: Du tippst auf *Wenig*, dann auf *Auf die Liste*, und es steht auf der Liste für Samstag.
 
 ## Am Computer
 

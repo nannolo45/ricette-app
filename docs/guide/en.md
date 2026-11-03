@@ -178,7 +178,7 @@ Tap **+** and type, for example, `2 l milk, eggs, 1.5 kg flour`, then Enter. Amo
 
 ![The + on Shopping: several at once](guide/en/31-list-add.webp)
 
-From a recipe, *to the list* adds the missing ingredients with their amounts. Anything running low in the pantry joins the list by itself.
+From a recipe, *to the list* adds the missing ingredients with their amounts. When something runs out in the pantry, the app asks whether to put it on the list (see [When something runs out](#when-something-runs-out)).
 
 ### Views and filters
 
@@ -191,7 +191,7 @@ From a recipe, *to the list* adds the missing ingredients with their amounts. An
 Tap an item's name: the product's sheet opens, the same one you open from the cart and the pantry. At the top, three tabs say where it is: *On the list*, *In the cart* and *At home*, with amounts and place.
 
 - Below is the part for that place: how much to buy, how much you took, or how much you have at home.
-- At the bottom, *The product, everywhere*: aisle, shops under *Can be bought at* and a note, the same wherever you look. No shop means "anywhere".
+- At the bottom, *The product, everywhere*: aisle, shops under *Can be bought at* and a note, the same wherever you look. No shop means "anywhere". *+ New shop* asks for the name and, if you like, the address, hours and how long you usually spend; finish the rest later in Settings → *Shopping and shops* → *Shops*, where shops with only a name are marked *to finish*.
 - If the product isn't on the list, *Add to the list* puts it there; if it isn't at home, *Put it in the pantry*.
 - The red button says what it removes: *Remove from the list*, *Remove from the cart* or *Remove from the pantry* (with *Undo* right after).
 
@@ -233,15 +233,23 @@ Tap **+** and type, for example, `6 eggs exp 20/11, 1 kg flour`: "exp 20/11" set
 
 ### Expiry dates and thresholds
 
-Tap a product for its sheet, the same as on the shopping list (see [A product's sheet](#a-products-sheet)). *Remind me when it drops to* is the threshold: below it, the product goes on the shopping list by itself. *Restock up to* says how much to buy. *Expires* and *Remind days before* decide the morning reminder. The shops under *Can be bought at* come back with the product when it runs out and goes on the list.
+Tap a product for its sheet, the same as on the shopping list (see [A product's sheet](#a-products-sheet)). *Remind me when it drops to* is the threshold: when it gets there, the app asks whether to put it on the shopping list. *Restock up to* says how much to buy. *Expires* and *Remind days before* decide the morning reminder. The shops under *Can be bought at* come back with the product when it runs out and goes on the list.
 
 ![A product: amount, threshold, expiry](guide/en/42-pantry-product.webp)
 
 ### Staples: Have it, Low, Out
 
-For salt, oil, spices and the like there's no need to count grams. Under *How you count it*, choose **Have it / Low / Out**: *Low* and *Out* put it on the list, and putting it away sets it back to *Have it*. Cooking doesn't subtract from it.
+For salt, oil, spices and the like there's no need to count grams. Under *How you count it*, choose **Have it / Low / Out**: *Low* and *Out* ask whether to put it on the list, and putting it away sets it back to *Have it*. Cooking doesn't subtract from it.
 
 ![A staple: Have it, Low, Out](guide/en/43-staple.webp)
+
+### When something runs out
+
+When a staple goes to *Low* or *Out*, or a product reaches 0 (or its threshold), a message appears at the bottom: *H-Vollmilch: run out*. **Add** puts it on the list; for products with an amount it suggests how much to buy, up to the full stock or one pack like the one you had, and − and + change it. **No, thanks** leaves it off until it's back home. *From now on, add without asking* stops the question.
+
+Anything that runs out on another phone, or in Everyday when you cook, shows at the top of the pantry: *Add* puts it on the list. On the list, the row shows *🛒 on the list*. In Settings → *Pantry and reminders* → *When something runs out* choose *Ask me*, *Add by itself* or *Do nothing*; it applies in Everyday too.
+
+![Run out: on the list?](guide/en/44b-pantry-low.webp)
 
 ### Filters
 
@@ -272,7 +280,7 @@ Who decides what: Ricette decides the recipes, the list and the pantry; Everyday
 
 **Tuesday evening.** Red lentil soup. Afterwards you tap *I cooked it*: the pantry takes off the lentils, and to *How was it?* you answer *Make it again: favourite*.
 
-**Thursday, short on time.** On Recipes, turn on *With the pantry* and **≤ 30 min**: pasta e ceci, with what you already have. The olive oil is getting low: you tap *Low*, and it's already on Saturday's list.
+**Thursday, short on time.** On Recipes, turn on *With the pantry* and **≤ 30 min**: pasta e ceci, with what you already have. The olive oil is getting low: you tap *Low*, then *Add to shopping*, and it's on Saturday's list.
 
 ## On a computer
 

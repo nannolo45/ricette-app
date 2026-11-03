@@ -235,6 +235,11 @@ await closeSheet();
 await p.click('[data-action=p-edit][data-id=oil]'); await wait(400);
 await shot('43-staple');
 await closeSheet();
+// v55: a staple turns Poca: on the list?
+await p.click('[data-action=p-level][data-id=pepper][data-value=low]').catch(() => {}); await wait(400);
+await shot('44b-pantry-low');
+await p.click('#low-prompt [data-lp=no]').catch(() => {}); await wait();
+await p.click('[data-action=p-level][data-id=pepper][data-value=ok]').catch(() => {}); await wait();
 if (!DESK) { await p.click('.f-toggle'); await wait(); }
 await p.click('[data-action=p-filter][data-value=expiring]').catch(() => {}); await wait();
 await shot('44-pantry-filters');

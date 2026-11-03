@@ -122,6 +122,19 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **New shops from a product (v55.1, Nov 3):** this zip goes straight from v54.2 (it includes v55). In the product
+  sheet, *+ Nuovo negozio* opens a small panel: the name, and optionally the address (its Maps link is made for you),
+  hours (*Lun–Sab 8–20*, *Mattina 7–13*, or day by day later) and how long you usually spend. A name typed and then
+  *Salva* on the product used to be lost; now the shop is saved. A name that already exists picks that shop. Settings →
+  Spesa e negozi → Negozi marks shops with only a name *da completare*. No new data fields.
+- **When something runs out (v55, Nov 3):** copy `ricette-app/` into the app repository (changed files only, guide
+  pictures included: upload `guide/it`, `guide/en` and `guide/de` one commit each if a commit would pass 100 files).
+  Nothing for the data repository, nothing to delete. When a staple goes to *Poca* / *Finita*, or a product reaches 0
+  (no threshold needed) or its threshold, a message asks: *🛒 Aggiungi 1 l* (amount changeable) or *No, grazie*. Things
+  that ran out elsewhere show in a card at the top of Dispensa; rows on the list show *🛒 in lista*. Settings → Dispensa
+  e promemoria → *Quando qualcosa finisce*: Chiedimi (default), Aggiungi da solo (the old behaviour, with Annulla),
+  Non fare niente. Shared pref `lowAction`, `lowSkip` on pantry products, `qtyChosen` on automatic list items.
+  Shared with Everyday: new `js/kitchen.js` (handoff https://claude.ai/artifact/2kQ9puH6nvzrcEKeNw6LSE).
 - **App icon on Firefox, and v54.1's update (v54.2, Nov 2):** copy `ricette-app/` into the app repository (8 files) and
   delete the old icons `icons/icon.svg`, `icons/icon-192.png`, `icons/icon-512.png`, `icons/apple-touch-icon.png`
   (and `icons/icon-maskable-512.png` if it is there). The manifest and maskable icon of v53.1 had never reached the

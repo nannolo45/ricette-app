@@ -178,7 +178,7 @@ Tocca **+** e scrivi, per esempio `2 l latte, uova, 1,5 kg farina`, poi Invio. Q
 
 ![Il + su Spesa: più cose insieme](guide/it/31-list-add.webp)
 
-Dalle ricette, *alla spesa* aggiunge gli ingredienti che mancano, già con la quantità. Quello che in dispensa sta finendo entra in lista da solo.
+Dalle ricette, *alla spesa* aggiunge gli ingredienti che mancano, già con la quantità. Quando in dispensa qualcosa finisce, l'app chiede se metterlo in lista (vedi [Quando qualcosa finisce](#quando-qualcosa-finisce)).
 
 ### Viste e filtri
 
@@ -191,7 +191,7 @@ Dalle ricette, *alla spesa* aggiunge gli ingredienti che mancano, già con la qu
 Tocca il nome di una voce: si apre la scheda del prodotto, la stessa che apri dal carrello e dalla dispensa. In cima, tre schede dicono dove si trova: *In lista*, *Nel carrello* e *In casa*, con quantità e posto.
 
 - Sotto c'è la parte di quel posto: quanto comprare, quanto hai preso, oppure quanto ce n'è in casa.
-- In fondo, *Il prodotto, ovunque*: reparto, negozi in *Si trova da* e note, uguali dappertutto. Nessun negozio vuol dire «ovunque».
+- In fondo, *Il prodotto, ovunque*: reparto, negozi in *Si trova da* e note, uguali dappertutto. Nessun negozio vuol dire «ovunque». *+ Nuovo negozio* chiede il nome e, se vuoi, indirizzo, orari e quanto ci stai; il resto lo completi dopo in Impostazioni → *Spesa e negozi* → *Negozi*, dove i negozi con solo il nome sono segnati *da completare*.
 - Se il prodotto non è in lista, *Aggiungi alla lista* ce lo mette; se non è in casa, *Mettilo in dispensa*.
 - Il pulsante rosso dice cosa toglie: *Togli dalla lista*, *Togli dal carrello* o *Togli dalla dispensa* (con *Annulla* subito dopo).
 
@@ -233,15 +233,23 @@ Tocca **+** e scrivi, per esempio `6 uova scade 20/11, 1 kg farina`: «scade 20/
 
 ### Scadenze e soglie
 
-Tocca un prodotto per la sua scheda, la stessa della spesa (vedi [La scheda di un prodotto](#la-scheda-di-un-prodotto)). *Avvisami quando scende a* è la soglia: sotto, il prodotto entra da solo nella lista della spesa. *Ricompra fino a* dice quanto comprarne. *Scadenza* e *Avvisami giorni prima* decidono l'avviso del mattino. I negozi in *Si trova da* tornano con il prodotto quando finisce e rientra in lista.
+Tocca un prodotto per la sua scheda, la stessa della spesa (vedi [La scheda di un prodotto](#la-scheda-di-un-prodotto)). *Avvisami quando scende a* è la soglia: quando ci arriva, l'app chiede se metterlo nella lista della spesa. *Ricompra fino a* dice quanto comprarne. *Scadenza* e *Avvisami giorni prima* decidono l'avviso del mattino. I negozi in *Si trova da* tornano con il prodotto quando finisce e rientra in lista.
 
 ![Un prodotto: quantità, soglia, scadenza](guide/it/42-pantry-product.webp)
 
 ### Scorte: C'è, Poca, Finita
 
-Per sale, olio, spezie e simili non serve contare i grammi. In *Come la conti* scegli **C'è / Poca / Finita**: *Poca* e *Finita* lo mettono in lista, e quando lo rimetti in dispensa torna *C'è*. Cucinare non lo scala.
+Per sale, olio, spezie e simili non serve contare i grammi. In *Come la conti* scegli **C'è / Poca / Finita**: *Poca* e *Finita* chiedono se metterlo in lista, e quando lo rimetti in dispensa torna *C'è*. Cucinare non lo scala.
 
 ![Una scorta: C'è, Poca, Finita](guide/it/43-staple.webp)
+
+### Quando qualcosa finisce
+
+Quando una scorta passa a *Poca* o *Finita*, o un prodotto arriva a 0 (o alla sua soglia), in basso compare un messaggio: *H-Vollmilch: finito*. **Aggiungi** lo mette in lista; per i prodotti con una quantità propone quanto comprare, fino alla scorta piena o una confezione come quella che avevi, e lo cambi con − e +. **No, grazie** lo lascia fuori finché non torna in casa. Con *D'ora in poi aggiungi da solo* smette di chiedere.
+
+Quello che finisce su un altro telefono, o in Everyday quando cucini, compare in cima alla Dispensa: *Aggiungi* lo mette in lista. In lista la riga mostra *🛒 in lista*. In Impostazioni → *Dispensa e promemoria* → *Quando qualcosa finisce* scegli *Chiedimi*, *Aggiungi da solo* o *Non fare niente*; vale anche in Everyday.
+
+![Finito: alla spesa?](guide/it/44b-pantry-low.webp)
 
 ### Filtri
 
@@ -272,7 +280,7 @@ Chi decide cosa: Ricette decide le ricette, la lista e la dispensa; Everyday dec
 
 **Martedì sera.** Zuppa di lenticchie. Alla fine tocchi *L'ho cucinata*: la dispensa scala le lenticchie, e a *Com'era?* rispondi *Da rifare: preferita*.
 
-**Giovedì, poco tempo.** Su Ricette accendi *Con la dispensa* e **≤ 30 min**: la pasta e ceci si fa con quello che hai. L'olio sta finendo: tocchi *Poca*, ed è già in lista per sabato.
+**Giovedì, poco tempo.** Su Ricette accendi *Con la dispensa* e **≤ 30 min**: la pasta e ceci si fa con quello che hai. L'olio sta finendo: tocchi *Poca*, poi *Aggiungi alla spesa*, ed è in lista per sabato.
 
 ## Su un computer
 

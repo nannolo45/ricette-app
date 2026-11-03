@@ -177,7 +177,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <h3 id="aggiungere">Aggiungere</h3>
 <p>Tocca <strong>+</strong> e scrivi, per esempio <code>2 l latte, uova, 1,5 kg farina</code>, poi Invio. Quantità e reparto si capiscono da soli, e il campo resta aperto per la prossima. Sotto compare quello che hai appena aggiunto: tocca un nome per cambiarlo.</p>
 <p><img class="ph" loading="lazy" alt="Il + su Spesa: più cose insieme" src="guide/it/31-list-add.webp" /><img class="dk" loading="lazy" alt="Il + su Spesa: più cose insieme" src="guide/it/desk/31-list-add.webp" /></p>
-<p>Dalle ricette, <em>alla spesa</em> aggiunge gli ingredienti che mancano, già con la quantità. Quello che in dispensa sta finendo entra in lista da solo.</p>
+<p>Dalle ricette, <em>alla spesa</em> aggiunge gli ingredienti che mancano, già con la quantità. Quando in dispensa qualcosa finisce, l'app chiede se metterlo in lista (vedi <a href="#quando-qualcosa-finisce">Quando qualcosa finisce</a>).</p>
 <h3 id="viste-e-filtri">Viste e filtri</h3>
 <p><strong>Filtri</strong> apre la scelta della vista: <em>Raggruppa per</em> reparti, ricette o negozi, oppure <em>In fila</em>: <em>Mio ordine</em>, <em>A–Z</em>, recenti. Sotto, i filtri rapidi per negozio. Reparti, ricette e il tuo ordine valgono su tutti i dispositivi, anche in Everyday.</p>
 <p><img class="ph" loading="lazy" alt="Scegliere la vista" src="guide/it/32-list-views.webp" /><img class="dk" loading="lazy" alt="Scegliere la vista" src="guide/it/desk/32-list-views.webp" /></p>
@@ -185,7 +185,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p>Tocca il nome di una voce: si apre la scheda del prodotto, la stessa che apri dal carrello e dalla dispensa. In cima, tre schede dicono dove si trova: <em>In lista</em>, <em>Nel carrello</em> e <em>In casa</em>, con quantità e posto.</p>
 <ul>
 <li>Sotto c'è la parte di quel posto: quanto comprare, quanto hai preso, oppure quanto ce n'è in casa.</li>
-<li>In fondo, <em>Il prodotto, ovunque</em>: reparto, negozi in <em>Si trova da</em> e note, uguali dappertutto. Nessun negozio vuol dire «ovunque».</li>
+<li>In fondo, <em>Il prodotto, ovunque</em>: reparto, negozi in <em>Si trova da</em> e note, uguali dappertutto. Nessun negozio vuol dire «ovunque». <em>+ Nuovo negozio</em> chiede il nome e, se vuoi, indirizzo, orari e quanto ci stai; il resto lo completi dopo in Impostazioni → <em>Spesa e negozi</em> → <em>Negozi</em>, dove i negozi con solo il nome sono segnati <em>da completare</em>.</li>
 <li>Se il prodotto non è in lista, <em>Aggiungi alla lista</em> ce lo mette; se non è in casa, <em>Mettilo in dispensa</em>.</li>
 <li>Il pulsante rosso dice cosa toglie: <em>Togli dalla lista</em>, <em>Togli dal carrello</em> o <em>Togli dalla dispensa</em> (con <em>Annulla</em> subito dopo).</li>
 </ul>
@@ -208,11 +208,15 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p>Tocca <strong>+</strong> e scrivi, per esempio <code>6 uova scade 20/11, 1 kg farina</code>: «scade 20/11» mette la scadenza. <em>Va in</em> sceglie il posto: quello che stai guardando, oppure <em>Da solo</em> e ogni cosa va al suo. Con <em>Scansiona</em> inquadri il codice a barre e il prodotto si riconosce da solo.</p>
 <p><img class="ph" loading="lazy" alt="Il + su Dispensa" src="guide/it/41-pantry-add.webp" /><img class="dk" loading="lazy" alt="Il + su Dispensa" src="guide/it/desk/41-pantry-add.webp" /></p>
 <h3 id="scadenze-e-soglie">Scadenze e soglie</h3>
-<p>Tocca un prodotto per la sua scheda, la stessa della spesa (vedi <a href="#la-scheda-di-un-prodotto">La scheda di un prodotto</a>). <em>Avvisami quando scende a</em> è la soglia: sotto, il prodotto entra da solo nella lista della spesa. <em>Ricompra fino a</em> dice quanto comprarne. <em>Scadenza</em> e <em>Avvisami giorni prima</em> decidono l'avviso del mattino. I negozi in <em>Si trova da</em> tornano con il prodotto quando finisce e rientra in lista.</p>
+<p>Tocca un prodotto per la sua scheda, la stessa della spesa (vedi <a href="#la-scheda-di-un-prodotto">La scheda di un prodotto</a>). <em>Avvisami quando scende a</em> è la soglia: quando ci arriva, l'app chiede se metterlo nella lista della spesa. <em>Ricompra fino a</em> dice quanto comprarne. <em>Scadenza</em> e <em>Avvisami giorni prima</em> decidono l'avviso del mattino. I negozi in <em>Si trova da</em> tornano con il prodotto quando finisce e rientra in lista.</p>
 <p><img class="ph" loading="lazy" alt="Un prodotto: quantità, soglia, scadenza" src="guide/it/42-pantry-product.webp" /><img class="dk" loading="lazy" alt="Un prodotto: quantità, soglia, scadenza" src="guide/it/desk/42-pantry-product.webp" /></p>
 <h3 id="scorte-ce-poca-finita">Scorte: C'è, Poca, Finita</h3>
-<p>Per sale, olio, spezie e simili non serve contare i grammi. In <em>Come la conti</em> scegli <strong>C'è / Poca / Finita</strong>: <em>Poca</em> e <em>Finita</em> lo mettono in lista, e quando lo rimetti in dispensa torna <em>C'è</em>. Cucinare non lo scala.</p>
+<p>Per sale, olio, spezie e simili non serve contare i grammi. In <em>Come la conti</em> scegli <strong>C'è / Poca / Finita</strong>: <em>Poca</em> e <em>Finita</em> chiedono se metterlo in lista, e quando lo rimetti in dispensa torna <em>C'è</em>. Cucinare non lo scala.</p>
 <p><img class="ph" loading="lazy" alt="Una scorta: C'è, Poca, Finita" src="guide/it/43-staple.webp" /><img class="dk" loading="lazy" alt="Una scorta: C'è, Poca, Finita" src="guide/it/desk/43-staple.webp" /></p>
+<h3 id="quando-qualcosa-finisce">Quando qualcosa finisce</h3>
+<p>Quando una scorta passa a <em>Poca</em> o <em>Finita</em>, o un prodotto arriva a 0 (o alla sua soglia), in basso compare un messaggio: <em>H-Vollmilch: finito</em>. <strong>Aggiungi</strong> lo mette in lista; per i prodotti con una quantità propone quanto comprare, fino alla scorta piena o una confezione come quella che avevi, e lo cambi con − e +. <strong>No, grazie</strong> lo lascia fuori finché non torna in casa. Con <em>D'ora in poi aggiungi da solo</em> smette di chiedere.</p>
+<p>Quello che finisce su un altro telefono, o in Everyday quando cucini, compare in cima alla Dispensa: <em>Aggiungi</em> lo mette in lista. In lista la riga mostra <em>🛒 in lista</em>. In Impostazioni → <em>Dispensa e promemoria</em> → <em>Quando qualcosa finisce</em> scegli <em>Chiedimi</em>, <em>Aggiungi da solo</em> o <em>Non fare niente</em>; vale anche in Everyday.</p>
+<p><img class="ph" loading="lazy" alt="Finito: alla spesa?" src="guide/it/44b-pantry-low.webp" /><img class="dk" loading="lazy" alt="Finito: alla spesa?" src="guide/it/desk/44b-pantry-low.webp" /></p>
 <h3 id="filtri">Filtri</h3>
 <p><strong>Filtri</strong> sceglie la vista (reparti, scadenza, scorte, A–Z) e i filtri <em>In scadenza</em>, <em>Scaduti</em>, <em>In esaurimento</em> e <em>Finiti</em>, anche insieme. <em>Ricette con quello che hai</em> apre Ricette con <em>Con la dispensa</em> acceso.</p>
 <p><img class="ph" loading="lazy" alt="Solo quello in scadenza" src="guide/it/44-pantry-filters.webp" /><img class="dk" loading="lazy" alt="Solo quello in scadenza" src="guide/it/desk/44-pantry-filters.webp" /></p>
@@ -231,7 +235,7 @@ html.desk .desk-only{background:var(--card);border-radius:14px;padding:2px 16px}
 <p><strong>Domenica sera.</strong> Apri <em>Da provare</em> e scegli due ricette nuove: la zuppa di lenticchie e il pollo al limone. Su ognuna tocca <em>alla spesa</em>: in lista entrano solo le cose che mancano. Su Everyday la zuppa va a martedì.</p>
 <p><strong>Lunedì, al mercato.</strong> Apri Spesa con la vista per negozi: al Mercato di Sant'Ambrogio prendi finocchi e limoni, spunti mentre li metti nella borsa. A casa tocchi <em>Metti in dispensa</em> e scrivi la scadenza della feta.</p>
 <p><strong>Martedì sera.</strong> Zuppa di lenticchie. Alla fine tocchi <em>L'ho cucinata</em>: la dispensa scala le lenticchie, e a <em>Com'era?</em> rispondi <em>Da rifare: preferita</em>.</p>
-<p><strong>Giovedì, poco tempo.</strong> Su Ricette accendi <em>Con la dispensa</em> e <strong>≤ 30 min</strong>: la pasta e ceci si fa con quello che hai. L'olio sta finendo: tocchi <em>Poca</em>, ed è già in lista per sabato.</p>
+<p><strong>Giovedì, poco tempo.</strong> Su Ricette accendi <em>Con la dispensa</em> e <strong>≤ 30 min</strong>: la pasta e ceci si fa con quello che hai. L'olio sta finendo: tocchi <em>Poca</em>, poi <em>Aggiungi alla spesa</em>, ed è in lista per sabato.</p>
 <h2 id="su-un-computer">Su un computer</h2>
 <p>Su uno schermo largo Ricette usa tre colonne. A sinistra i filtri, sempre aperti. In mezzo la scheda. A destra un pannello che cambia con la scheda:</p>
 <ul>

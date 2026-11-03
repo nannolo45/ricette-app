@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v54.2';
+const APP_VERSION = 'v55.1';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -35,7 +35,7 @@ import { categorize } from './categories.js';
 import { lookupProduct } from './products.js';
 import { isDragging, reorderSubset, byOrder } from './sortable.js';
 import { nutritionOf, estimateNutrition } from './nutrition.js';
-import { createKitchen, LEVELS, isLevel, levelOf, atHome, lowInfo, ingredientsOf } from './kitchen.js';
+import { createKitchen, LEVELS, isLevel, levelOf, atHome, lowInfo, ingredientsOf, lowState, lowBuy, lowMode } from './kitchen.js';
 import { sameFood, foodOf, foodFields, refood, setUserFoods, searchFoods, foodName, food as foodRec, allFoods, foodDept, simple as simpleName } from './foods.js';
 import { keywordDept } from './depts.js';
 import { recipeTimes, formatMinutes } from './times.js';
@@ -211,15 +211,140 @@ function updatePantryBadge() {
   a.title = gone ? t('badgeExpired', list.filter((x) => x.st === 'expired').length) : t('badgeSoon', n);
 }
 
-function ensureLowItems() {
-  kitchen.ensureLowItems();
+// v55: when something runs out. Shared pref `lowAction` (ask | auto | off, missing = ask), also read by Everyday.
+// `lowSnap` remembers each product's state at the last check, so only a change made here, on this device,
+// prompts: what arrives with a sync only shows in the card at the top of Dispensa.
+const lowSnap = new Map();
+let lowSnapReady = false;
+const LOW_RANK = { low: 1, out: 2 };
+function lowNow() { return lowMode(pref('lowAction')); }
+function takeLowSnap() {
+  lowSnapReady = true;
+  const old = new Map(lowSnap); lowSnap.clear();
+  for (const p of live('pantry')) {
+    const was = old.get(p.id); const st = lowState(p); const qty = num(p.qty) || 0;
+    // the most there was since it last ran out: what "one pack like the one you had" means for products with no threshold
+    const peak = st === 'out' ? (was?.peak ?? null) : Math.max(was && was.st !== 'out' ? was.peak || 0 : 0, qty);
+    lowSnap.set(p.id, { st, qty, peak });
+  }
+}
+function ensureLowItems({ quiet = false } = {}) {
+  const mode = lowNow();
+  // products that just ran out (or ran lower) because of a change on this device
+  const fresh = quiet || !lowSnapReady ? [] : live('pantry').filter((p) => {
+    const st = lowState(p); const was = lowSnap.get(p.id);
+    return st && (!was || !was.st || LOW_RANK[st] > LOW_RANK[was.st]) && !p.lowSkip && !kitchen.onList(p);
+  }).map((p) => { const w = lowSnap.get(p.id); return { id: p.id, prev: w ? Math.max(w.peak || 0, w.qty || 0) || null : null }; });
+  if (mode === 'auto') for (const f of fresh) kitchen.addLowItem(get('pantry', f.id), lowBuy(get('pantry', f.id), f.prev));
+  kitchen.ensureLowItems({ mode });
   // v50: an item back on the list because the product runs low comes with the product's shops (unless it has its own)
   for (const it of live('shopping')) {
     if (!it.auto || !String(it.id).startsWith('low_') || (it.shops || []).length) continue;
     const p = get('pantry', it.pantryId || it.id.slice(4));
     if (p && Array.isArray(p.shops) && p.shops.length) upsert('shopping', { ...it, shops: [...p.shops] }, { silent: true });
   }
+  if (fresh.length && mode === 'auto') {
+    const ids = fresh.map((f) => f.id);
+    const one = ids.length === 1 ? get('pantry', ids[0]) : null;
+    const it = one && get('shopping', `low_${one.id}`);
+    setTimeout(() => toast(one ? t('lowAddedOne', one.name, it && it.qty != null ? qtyText(it.qty, it.unit) : '') : t('lowAddedN', ids.length), {
+      undo: () => { for (const id of ids) { const cur = get('shopping', `low_${id}`); if (cur && !cur.checked) remove('shopping', cur.id); const q = get('pantry', id); if (q) kitchen.skipLow(q); } changed(); },
+    }), 0);
+  }
+  if (mode === 'ask' && (fresh.length || ui.lowPrompt)) openLowPrompt(fresh);
+  else if (mode !== 'ask' && ui.lowPrompt) closeLowPrompt();
+  takeLowSnap();
 }
+
+// ---------- v55: "finished: on the list?" ----------
+// One prompt above the tab bar (not a dialog: the pantry stays usable). One product: its amount can be changed;
+// several (after cooking): one button for all. "No, grazie" = lowSkip on the product until it is back in stock.
+function openLowPrompt(fresh) {
+  const prev = ui.lowPrompt && ui.lowPrompt.items.filter((x) => !fresh.some((f) => f.id === x.id)) || [];
+  const items = [...prev, ...fresh].filter((x) => { const p = get('pantry', x.id); return p && lowState(p) && !p.lowSkip && !kitchen.onList(p); });
+  if (!items.length) { closeLowPrompt(); return; }
+  const one = items.length === 1 ? get('pantry', items[0].id) : null;
+  const keep = one && ui.lowPrompt && ui.lowPrompt.items.length === 1 && ui.lowPrompt.items[0].id === one.id && !fresh.length;
+  ui.lowPrompt = { items, qty: keep ? ui.lowPrompt.qty : one && !isLevel(one) ? lowBuy(one, items[0].prev) : null, auto: Boolean(ui.lowPrompt?.auto), route: route().name };
+  drawLowPrompt();
+}
+function closeLowPrompt() { ui.lowPrompt = null; document.getElementById('low-prompt')?.remove(); document.body.classList.remove('has-low-prompt'); }
+function drawLowPrompt() {
+  const L = ui.lowPrompt;
+  if (!L) return;
+  const ps = L.items.map((x) => get('pantry', x.id)).filter(Boolean);
+  if (!ps.length) { closeLowPrompt(); return; }
+  const one = ps.length === 1 ? ps[0] : null;
+  const out = ps.every((p) => lowState(p) === 'out');
+  const title = one ? t(lowState(one) === 'out' ? 'lowTitleOut' : 'lowTitleLow', one.name) : t(out ? 'lowTitleOutN' : 'lowTitleN', ps.length);
+  const sub = one ? (!isLevel(one) && num(one.min) != null ? t('lowSubMin', qtyText(num(one.qty) || 0, one.unit) || '0', qtyText(num(one.min), one.unit)) : t('lowSubAsk'))
+    : ps.map((p) => p.name).join(', ');
+  const qtyRow = one && !isLevel(one) ? `<div class="lp-qty"><span>${esc(t('lowToBuy'))}</span>
+      <button type="button" class="round" data-lp="dec" aria-label="−">−</button><b>${esc(qtyText(L.qty, one.unit) || '0')}</b><button type="button" class="round" data-lp="inc" aria-label="+">+</button></div>` : '';
+  let el = document.getElementById('low-prompt');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'low-prompt'; el.className = 'low-prompt'; el.setAttribute('role', 'region');
+    document.body.append(el);
+    el.addEventListener('click', onLowPromptClick);
+    el.addEventListener('change', (e) => { if (e.target.name === 'lp-auto') ui.lowPrompt.auto = e.target.checked; });
+  }
+  el.setAttribute('aria-label', title);
+  el.innerHTML = `<div class="lp-head"><span class="lp-dot ${out ? 'bad' : 'warn'}" aria-hidden="true"></span><span class="lp-text"><strong>${esc(title)}</strong><small>${esc(sub)}</small></span>
+      <button type="button" class="icon-btn" data-lp="later" aria-label="${esc(t('close'))}">✕</button></div>
+    ${qtyRow}
+    <div class="lp-actions"><button type="button" class="btn primary" data-lp="add">🛒 ${esc(one ? (isLevel(one) ? t('lowAdd') : t('lowAddQty', qtyText(L.qty, one.unit))) : t('lowAddAll', ps.length))}</button>
+      <button type="button" class="btn" data-lp="no">${esc(t('noThanks'))}</button></div>
+    <label class="lp-auto"><input type="checkbox" name="lp-auto" ${L.auto ? 'checked' : ''}> ${esc(t('lowAutoNext'))}</label>`;
+  document.body.classList.add('has-low-prompt');
+}
+function onLowPromptClick(e) {
+  const b = e.target.closest('[data-lp]');
+  const L = ui.lowPrompt;
+  if (!b || !L) return;
+  const ps = L.items.map((x) => get('pantry', x.id)).filter(Boolean);
+  const one = ps.length === 1 ? ps[0] : null;
+  const step = one && !isLevel(one) ? (num(one.packQty) || stepFor(one.unit)) : 1;
+  switch (b.dataset.lp) {
+    case 'dec': L.qty = Math.max(step, round((L.qty || 0) - step)); drawLowPrompt(); return;
+    case 'inc': L.qty = round((L.qty || 0) + step); drawLowPrompt(); return;
+    case 'later': closeLowPrompt(); render(); return;
+    case 'no': for (const p of ps) kitchen.skipLow(p); closeLowPrompt(); changed(); return;
+    case 'add': {
+      for (const p of ps) kitchen.addLowItem(p, one && !isLevel(one) ? L.qty : lowBuy(p, L.items.find((x) => x.id === p.id)?.prev));
+      ensureLowItems({ quiet: true });
+      if (L.auto) setPref('lowAction', 'auto');
+      closeLowPrompt(); changed();
+      const it = one && get('shopping', `low_${one.id}`);
+      toast(one ? t('lowAddedOne', one.name, it && it.qty != null ? qtyText(it.qty, it.unit) : '') : t('lowAddedN', ps.length), {
+        undo: () => { for (const p of ps) { const cur = get('shopping', `low_${p.id}`); if (cur && !cur.checked) remove('shopping', cur.id); } changed(); },
+      });
+    }
+  }
+}
+// Card at the top of Dispensa: finished things that are on no list (from a sync, Everyday, or a prompt closed with ✕).
+function lowCard() {
+  if (lowNow() !== 'ask') return '';
+  const shown = new Set((ui.lowPrompt?.items || []).map((x) => x.id));
+  const ps = kitchen.pendingLow().filter((p) => !shown.has(p.id));
+  if (!ps.length) return '';
+  const text = ps.length === 1 ? t(lowState(ps[0]) === 'out' ? 'lowCardOne' : 'lowCardOneLow', ps[0].name) : t('lowCardN', ps.length);
+  return `<div class="card low-card"><span aria-hidden="true">🛒</span><p>${esc(text)}${ps.length > 1 ? `<small>${esc(ps.map((p) => p.name).join(', '))}</small>` : ''}</p>
+    <button type="button" class="btn primary small" data-action="low-add-all">${esc(t('lowCardAdd'))}</button>
+    <button type="button" class="icon-btn" data-action="low-skip-all" aria-label="${esc(t('noThanks'))}" title="${esc(t('noThanks'))}">✕</button></div>`;
+}
+function lowSkipped() { return live('pantry').filter((p) => p.lowSkip && lowState(p)); }
+function lowSettings() {
+  const m = lowNow();
+  const skipped = lowSkipped();
+  return `<p class="hint">${esc(t('lowSetHint'))}</p>
+  <form class="set-radio" id="low-form">${LOW_MODES_UI.map((k) => `<label class="set-radio-row"><input type="radio" name="lowAction" value="${k}" ${k === m ? 'checked' : ''}><span><strong>${esc(t(`lowMode_${k}`))}</strong><small>${esc(t(`lowModeSub_${k}`))}</small></span></label>`).join('')}</form>
+  <h2 class="ps-h">${esc(t('lowAmountH'))}</h2>
+  <p class="hint">${esc(t('lowAmountText'))}</p>
+  ${skipped.length && m === 'ask' ? `<h2 class="ps-h">${esc(t('lowSkippedH'))}</h2>
+  <ul class="list low-skipped">${skipped.map((p) => `<li><span class="name">${esc(p.name)} <small>${esc(isLevel(p) ? t(`level_${levelOf(p)}`) : qtyText(num(p.qty) || 0, p.unit) || '0')}</small></span><button type="button" class="btn small" data-action="low-unskip" data-id="${esc(p.id)}">${esc(t('lowPutOnList'))}</button></li>`).join('')}</ul>
+  <p class="hint small">${esc(t('lowSkippedHint'))}</p>` : ''}`;
+}
+const LOW_MODES_UI = ['ask', 'auto', 'off'];
 
 function setChecked(id, checked) {
   const it = get('shopping', id);
@@ -273,7 +398,7 @@ function postSync() {
     && !live('queue').some((q) => q.type === 'autophoto' && q.status === 'pending')) {
     upsert('queue', { id: `ap${uid().slice(0, 8)}`, type: 'autophoto', status: 'pending', addedAt: Date.now() }, { silent: true });
   }
-  ensureLowItems();
+  ensureLowItems({ quiet: true });
   backfillFoods();
   if (imported) toast(t('importedN', imported));
   prefetchAll();
@@ -1854,7 +1979,9 @@ function pantryRow(p, { mode = 'dept' } = {}) {
   const out = !atHome(p);
   const lowCls = level ? levelOf(p) !== 'ok' : Boolean(low) || out;
   // staples show their level as the control itself; no badge needed
-  const badge = level ? '' : out ? ` <span class="badge bad">${esc(t('outOfStock'))}</span>` : low ? ` <span class="badge warn">${esc(t('low'))}</span>` : '';
+  const listed = lowState(p) && kitchen.onList(p);
+  const badge = (level ? '' : out ? ` <span class="badge bad">${esc(t('outOfStock'))}</span>` : low ? ` <span class="badge warn">${esc(t('low'))}</span>` : '')
+    + (listed ? ` <span class="badge listed">🛒 ${esc(t('lowInList'))}</span>` : '');
   return `<li class="${lowCls ? 'low' : ''} ${level ? 'staple' : ''} ${st === 'expired' ? 'expired' : ''}">
     <button class="name" data-action="p-edit" data-id="${esc(p.id)}">${mode !== 'dept' ? `<span class="p-dept" title="${esc(t(`cat_${deptOf(p)}`))}">${deptIcon(deptOf(p))}</span> ` : ''}${esc(p.name)}${p.brand ? ` <small>${esc(p.brand)}</small>` : ''}${p.lookupPending ? ' <span class="spinner"></span>' : ''}${badge}${exp}${pantryPlace() === 'all' && mode !== 'expiry' ? ` <small class="p-place">${esc(placeName(placeOf(p)))}</small>` : ''}${mode === 'newest' && pAddedOf(p) ? ` <small>＋ ${esc(addedDay(p))}</small>` : ''}</button>
     ${level ? levelSeg(p) : `<div class="stepper">
@@ -1916,7 +2043,6 @@ function setLevel(p, level) {
   upsert('pantry', { ...p, level }, { silent: true });
   ensureLowItems();
   changed();
-  if (level !== 'ok') toast(t('levelToList', p.name));
 }
 
 function openPantryMenu() {
@@ -2126,6 +2252,7 @@ function viewPantry() {
   ${panelOpen ? '' : closedLine(chips, mode === 'dept' ? '' : t(`pMode_${mode}`), 'pp-toggle')}
   ${panelOpen && !wide ? pantryPanel() : ''}` : ''}
   ${receiptCards()}
+  ${lowCard()}
   ${plain ? staplesCard() : ''}
   ${plain && groups.length > 1 ? `<div class="dept-overview">${groups.map(([c, , list]) => {
     const n = counts(list);
@@ -2175,14 +2302,15 @@ function fileSizesBlock() {
 const SETTINGS_PAGES = ['sync', 'list', 'depts', 'pantry', 'recipes', 'foods', 'language', 'backup', 'guide'];
 const SETTINGS_ICON = { sync: '🔗', list: '🛒', pantry: '🫙', recipes: '📒', foods: '🥕', language: '🌐', backup: '💾', guide: '📖', depts: '🏷️' };
 // v52 (Everyday's handover, v62): a page that would hold several topics is a list of rows, each opening its own page
-const SETTINGS_SUBS = { list: ['view', 'shops'], pantry: ['remind', 'staples'], recipes: ['people', 'tags', 'online'] };
-const SUB_ICON = { view: '⇅', shops: '🏪', remind: '🔔', staples: '🧂', people: '👥', tags: '🏷️', online: '🌐' };
+const SETTINGS_SUBS = { list: ['view', 'shops'], pantry: ['remind', 'low', 'staples'], recipes: ['people', 'tags', 'online'] };
+const SUB_ICON = { view: '⇅', shops: '🏪', remind: '🔔', low: '🛒', staples: '🧂', people: '👥', tags: '🏷️', online: '🌐' };
 
 function subSummary(page, sub) {
   switch (`${page}/${sub}`) {
     case 'list/view': return t(`listMode_${listMode()}`);
     case 'list/shops': return t('nShops', shopsSorted().length);
     case 'pantry/remind': return `${t('remindDaysShort', remindDefault())} · ${t(pushOn() ? 'notifyOnShort' : 'notifyOffShort')}`;
+    case 'pantry/low': return t(`lowMode_${lowNow()}`);
     case 'pantry/staples': { const n = live('pantry').filter(isLevel).length; return n ? t('staplesSaved', n) : t('staplesNone'); }
     case 'recipes/people': return globalPeople() ? t('people', globalPeople()) : t('peopleAsRecipe');
     case 'recipes/tags': { const { own } = tagCounts(); return t('tagsSummary', autoTagIds().filter((id) => (tagDef(id) || {}).enabled !== false).length, own.size); }
@@ -2240,6 +2368,7 @@ function settingsSubPage(page, sub) {
   </form>
   <div class="field-label">${esc(t('notifyTitle'))}</div>
   ${notifySection()}`;
+    case 'pantry/low': return lowSettings();
     case 'pantry/staples': return `
   <p class="hint">${esc(t('staplesSettingsHint', live('pantry').filter(isLevel).length))}</p>
   <button type="button" class="btn" data-action="staples-pick">${esc(t('staplesChoose'))}</button>`;
@@ -2650,13 +2779,36 @@ function hoursText(shop) {
   return [...groups.values()].map((g) => `${g.label} ${g.ranges.sort((a, b) => a[0] - b[0]).map(([a, b]) => `${hhmm(a)}–${hhmm(b)}`).join(', ')}`).join(' · ');
 }
 
+// v55.1: a shop saved with only its name ("da completare" until it has an address or hours)
+const NEW_SHOP_HOURS = { week: [{ days: [1, 2, 3, 4, 5, 6], from: 480, to: 1200 }], morning: [{ days: [1, 2, 3, 4, 5, 6], from: 420, to: 780 }] };
+const shopIncomplete = (sh) => Boolean(sh) && !String(sh.place || '').trim() && !(sh.hours || []).length;
+const mapsLink = (place) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
+function newShopPanelHtml() {
+  const chip = (act, v, label) => `<button type="button" class="chip" data-action="${act}" data-value="${v}" aria-pressed="false">${esc(label)}</button>`;
+  return `<div class="ns-panel" id="ns-panel" hidden>
+    <strong class="ns-title">🏪 ${esc(t('newShop'))}</strong>
+    <label class="sl-field">${esc(t('shopName'))}<input id="sl-new-shop-name" placeholder="${esc(t('newShopPh'))}" autocomplete="off"></label>
+    <small class="ns-dup" id="ns-dup" hidden></small>
+    <label class="sl-field"><span>${esc(t('shopPlace'))} <small>${esc(t('optional'))}</small></span><input id="ns-place" placeholder="${esc(t('shopPlacePh'))}" autocomplete="off"></label>
+    <div class="sl-field"><span>${esc(t('shopHours'))} <small>${esc(t('optional'))}</small></span>
+      <div class="ns-chips">${chip('ns-hours', 'none', t('hoursNone'))}${chip('ns-hours', 'week', t('hoursWeek'))}${chip('ns-hours', 'morning', t('hoursMorning'))}${chip('ns-hours', 'other', t('hoursOther'))}</div>
+      <small class="ns-hint" id="ns-hours-hint" hidden>${esc(t('hoursOtherHint'))}</small></div>
+    <div class="sl-field"><span>${esc(t('shopMinutesQ'))}</span>
+      <div class="ns-chips">${[15, 30, 45, 60].map((m) => chip('ns-min', m, t('shopVisit', m))).join('')}</div></div>
+    <div class="ns-actions"><button type="button" class="btn primary" data-action="ns-save">${esc(t('shopSave'))}</button><button type="button" class="btn" data-action="ns-cancel">${esc(t('cancel'))}</button></div>
+    <small class="ns-hint">${esc(t('shopLaterHint'))}</small>
+  </div>`;
+}
+
 function shopSettings() {
   const shops = shopsSorted();
+  const todo = shops.filter(shopIncomplete);
   return `
   <p class="hint">${esc(t('shopsHint'))}</p>
+  ${todo.length ? `<div class="card shops-todo">${esc(todo.length === 1 ? t('shopsTodoOne', todo[0].name) : t('shopsTodoN', todo.length))}</div>` : ''}
   ${shops.length ? `<ul class="shop-list" data-sortable="shops-settings">${shops.map((sh) => `<li data-sort-key="${esc(sh.id)}">
       ${grip(`s-${sh.id}`, sh.name)}
-      <div class="shop-info"><strong>${esc(sh.name)}</strong><small>${esc(hoursText(sh))}${sh.minutes ? ` · ⏱ ${esc(t('shopVisit', sh.minutes))}` : ''}</small>${sh.place ? `<small>📍 ${esc(sh.place)}</small>` : ''}</div>
+      <div class="shop-info"><strong>${esc(sh.name)}</strong><small>${esc(hoursText(sh))}${sh.minutes ? ` · ⏱ ${esc(t('shopVisit', sh.minutes))}` : ''}</small>${sh.place ? `<small>📍 ${esc(sh.place)}</small>` : ''}${shopIncomplete(sh) ? `<small class="shop-todo">• ${esc(t('shopTodo'))}</small>` : ''}</div>
       <button type="button" class="btn small ghost" data-action="shop-edit" data-id="${esc(sh.id)}" aria-label="${esc(t('shopEdit'))}">✎</button>
     </li>`).join('')}</ul><p class="hint small">${esc(t('shopsOrderHint'))}</p>` : `<p class="hint">${esc(t('shopsNone'))}</p>`}
   <button type="button" class="btn" data-action="shop-new">+ ${esc(t('shopNew'))}</button>`;
@@ -2693,7 +2845,7 @@ function openShopEdit(id) {
       <button type="button" class="btn small" data-h="add-days">+ ${esc(t('shopAddDays'))}</button>
       <button type="button" class="btn small" data-h="add-date">+ ${esc(t('shopAddDate'))}</button>
     </div>
-    <label>${esc(t('shopPlace'))}<input name="place" value="${esc(draft.place || '')}" autocomplete="off"></label>
+    <label>${esc(t('shopPlace'))}<input name="place" value="${esc(draft.place || '')}" autocomplete="off" placeholder="${esc(t('shopPlacePh'))}" ${existing && shopIncomplete(existing) ? 'class="todo"' : ''}></label>
     <label>${esc(t('shopLink'))}<input name="link" type="url" value="${esc(draft.link || '')}" placeholder="https://maps.app.goo.gl/…"></label>
     <div class="button-row">
       <button class="btn primary" value="ok">${esc(t('save'))}</button>
@@ -2714,7 +2866,7 @@ function openShopEdit(id) {
     const minutes = Math.round(Number(form.minutes.value));
     upsert('shops', {
       ...draft, name: form.name.value.trim(), minutes: minutes > 0 ? minutes : 30, hours,
-      place: form.place.value.trim(), link: form.link.value.trim(),
+      place: form.place.value.trim(), link: (() => { const l = form.link.value.trim(), pl = form.place.value.trim(); return (!l || l.startsWith('https://www.google.com/maps/search/')) && pl ? mapsLink(pl) : l; })(), // v55.1: a Maps link made from the address follows it
     }, { silent: true });
     changed();
   });
@@ -3141,6 +3293,7 @@ function renderShell() {
 
 function render() {
   const r = route();
+  if (ui.lowPrompt && ui.lowPrompt.route !== r.name) closeLowPrompt(); // v55: the prompt belongs to the screen it came up on; the Dispensa card keeps the rest
   if (r.name === 'suggest') { // "Cosa cucino?" became the Con la dispensa switch (v34)
     ui.withPantry = true;
     saveSettings({ recipeSeg: 'all' });
@@ -3359,8 +3512,9 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
       <label class="sl-field">${esc(t('department'))}<select name="cat">${DEPTS.map((c) => `<option value="${esc(c.id)}" ${c.id === S.startCat ? 'selected' : ''}>${c.icon} ${esc(t(`cat_${c.id}`))}</option>`).join('')}</select></label>
       <div class="sl-field"><span>🏪 ${esc(t('itemShops'))}</span>
         <div class="sl-chips" id="sl-shop-chips">${shopChipsHtml(shopList(), S.shops)}
-          <span class="sl-newshop"><input id="sl-new-shop-name" placeholder="${esc(listLabels().newShopPh || '')}" autocomplete="off" aria-label="${esc(t('newShop'))}"><button type="button" class="sl-chip dashed" data-action="sl-new-shop">+ ${esc(t('newShop'))}</button></span>
+          <span class="sl-newshop"><button type="button" class="sl-chip dashed" data-action="sl-new-shop" aria-expanded="false" aria-controls="ns-panel">+ ${esc(t('newShop'))}</button></span>
         </div>
+        ${newShopPanelHtml()}
         <small class="sl-hint">${esc(S.shops.length ? t('psShopsHint') : listLabels().anyShopHint)}</small></div>
       <label class="sl-field">${esc(t('notes'))}<input name="note" value="${esc(S.note)}" autocomplete="off"></label>
       <div class="sl-actions">
@@ -3371,6 +3525,7 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
       </div>
     </div>`, (form, action) => {
     readCtx();
+    if (action !== 'delete' && action !== 'cancel' && !panel().hidden && panel().querySelector('#sl-new-shop-name').value.trim()) addShop();
     if (action === 'delete') {
       if (S.at === 'home' && prod) undoableRemove('pantry', prod.id, () => ensureLowItems());
       else if (item) undoableRemove('shopping', item.id);
@@ -3446,20 +3601,47 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
     box.innerHTML = shopChipsHtml(shopList(), S.shops);
     box.appendChild(keep);
   };
+  // v55.1: "+ Nuovo negozio" opens a small panel (name; address, hours, visit length optional). The shop is saved
+  // at once (changed()), so it stays even if the sheet is then cancelled.
+  const NS = { hours: 'none', minutes: 30 };
+  const panel = () => modal.querySelector('#ns-panel');
+  const openNewShop = (open) => {
+    const p = panel(); p.hidden = !open;
+    modal.querySelector('[data-action=sl-new-shop]').setAttribute('aria-expanded', String(open));
+    if (open) { Object.assign(NS, { hours: 'none', minutes: 30 }); p.querySelector('#sl-new-shop-name').value = ''; p.querySelector('#ns-place').value = ''; drawNewShop(); p.querySelector('#sl-new-shop-name').focus(); }
+  };
+  const drawNewShop = () => {
+    const p = panel();
+    const nm = p.querySelector('#sl-new-shop-name').value.trim();
+    const dup = nm && shopsSorted().find((x) => fold(x.name).trim() === fold(nm));
+    p.querySelector('#ns-dup').textContent = dup ? t('shopDup', dup.name) : '';
+    p.querySelector('#ns-dup').hidden = !dup;
+    for (const b of p.querySelectorAll('[data-action=ns-hours]')) { const on = b.dataset.value === NS.hours; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+    for (const b of p.querySelectorAll('[data-action=ns-min]')) { const on = Number(b.dataset.value) === NS.minutes; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+    p.querySelector('#ns-hours-hint').hidden = NS.hours !== 'other';
+    p.querySelector('[data-action=ns-save]').textContent = dup ? t('shopUseExisting', dup.name) : t('shopSave');
+  };
   const addShop = () => {
-    const input = modal.querySelector('#sl-new-shop-name');
+    const p = panel();
+    const input = p.querySelector('#sl-new-shop-name');
     const nm = input.value.trim();
-    if (!nm) { input.focus(); return; }
+    if (!nm) { input.focus(); return false; }
     const existing = shopsSorted().find((x) => fold(x.name).trim() === fold(nm));
     let sid = existing?.id;
     if (!sid) {
       const all = shopsSorted();
+      const place = p.querySelector('#ns-place').value.trim();
       sid = uid();
-      upsert('shops', { id: sid, name: nm, minutes: 30, hours: [], place: '', link: '', order: all.length ? Math.max(...all.map((x) => x.order || 0)) + 1 : 0 }, { silent: true });
+      upsert('shops', { id: sid, name: nm, minutes: NS.minutes, hours: NEW_SHOP_HOURS[NS.hours] ? NEW_SHOP_HOURS[NS.hours].map((h) => ({ ...h, days: [...h.days] })) : [],
+        place, link: place ? mapsLink(place) : '', order: all.length ? Math.max(...all.map((x) => x.order || 0)) + 1 : 0 }, { silent: true });
+      changed();
+      const sh = shopById(sid);
+      toast(shopIncomplete(sh) ? t('shopSavedTodo', nm) : t('shopSaved', nm));
     }
     if (!S.shops.includes(sid)) S.shops = [...S.shops, sid];
-    input.value = '';
+    openNewShop(false);
     refreshChips();
+    return true;
   };
   modal.onchange = (e) => {
     const el = e.target;
@@ -3493,7 +3675,11 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
       S.home = homeDraft(prod);
       toast(t('psPutHomeDone', prod.name)); ensureLowItems(); changed(); S.at = 'home'; redraw(); return;
     }
-    if (act === 'sl-new-shop') { addShop(); return; }
+    if (act === 'sl-new-shop') { openNewShop(panel().hidden); return; }
+    if (act === 'ns-save') { addShop(); return; }
+    if (act === 'ns-cancel') { openNewShop(false); return; }
+    if (act === 'ns-hours') { NS.hours = b.dataset.value; drawNewShop(); return; }
+    if (act === 'ns-min') { NS.minutes = Number(b.dataset.value); drawNewShop(); return; }
     if (act === 'sl-pick-shop') {
       const sid = b.dataset.id;
       S.shops = S.shops.includes(sid) ? S.shops.filter((x) => x !== sid) : [...S.shops, sid];
@@ -3525,8 +3711,9 @@ function openProductSheet({ listId = null, pantryId = null } = {}) {
       }
     }
   };
-  // Enter in the new-shop field adds the shop instead of saving
-  modal.querySelector('#sl-new-shop-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addShop(); } });
+  // Enter in the new-shop fields saves the shop, not the product
+  for (const f of modal.querySelectorAll('#sl-new-shop-name, #ns-place')) f.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addShop(); } });
+  modal.querySelector('#sl-new-shop-name').addEventListener('input', drawNewShop);
 }
 
 // ---------- events ----------
@@ -3639,6 +3826,7 @@ function onViewChange(e) {
     if (el.name === 'theme') applyTheme(el.value); else applyTheme(undefined, el.value);
     return;
   }
+  if (el.name === 'lowAction' && el.form?.id === 'low-form') { setPref('lowAction', lowMode(el.value)); ensureLowItems({ quiet: true }); changed(); return; }
   if (el.name === 'remindDays' && el.form?.id === 'remind-form') {
     const v = Math.max(0, parseInt(el.value, 10) || 0);
     saveSettings({ remindDays: v }).then(() => { if (thisDevice()) saveDevice({}); else render(); });
@@ -3917,6 +4105,17 @@ function onViewClick(e) {
     case 'pantry-menu': openPantryMenu(); break;
     case 'staples-pick': openStaplesPicker(btn.dataset.value === 'suggest'); break;
     case 'staples-no': setPref('staplesAsked', Date.now()); changed(); render(); break;
+    case 'low-add-all': {
+      const ps = kitchen.pendingLow();
+      for (const p of ps) kitchen.addLowItem(p, lowBuy(p));
+      ensureLowItems({ quiet: true }); changed();
+      toast(ps.length === 1 ? t('lowAddedOne', ps[0].name, (() => { const it = get('shopping', `low_${ps[0].id}`); return it && it.qty != null ? qtyText(it.qty, it.unit) : ''; })()) : t('lowAddedN', ps.length), {
+        undo: () => { for (const p of ps) { const cur = get('shopping', `low_${p.id}`); if (cur && !cur.checked) remove('shopping', cur.id); } changed(); },
+      });
+      break;
+    }
+    case 'low-skip-all': for (const p of kitchen.pendingLow()) kitchen.skipLow(p); changed(); break;
+    case 'low-unskip': { const p = get('pantry', id); if (p) { kitchen.addLowItem(p, lowBuy(p)); changed(); toast(t('lowAddedOne', p.name, '')); } break; }
     case 'fu-link': openFoodLink(btn.dataset.value); break;
     case 'fu-new': openNewFood(btn.dataset.value); break;
     case 'fu-del': undoableRemove('foods', id, () => { refreshUserFoods(); render(); }); break;
@@ -4857,7 +5056,7 @@ async function start() {
   renderShell();
   render();
   handleShareTarget();
-  ensureLowItems();
+  ensureLowItems({ quiet: true });
   if (!isConfigured()) migrateStages(); // connected devices do it after a sync, on fresh data
   onChange((kind) => { if (COLLECTIONS.includes(kind) || kind === 'meta') renderIfSafe(); else if (kind === 'meta-time') updateSyncBadge(); });
   window.addEventListener('hashchange', () => {
