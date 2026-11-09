@@ -5,8 +5,8 @@ import { parseIngredient } from './parse.js';
 import { extractTimes, hasTimes, formatMinutes, durationsIn } from './times.js';
 
 const HEAD = {
-  ing: /^(ingredienti|ingredienti per\b.*|occorrente|cosa (?:ti )?serve|zutaten|zutaten für\b.*|ingredients|you(?:'| wi)ll need)\s*:?$/i,
-  steps: /^(preparazione|procedimento|esecuzione|come si prepara|come prepararl[aoie]|zubereitung|anleitung|so geht'?s|so wird'?s gemacht|method|directions|instructions|preparation|steps)\s*:?$/i,
+  ing: /^(ingredienti|ingredienti per\b.*|occorrente|cosa (?:ti |vi )?serve|ti serve|vi serve|zutaten|zutaten für\b.*|(?:dafür |das )?brauchst du|du brauchst|was du brauchst|(?:dafür |das )?brauchen sie|sie brauchen|ingredients|you(?:'| wi)ll need|what you(?:'ll)? need)\s*:?$/i,
+  steps: /^(preparazione|procedimento|esecuzione|come si prepara|come prepararl[aoie]|come si fa|zubereitung|anleitung|(?:und )?so geht['’´`]?s|so geht es|so wird['’´`]?s gemacht|so machst du['’´`]?s|method|directions|instructions|preparation|steps|how to make it)\s*:?$/i,
   notes: /^(consigli[oi]?|il consiglio|i consigli|note|nota|varianti|variante|curiosità|conservazione|tipps?|hinweise?|varianten?|notes?|tips?|variations?|cook'?s notes?)(?:\s+(?:dello chef|del cuoco|vom koch))?\s*:?$/i,
 };
 // "Timing Information:", "Nutritional Information:", "Valori nutrizionali", "Nährwerte": tables, not recipe text
@@ -114,6 +114,10 @@ const TIME = /(?:tempo(?: totale| di preparazione)?|preparazione|cottura|zeit|zu
 
 const BULLET = /^[\s•·*\-–—»«►▪■□○◦‣⁃~>]+/;
 const NUMBERED = /^(?:\(?\d{1,2}[.)]|(?:step|schritt|passo|fase)\s*\d{1,2}[.:)]?)\s+/i;
+// a step number misread as a sign or a letter ("@. Gib", "S. Mit"), only once the steps are numbered
+const JUNK_NUMBER = /^(?:[^\s\p{L}\p{N}]{1,2}|\p{L})[.)]\s+(?=\p{Lu}\p{Ll})/u;
+// marks the photo reader puts before a line ("‚Parmesan", "| Salz")
+const LEAD_JUNK = /^[‚'‘’`´"„“”|¦]+\s*/;
 // an ingredient line that obviously goes on: "… extravergine di", "… a cubetti e", "…,"
 const CONTINUES = /(?:[,(-]|\b(?:di|d'|del|della|dei|delle|e|ed|o|con|per|a|al|alla|da|in|of|and|or|with|for|von|vom|mit|und|oder|zum|zur|für))$/i;
 const TO_TASTE = /\b(?:q\.?\s?b\.?|quanto basta|to taste|nach belieben|nach geschmack|a piacere|etwas)\s*\.?$/i;
@@ -150,6 +154,39 @@ export function isHeader(t) {
   if (t.length <= 50 && META_HEAD.test(t)) return 'meta';
   for (const [kind, re] of Object.entries(HEAD)) if (t.length <= 40 && re.test(t)) return kind;
   if (t.length <= 45 && ING_HEAD_LOOSE.test(t) && !/\d+\s*(?:g|ml|kg|l)\b/i.test(t)) return 'ing';
+  return fuzzyHeader(t);
+}
+
+// v56: headings as a photo reader gets them wrong ("So geht's:" → "Pi So geht ER", "Zutaten" → "Zutaien").
+// Letters only, no accents; long enough that one or two wrong letters can't turn another word into a heading.
+const FUZZY_HEADS = {
+  ing: ['ingredienti', 'occorrente', 'cosaserve', 'zutaten', 'dafurbrauchstdu', 'dasbrauchstdu', 'wasdubrauchst', 'ingredients', 'youwillneed', 'whatyouneed'],
+  steps: ['preparazione', 'procedimento', 'esecuzione', 'comesiprepara', 'zubereitung', 'anleitung', 'sogehts', 'sowirdsgemacht', 'directions', 'instructions', 'preparation'],
+};
+const letters = (s) => String(s).toLowerCase().normalize('NFD').replace(/[^a-z]/g, '');
+/** Fewest letter changes that turn `key` into some stretch of `s` (s may have junk before and after). */
+function nearIn(key, s) {
+  let prev = new Array(s.length + 1).fill(0);
+  for (let i = 1; i <= key.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= s.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (key[i - 1] === s[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return Math.min(...prev);
+}
+export function fuzzyHeader(t) {
+  t = String(t).trim();
+  if (t.length > 40 || t.split(/\s+/).length > 5 || /[.!?]$/.test(t) || isNotRecipeTitle(t)) return null;
+  // no amounts or times; one stray digit only where a letter was misread before the colon ("So geht 3:")
+  const digits = (t.match(/\d/g) || []).length;
+  if (digits > 1 || (digits === 1 && !/:$/.test(t))) return null;
+  const s = letters(t);
+  for (const [kind, keys] of Object.entries(FUZZY_HEADS)) {
+    for (const k of keys) {
+      if (s.length > k.length + 5 || s.length < k.length - 2) continue;
+      if (nearIn(k, s) <= (k.length >= 12 ? 2 : 1)) return kind;
+    }
+  }
   return null;
 }
 
@@ -159,6 +196,28 @@ export function isIngredientLike(t) {
   const p = parseIngredient(t);
   if (p.qty != null && !/[.!?]$/.test(t) && t.split(' ').length <= 12) return true;
   return false;
+}
+
+// v56: the amount after the name, as in a table or many German books: "Mozzarella 150 g", "Ei 1", "Parmesan 2 EL".
+const TRAIL_QTY = /^(.*?\p{L}.*?)[\s.:…·_-]+(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|[½⅓⅔¼¾])\s*(\p{L}{1,12})?\.?$/u;
+// "Mehl Type 405", "Seite 12", "Schritt 3", "Backzeit 20": a number that isn't an amount
+const NOT_AMOUNT = /(?:^|\s)(?:typ|type|tipo|nr|no|n°|seite|page|pagina|pag|schritt|step|passo|fase|teil|parte|part|portionen|porzioni|personen|persone|servings|serves|grad|gradi|degrees|minuten|minuti|minutes|min|ore|stunden|hours|\p{L}*zeit|tempo|cottura|time|ofen|backofen|forno|oven|kapitel|capitolo|chapter|rezept|ricetta|recipe|ergibt|makes|yield|resa|°c?)\.?$/iu;
+const unitOf = (w) => (w ? parseIngredient(`1 ${w} x`).unit : '');
+/** "Mozzarella 150 g" → "150 g Mozzarella" (and the photo reader's slips: "150 9" → "150 g", "LTL" → "1 TL"). */
+export function frontQty(t) {
+  t = String(t).trim();
+  if (parseIngredient(t).qty != null || t.split(/\s+/).length > 8 || /[!?]$/.test(t)) return t;
+  let s = t
+    .replace(/(\d{2,4})(?:\.|\s)9\.?$/, '$1 g') // a g read as 9
+    .replace(/\s[lLI|]\s?(TL|EL|ml|g|kg)\.?$/, ' 1 $1') // a 1 read as l
+    .replace(/(\s)((?=[\dOolI]*\d)[\dOolI]{2,4})(\s*\p{L}{0,3}\.?)$/u, (m, sp, n, rest) => sp + n.replace(/[Oo]/g, '0').replace(/[lI]/g, '1') + rest); // 1O0 → 100
+  const m = s.match(TRAIL_QTY);
+  if (!m) return t;
+  const [, rawName, qty, unit = ''] = m;
+  const name = rawName.replace(/[\s.:…·_|-]+$/, '').trim();
+  if (!name || NOT_AMOUNT.test(name) || name.split(/\s+/).length > 6 || (!unit && unitOf(name))) return t;
+  if (unit && !unitOf(unit)) return t;
+  return `${qty.replace(/\s+/g, '')}${unit ? ` ${unit}` : ''} ${name}`;
 }
 
 export function isStepLike(t) {
@@ -224,26 +283,75 @@ export function textToLines(text) {
   return out;
 }
 
+// v56: what a photo reader gets wrong in German: "Tomatensoβe" read as "TomatensoBe", "auBen"
+const fixEszett = (t) => t.replace(/(?<=\p{Ll})B(?=\p{Ll}|\b)/gu, 'ß');
+
+/**
+ * v56: several photos (lines carry `photo`, the photo they came from). A photo that is only the ingredient list
+ * goes before a photo that is only the method, and each gets its heading when the reader missed it, so the order the
+ * photos were taken in, or a heading in a decorative font, can't push the ingredients into the steps.
+ */
+function byPhoto(lines) {
+  const photos = [...new Set(lines.map((l) => l.photo))];
+  if (photos.length < 2 || photos.length > 4 || photos.some((p) => p == null)) return lines;
+  const pages = photos.map((p) => {
+    const ls = lines.filter((l) => l.photo === p);
+    let ing = 0; let step = 0; let ingHead = false; let stepHead = false; let firstIng = -1; let firstStep = -1;
+    ls.forEach((l, i) => {
+      const h = isHeader(l.text);
+      if (h === 'ing') ingHead = true;
+      if (h === 'steps') stepHead = true;
+      if (h) return;
+      const t = l.text.replace(BULLET, '').trim();
+      if (isIngredientLike(frontQty(t))) { ing++; if (firstIng < 0) firstIng = i; } else if (isStepLike(t)) { step++; if (firstStep < 0) firstStep = i; }
+    });
+    let role = '';
+    if (ingHead && stepHead) role = 'both';
+    else if (ingHead || (ing >= 3 && ing > step * 2)) role = 'ing';
+    else if (stepHead || (step >= 2 && step > ing * 2)) role = 'steps';
+    return { ls, role, ingHead, stepHead, firstIng, firstStep };
+  });
+  if (pages.some((p) => p.role === 'both' || !p.role)) return lines;
+  const firstSteps = pages.findIndex((p) => p.role === 'steps');
+  const ordered = firstSteps < 0 ? pages
+    : [...pages.slice(0, firstSteps), ...pages.filter((p, i) => i >= firstSteps && p.role === 'ing'), ...pages.filter((p, i) => i >= firstSteps && p.role !== 'ing')];
+  const out = [];
+  for (const p of ordered) {
+    const at = p.role === 'ing' && !p.ingHead ? p.firstIng : p.role === 'steps' && !p.stepHead ? p.firstStep : -1;
+    p.ls.forEach((l, i) => {
+      if (i === at) out.push({ text: p.role === 'ing' ? 'Ingredients' : 'Method', brk: true, photo: l.photo });
+      out.push(i === 0 ? { ...l, brk: true } : l);
+    });
+  }
+  return out;
+}
+
 export function parseRecipeText(input) {
-  const lines = (typeof input === 'string' ? textToLines(input) : input)
-    .map((l) => ({ ...l, text: clean(l.text) }))
-    .filter((l) => l.text && !/^\d{1,3}$/.test(l.text) && /[a-zà-öø-ÿ0-9]/i.test(l.text));
+  const raw = typeof input === 'string' ? textToLines(input) : input;
+  const german = detectLang(raw.map((l) => l.text).join('\n')) === 'de';
+  const lines = byPhoto(raw
+    .map((l) => ({ ...l, text: german ? fixEszett(clean(l.text)) : clean(l.text) }))
+    .filter((l) => l.text && !/^\d{1,3}$/.test(l.text) && /[a-zà-öø-ÿ0-9]/i.test(l.text)));
   const hasHeights = lines.some((l) => l.h);
   const all = lines.map((l) => l.text).join('\n');
 
   // Title: biggest text near the top (photos) or first plain line (pasted text).
   let titleIdx = -1;
-  const top = lines.slice(0, 8);
+  // v56: the title is above the first heading ("Zutaten", "Dafür brauchst du"), never inside the list under it
+  const firstHead = lines.slice(0, 8).findIndex((l) => isHeader(l.text));
+  const top = lines.slice(0, firstHead >= 0 ? firstHead : 8);
   if (hasHeights) {
     let best = -1;
     top.forEach((l, i) => {
       if (l.text.replace(/[^a-zà-öø-ÿ]/gi, '').length < 3 || isHeader(l.text) || isMeta(l.text)) return;
+      // v56: a misread line can come out tall; an ingredient is never the title
+      if (isIngredientLike(frontQty(l.text))) return;
       if (best < 0 || l.h > top[best].h * 1.15) best = i;
     });
     titleIdx = best;
   }
   if (titleIdx < 0) {
-    titleIdx = top.findIndex((l) => !isHeader(l.text) && !isMeta(l.text) && !isIngredientLike(l.text)
+    titleIdx = top.findIndex((l) => !isHeader(l.text) && !isMeta(l.text) && !isIngredientLike(frontQty(l.text))
       && l.text.length <= 70 && l.text.replace(/[^a-zà-öø-ÿ]/gi, '').length >= 3);
   }
   const title = titleIdx >= 0 ? niceTitle(lines[titleIdx].text) : '';
@@ -327,6 +435,11 @@ export function parseRecipeText(input) {
     const bulleted = BULLET.test(t);
     t = t.replace(BULLET, '').trim();
     if (!t) return;
+    // v56: before the method, "Mozzarella 150 g" is "150 g Mozzarella", and a stray mark in front ("‚Parmesan") goes
+    if (state === 'pre' || state === 'ing') {
+      const q = frontQty(t.replace(LEAD_JUNK, ''));
+      if (state === 'ing' || (isIngredientLike(q) && !isIngredientLike(t))) t = q;
+    }
 
     if (state === 'pre') {
       if (isIngredientLike(t) || (bulleted && t.length < 50)) state = 'ing';
@@ -365,11 +478,19 @@ export function parseRecipeText(input) {
 
     if (state === 'steps') {
       if (NUMBERED.test(t)) { flushStep(); stepNumbered = true; stepBuf = t.replace(NUMBERED, ''); return; }
+      const ended = /[.!?)]$/.test(stepBuf);
+      // v56: a step number the photo reader got wrong ("4." read as "@.")
+      if (stepNumbered && (ended || !stepBuf) && JUNK_NUMBER.test(t)) { flushStep(); stepBuf = t.replace(JUNK_NUMBER, ''); return; }
+      // v56: specks and bits of the pictures under the method ("a", "«Ten")
+      if (t.replace(/[^\p{L}]/gu, '').length < 4 && !/\d/.test(t) && (ended || l.brk)) return;
       let newStep = false;
       if (stepBuf && !stepNumbered) {
         // a new paragraph starts a new step; pasted text without blank lines: one sentence-ending line = one step
         // never split a sentence in two
-        newStep = /[.!?)]$/.test(stepBuf) && (l.brk || !hasHeights);
+        newStep = ended && (l.brk || !hasHeights);
+      } else if (stepBuf && hasHeights) {
+        // numbered steps from a photo: a new paragraph after a full stop is the next step, its number unread
+        newStep = ended && l.brk && /^\p{Lu}/u.test(t);
       }
       if (newStep) flushStep();
       stepBuf = appendText(stepBuf, t);
@@ -384,7 +505,7 @@ export function parseRecipeText(input) {
 
   // Nothing structured? Treat every line with a quantity as an ingredient, the rest as steps.
   if (!ingredients.length && intro.length) {
-    for (const t of intro.splice(0)) (isIngredientLike(t) ? ingredients.push({ raw: t }) : steps.push(t));
+    for (const t of intro.splice(0)) { const q = frontQty(t); (isIngredientLike(q) ? ingredients.push({ raw: q }) : steps.push(t)); }
   }
   if (servings == null) servings = servingsOf(all.slice(0, 400));
   // a table of times ("Preparation | 1 h 30 m · Cooking | 10 m · Total Time | 9 h 40 m")
