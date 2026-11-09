@@ -122,6 +122,17 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **An AI model reads recipe photos (v57, Nov 9, data repository only):** copy `ricette-data/` into the data
+  repository (5 files: `.github/workflows/import-recipes.yml`, `scripts/import-recipes.mjs`, the new
+  `scripts/recipe-ai.mjs`, and v56's `scripts/ocr.mjs` and `scripts/lib/recipe-text.js` again in case they aren't up
+  yet). The app stays v56. When a recipe photo is waiting, the import job starts a small open AI model (Qwen3 4B, run
+  by Ollama on GitHub's machine: free, nothing leaves your private repository) that puts the text in order: amounts back
+  with their ingredient, obvious misreadings fixed (*Raucherschinken* → *Räucherschinken*), steps split where they
+  belong, a title when the page has one. The model only points at lines the text reader found and every ingredient it
+  writes must be in the text, so it can't make a recipe up; if it is missing, slow (over 8 minutes) or its answer looks
+  worse than the rules', the rules read the recipe as before. The first photo downloads the model (about 2.5 GB, kept
+  between runs); each photo takes a few minutes longer than before, out of the 2,000 free minutes a month. To try
+  another model, change `RECIPE_AI_MODEL` at the top of the workflow.
 - **Better recipes from photos (v56, Nov 9):** copy `ricette-app/` into the app repository (4 files: `README.md`,
   `sw.js`, `js/app.js`, `js/recipe-text.js`) and `ricette-data/` into the data repository (2 files: `scripts/ocr.mjs`,
   `scripts/lib/recipe-text.js`). Nothing to delete, no new data fields. Ingredient lists with the amount after the name
@@ -431,6 +442,7 @@ Your recipes, pantry and settings stay as they are.
 | `images/` | recipe photos (created automatically) |
 | `scripts/import-recipes.mjs` | reads recipe pages for pasted links |
 | `scripts/ocr.mjs` | reads photographed pages with Tesseract (columns, line sizes, paragraphs) |
+| `scripts/recipe-ai.mjs` | puts the text of recipe photos in order with a small open AI model (Ollama, on GitHub's machine) |
 | `scripts/lib/` | copies of the app's recipe reading code (`recipe-text.js`, `parse.js`, `dish-image.js`) |
 | `.github/workflows/import-recipes.yml` | runs the importer when you paste a link |
 | `push/` | notification keys and the devices that turned reminders on (created automatically) |
