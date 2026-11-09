@@ -122,6 +122,18 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **Better recipes from photos (v56, Nov 9):** copy `ricette-app/` into the app repository (4 files: `README.md`,
+  `sw.js`, `js/app.js`, `js/recipe-text.js`) and `ricette-data/` into the data repository (2 files: `scripts/ocr.mjs`,
+  `scripts/lib/recipe-text.js`). Nothing to delete, no new data fields. Ingredient lists with the amount after the name
+  (*Mozzarella … 150 g*, *Ei … 1*, common in German books and tables) are now read as ingredients; the amounts printed
+  in their own column stay on their row. More headings are known (*Dafür brauchst du*, *Das brauchst du*, *So geht's*,
+  *Ti serve*, *What you need*) and are found even when the photo misreads them (*Pi So geht ER*). With several photos,
+  an ingredients photo and a method photo are put in the right order whatever order they were taken in. Step numbers
+  read wrong (*@.* for *4.*) still start a new step; specks under the method are dropped. Pages in two columns that
+  Tesseract keeps apart are no longer interleaved line by line. Dark pages with light text (chalkboard style) are also
+  read inverted, keeping the better reading, when ImageMagick is on the runner: to be sure it is, add `imagemagick`
+  to the line of `.github/workflows/import-recipes.yml` that installs `tesseract-ocr` (optional). Pasted text (*Or paste
+  the text*) gets the same improvements.
 - **New shops from a product (v55.1, Nov 3):** this zip goes straight from v54.2 (it includes v55). In the product
   sheet, *+ Nuovo negozio* opens a small panel: the name, and optionally the address (its Maps link is made for you),
   hours (*Lun–Sab 8–20*, *Mattina 7–13*, or day by day later) and how long you usually spend. A name typed and then
@@ -471,7 +483,9 @@ Everything else is identical, and you can switch the visibility later in the rep
   usually within 1–2 minutes (the first photo of a run takes a bit longer while the text reader is installed).
 - **Printed books and typed notes** work well: in tests with tilted, unevenly lit phone photos of cookbook pages
   (Italian, German, English, one and two columns) titles, servings, ingredients and steps were all read correctly.
-  Shoot the page straight, filling the frame, in good light.
+  Shoot the page straight, filling the frame, in good light. Ingredient tables with the amount after the name
+  (*Mozzarella … 150 g*) are read too. If the ingredients and the method are on different pages, add both photos to
+  the same recipe: the order doesn't matter.
 - **Handwriting** is not something Tesseract can read reliably. Use your phone instead: on iPhone open the photo,
   press and hold on the text → *Select All* → *Copy* (Android: Google Lens → *Text* → *Copy*), then in the app
   *Recipe from a photo* → *Or paste the text*. Pasted text is read on the device and opens in the edit form.

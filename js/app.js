@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v55.1';
+const APP_VERSION = 'v56';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
