@@ -51,6 +51,10 @@ In Impostazioni → *Dispensa e promemoria* → *Promemoria di scadenza* tocca *
 
 In Impostazioni → *Ricette* → *Persone* scegli per quante persone cucini di solito: quantità, lista della spesa e *Con la dispensa* si adeguano. In *Lingua e aspetto* scegli italiano, inglese o tedesco, il tema (*Automatico* come il telefono, *Chiaro* o *Scuro*) e il colore dell'app: melanzana, petrolio, terracotta o fiordaliso. Lingua, tema e colore valgono solo sul dispositivo su cui li scegli.
 
+![Lingua e aspetto](guide/it/05-settings-look.webp)
+
+![Persone per tutte le ricette](guide/it/06-settings-people.webp)
+
 ### 5. Una seconda persona
 
 Ognuno ha il suo repository e il suo token. Sul suo telefono apri lo stesso indirizzo e collega il suo repository. Se il dispositivo conteneva i dati di qualcun altro, l'app chiede se partire vuoto: scegli quello. *Svuota questo dispositivo*, in *Collegamento GitHub*, fa lo stesso quando vuoi.
@@ -197,6 +201,8 @@ Tocca il nome di una voce: si apre la scheda del prodotto, la stessa che apri da
 
 ![La scheda di un prodotto: dove si trova, quanto, negozi](guide/it/33-list-item.webp)
 
+![+ Nuovo negozio, dentro la scheda](guide/it/33b-new-shop.webp)
+
 ### Il carrello e Metti in dispensa
 
 Spunta quello che metti nel carrello: scende in **Nel carrello**. A casa tocca **Metti in dispensa**: controlli quantità, scadenze e dove va ogni cosa (credenza, frigo o freezer), poi tutto entra in dispensa ed esce dalla lista. Un prodotto nuovo si porta dietro i negozi della voce.
@@ -225,6 +231,8 @@ L'ultima casella, *✎ Posti*, apre l'elenco dei posti: togli la spunta a quelli
 
 ![I posti](guide/it/46-pantry-places.webp)
 
+![Reparti: l'ordine del negozio e il posto in casa](guide/it/49-settings-depts.webp)
+
 ### Aggiungere e scansionare
 
 Tocca **+** e scrivi, per esempio `6 uova scade 20/11, 1 kg farina`: «scade 20/11» mette la scadenza. *Va in* sceglie il posto: quello che stai guardando, oppure *Da solo* e ogni cosa va al suo. Con *Scansiona* inquadri il codice a barre e il prodotto si riconosce da solo.
@@ -251,6 +259,8 @@ Quello che finisce su un altro telefono, o in Everyday quando cucini, compare in
 
 ![Finito: alla spesa?](guide/it/44b-pantry-low.webp)
 
+![Quando qualcosa finisce: Chiedimi, Aggiungi da solo, Non fare niente](guide/it/48-settings-low.webp)
+
 ### Filtri
 
 **Filtri** sceglie la vista (reparti, scadenza, scorte, A–Z) e i filtri *In scadenza*, *Scaduti*, *In esaurimento* e *Finiti*, anche insieme. *Ricette con quello che hai* apre Ricette con *Con la dispensa* acceso.
@@ -260,6 +270,8 @@ Quello che finisce su un altro telefono, o in Everyday quando cucini, compare in
 ### Scontrini
 
 In ⋯ → *Leggi uno scontrino* fotografi lo scontrino dritto e ben illuminato. Viene letto sul tuo GitHub e poi cancellato; quando è pronto compare in Dispensa e lo metti via come il carrello.
+
+![Uno scontrino già letto](guide/it/47-receipt.webp)
 
 ## Con Everyday
 

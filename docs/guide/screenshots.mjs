@@ -134,6 +134,11 @@ await go('#/settings');
 await shot('03-settings');
 await go('#/settings/pantry/remind');
 await shot('04-settings-pantry');
+// v58: the optional settings get pictures too
+await go('#/settings/language');
+await shot('05-settings-look');
+await go('#/settings/recipes/people');
+await shot('06-settings-people');
 
 // ---- 2. Recipes ----
 await go('#/recipes');
@@ -205,6 +210,11 @@ await p.click('[data-action=lv-open]'); await wait(150);
 if (!DESK) { await p.click('.f-toggle'); await wait(); }
 await p.click('.sl-main:has-text("parmigiano")'); await wait(400);
 await shot('33-list-item');
+// v55.1: + New shop, inside the product's sheet
+await p.click('dialog[open] [data-action=sl-new-shop]').catch(() => {}); await wait(300);
+await p.fill('#sl-new-shop-name', L('Panificio Rossi', 'Corner bakery', 'Bäckerei Müller')).catch(() => {});
+await p.evaluate(() => document.getElementById('ns-panel')?.scrollIntoView({ block: 'center' }));
+await shot('33b-new-shop');
 await closeSheet();
 if (!DESK) { await p.click('[data-action=sl-cart-toggle]').catch(() => {}); await wait(); await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); }
 await shot('34-cart');
@@ -251,6 +261,21 @@ await p.click('[data-action=p-place][data-value=all]'); await wait();
 await p.click('[data-action=places-edit]'); await wait(300);
 await shot('46-pantry-places'); // v54: the ✎ Posti editor
 await closeSheet();
+// v58: a receipt that has been read, waiting to be put away
+await p.evaluate(async ({ lang }) => {
+  const m = await import('./js/store.js');
+  const L = (it, en, de) => ({ it, en, de })[lang];
+  m.upsert('queue', { id: 'rc1', type: 'receipt', status: 'done', addedAt: Date.now(), total: 23.4,
+    items: [L('latte', 'milk', 'Milch'), L('mele', 'apples', 'Äpfel'), L('farina', 'flour', 'Mehl'), 'mozzarella', L('caffè', 'coffee', 'Kaffee'), L('pane', 'bread', 'Brot')].map((name) => ({ name, qty: 1, unit: '' })) });
+}, { lang });
+await go('#/pantry');
+await p.evaluate(() => document.querySelector('.receipt-card')?.scrollIntoView({ block: 'center' }));
+await shot('47-receipt');
+await p.evaluate(async () => { const m = await import('./js/store.js'); m.remove('queue', 'rc1'); });
+await go('#/settings/pantry/low');
+await shot('48-settings-low');
+await go('#/settings/depts');
+await shot('49-settings-depts');
 
 // ---- 6. On a computer: wide pictures in the phone guide (the computer set doesn't need them) ----
 if (!DESK) {

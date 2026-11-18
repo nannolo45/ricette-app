@@ -122,6 +122,10 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **The guide, with every picture (v58, Nov 18):** nothing to copy by hand; this went straight to the app
+  repository. All guide pictures were retaken from the current app (phone and computer, IT / EN / DE), and six new ones
+  were added: Language and appearance, People, + New shop in a product's sheet, Departments, When something runs out,
+  and a receipt that has been read. Nothing to do in the data repo.
 - **An AI model reads recipe photos (v57, Nov 9, data repository only):** copy `ricette-data/` into the data
   repository (5 files: `.github/workflows/import-recipes.yml`, `scripts/import-recipes.mjs`, the new
   `scripts/recipe-ai.mjs`, and v56's `scripts/ocr.mjs` and `scripts/lib/recipe-text.js` again in case they aren't up
