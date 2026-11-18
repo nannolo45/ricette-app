@@ -51,6 +51,10 @@ In Settings → *Pantry and reminders* → *Expiry reminders*, tap *Turn on noti
 
 In Settings → *Recipes* → *People*, choose how many people you usually cook for: quantities, the shopping list and *With the pantry* follow it. In *Language and appearance*, choose English, Italian or German, the theme (*Automatic* like your phone, *Light* or *Dark*) and the app's colour: aubergine, petrol, terracotta or cornflower. Language, theme and colour apply only to the device where you choose them.
 
+![Language and appearance](guide/en/05-settings-look.webp)
+
+![People for every recipe](guide/en/06-settings-people.webp)
+
 ### 5. A second person
 
 Everyone has their own repository and token. On their phone, open the same address and connect their repository. If the device held someone else's data, the app asks whether to start empty: choose that. *Empty this device*, under *GitHub connection*, does the same whenever you like.
@@ -197,6 +201,8 @@ Tap an item's name: the product's sheet opens, the same one you open from the ca
 
 ![A product's sheet: where it is, how much, shops](guide/en/33-list-item.webp)
 
+![+ New shop, inside the sheet](guide/en/33b-new-shop.webp)
+
 ### The cart and Put in pantry
 
 Tick what goes in your cart: it moves down to **In the cart**. At home, tap **Put in pantry**: check amounts, expiry dates and where each thing goes (cupboard, fridge or freezer), and everything goes into the pantry and off the list. A new product takes the item's shops with it.
@@ -225,6 +231,8 @@ The last tile, *✎ Places*, opens the list of places: untick the ones you don't
 
 ![The places](guide/en/46-pantry-places.webp)
 
+![Departments: the shop order and the place at home](guide/en/49-settings-depts.webp)
+
 ### Adding and scanning
 
 Tap **+** and type, for example, `6 eggs exp 20/11, 1 kg flour`: "exp 20/11" sets the expiry date. *Goes in* picks the place: the one you're looking at, or *Automatic* and each thing goes to its own. With *Scan*, point the camera at the barcode and the product is recognised.
@@ -251,6 +259,8 @@ Anything that runs out on another phone, or in Everyday when you cook, shows at 
 
 ![Run out: on the list?](guide/en/44b-pantry-low.webp)
 
+![When something runs out: Ask me, Add by itself, Do nothing](guide/en/48-settings-low.webp)
+
 ### Filters
 
 **Filters** picks the view (aisles, expiry, stock, A–Z) and the filters *Expiring*, *Expired*, *Running low* and *Out*, together if you like. *Recipes with what you have* opens Recipes with *With the pantry* on.
@@ -260,6 +270,8 @@ Anything that runs out on another phone, or in Everyday when you cook, shows at 
 ### Receipts
 
 Under ⋯ → *Read a receipt*, photograph the receipt straight and well lit. It's read on your GitHub and then deleted; when it's ready it shows up in Pantry, and you put it away like the cart.
+
+![A receipt that has been read](guide/en/47-receipt.webp)
 
 ## With Everyday
 

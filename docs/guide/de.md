@@ -51,6 +51,10 @@ Tippe unter Einstellungen → *Vorrat und Erinnerungen* → *Erinnerungen ans Ab
 
 Unter Einstellungen → *Rezepte* → *Personen* wählst du, für wie viele Personen du meistens kochst: Mengen, Einkaufsliste und *Mit dem Vorrat* richten sich danach. Unter *Sprache und Aussehen* wählst du Deutsch, Englisch oder Italienisch, das Farbschema (*Automatisch* wie das Handy, *Hell* oder *Dunkel*) und die Farbe der App: Aubergine, Petrol, Terrakotta oder Kornblume. Sprache, Farbschema und Farbe gelten nur auf dem Gerät, auf dem du sie wählst.
 
+![Sprache und Aussehen](guide/de/05-settings-look.webp)
+
+![Personen für alle Rezepte](guide/de/06-settings-people.webp)
+
 ### 5. Eine zweite Person
 
 Jede Person hat ihr eigenes Repository und Token. Öffne auf ihrem Handy dieselbe Adresse und verbinde ihr Repository. Waren auf dem Gerät die Daten von jemand anderem, fragt die App, ob sie leer starten soll: Wähle das. *Dieses Gerät leeren* unter *GitHub-Verbindung* macht das jederzeit.
@@ -197,6 +201,8 @@ Tippe auf den Namen eines Eintrags: Das Blatt des Produkts öffnet sich, dasselb
 
 ![Das Blatt eines Produkts: wo es ist, wie viel, Läden](guide/de/33-list-item.webp)
 
+![+ Neuer Laden, im Blatt](guide/de/33b-new-shop.webp)
+
 ### Der Wagen und In den Vorrat
 
 Hake ab, was in den Wagen kommt: Es rutscht nach unten in **Im Wagen**. Zu Hause tippst du auf **In den Vorrat**: Mengen, Ablaufdaten und den Ort prüfen (Schrank, Kühlschrank oder Gefrierfach), dann kommt alles in den Vorrat und von der Liste. Ein neues Produkt nimmt die Läden des Eintrags mit.
@@ -225,6 +231,8 @@ Die letzte Kachel, *✎ Orte*, öffnet die Liste der Orte: Nimm den Haken bei de
 
 ![Die Orte](guide/de/46-pantry-places.webp)
 
+![Abteilungen: Reihenfolge im Laden und Ort zu Hause](guide/de/49-settings-depts.webp)
+
 ### Hinzufügen und scannen
 
 Tippe auf **+** und schreib zum Beispiel `6 Eier bis 20.11., 1 kg Mehl`: „bis 20.11.“ setzt das Ablaufdatum. *Kommt in* wählt den Ort: den, den du gerade ansiehst, oder *Automatisch*, dann kommt alles an seinen Platz. Mit *Scannen* hältst du den Barcode vor die Kamera, und das Produkt wird erkannt.
@@ -251,6 +259,8 @@ Was auf einem anderen Handy oder in Everyday beim Kochen ausgeht, erscheint oben
 
 ![Leer: auf die Liste?](guide/de/44b-pantry-low.webp)
 
+![Wenn etwas leer ist: Nachfragen, Selbst auf die Liste setzen, Nichts tun](guide/de/48-settings-low.webp)
+
 ### Filter
 
 **Filter** wählt die Ansicht (Abteilungen, Haltbarkeit, Bestand, A–Z) und die Filter *Läuft bald ab*, *Abgelaufen*, *Wird knapp* und *Leer*, auch zusammen. *Rezepte mit dem, was da ist* öffnet Rezepte mit eingeschaltetem *Mit dem Vorrat*.
@@ -260,6 +270,8 @@ Was auf einem anderen Handy oder in Everyday beim Kochen ausgeht, erscheint oben
 ### Kassenbons
 
 Unter ⋯ → *Kassenbon lesen* fotografierst du den Bon gerade und gut beleuchtet. Er wird auf deinem GitHub gelesen und danach gelöscht; ist er fertig, erscheint er im Vorrat, und du räumst ihn ein wie den Wagen.
+
+![Ein gelesener Kassenbon](guide/de/47-receipt.webp)
 
 ## Mit Everyday
 
