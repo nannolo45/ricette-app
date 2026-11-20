@@ -203,17 +203,21 @@ const TRAIL_QTY = /^(.*?\p{L}.*?)[\s.:…·_-]+(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+|[
 // "Mehl Type 405", "Seite 12", "Schritt 3", "Backzeit 20": a number that isn't an amount
 const NOT_AMOUNT = /(?:^|\s)(?:typ|type|tipo|nr|no|n°|seite|page|pagina|pag|schritt|step|passo|fase|teil|parte|part|portionen|porzioni|personen|persone|servings|serves|grad|gradi|degrees|minuten|minuti|minutes|min|ore|stunden|hours|\p{L}*zeit|tempo|cottura|time|ofen|backofen|forno|oven|kapitel|capitolo|chapter|rezept|ricetta|recipe|ergibt|makes|yield|resa|°c?)\.?$/iu;
 const unitOf = (w) => (w ? parseIngredient(`1 ${w} x`).unit : '');
-/** "Mozzarella 150 g" → "150 g Mozzarella" (and the photo reader's slips: "150 9" → "150 g", "LTL" → "1 TL"). */
-export function frontQty(t) {
+/**
+ * "Mozzarella 150 g" → "150 g Mozzarella" (and the photo reader's slips: "150 9" → "150 g", "LTL" → "1 TL").
+ * v58.1: `ocr: false` for typed text (recipes from a link), where those slips aren't slips.
+ */
+export function frontQty(t, { ocr = true } = {}) {
   t = String(t).trim();
   if (parseIngredient(t).qty != null || t.split(/\s+/).length > 8 || /[!?]$/.test(t)) return t;
-  let s = t
+  let s = !ocr ? t : t
     .replace(/(\d{2,4})(?:\.|\s)9\.?$/, '$1 g') // a g read as 9
     .replace(/\s[lLI|]\s?(TL|EL|ml|g|kg)\.?$/, ' 1 $1') // a 1 read as l
     .replace(/(\s)((?=[\dOolI]*\d)[\dOolI]{2,4})(\s*\p{L}{0,3}\.?)$/u, (m, sp, n, rest) => sp + n.replace(/[Oo]/g, '0').replace(/[lI]/g, '1') + rest); // 1O0 → 100
   const m = s.match(TRAIL_QTY);
   if (!m) return t;
   const [, rawName, qty, unit = ''] = m;
+  if (/^0\d/.test(qty)) return t; // "Farina 00" is a kind of flour, not zero of it
   const name = rawName.replace(/[\s.:…·_|-]+$/, '').trim();
   if (!name || NOT_AMOUNT.test(name) || name.split(/\s+/).length > 6 || (!unit && unitOf(name))) return t;
   if (unit && !unitOf(unit)) return t;

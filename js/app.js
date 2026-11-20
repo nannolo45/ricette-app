@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v58.1';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -20,7 +20,7 @@ import { addPhoto, addScan, addUpload, hydrate, prefetchAll, coverOf, isRepoPhot
 import { daysUntil, expiryState, todayStr } from './expiry.js';
 import { getOrCreateVapidPublicKey } from './sync.js';
 import { scanBarcode } from './scanner.js';
-import { parseRecipeText, detectLang as textLang, groupLines } from './recipe-text.js';
+import { parseRecipeText, detectLang as textLang, groupLines, frontQty } from './recipe-text.js';
 import { findDishImage } from './dish-image.js';
 import { tagsOf, minutesOf, rankByPantry, pantryCoverage, findPantryItem, autoTags, AUTO_TAGS, COURSE_TAGS, isOriginTag, isBasic as isBasicName } from './recipe-tools.js';
 import { originOf, flagOf, CONTINENTS, CONTINENT_ICON } from './geo.js';
@@ -71,11 +71,16 @@ function photoTag(src, { fallback = '', cls = '' } = {}) {
 const kitchen = createKitchen({ live, get, upsert, remove, uid, all: (c) => state[c] });
 // the user's own foods and corrections (data/foods.json) take part in every match
 function refreshUserFoods() { setUserFoods(live('foods')); }
+// one stored ingredient line → parsed. v58.1: the amount may come after the name, as on many Italian sites
+// ("Biscotti secchi 200 g"): it was left in the name, with no amount to scale. The line keeps its own text.
+function parseLine(raw) {
+  return { ...parseIngredient(frontQty(raw, { ocr: false })), raw: String(raw).trim() };
+}
 // ingredient lines [{ raw, group? }] → parsed ingredients, keeping the group (v41)
 function parseIngs(list) {
   return (list || []).map((i) => {
     const raw = typeof i === 'string' ? i : i?.raw || '';
-    return { ...parseIngredient(raw), ...(i && i.group ? { group: i.group } : {}) };
+    return { ...parseLine(raw), ...(i && i.group ? { group: i.group } : {}) };
   });
 }
 // food ids for a recipe's ingredients (v40): resolved from the name, a person's choice kept
@@ -426,7 +431,14 @@ function normalizeIngredients(ings) {
       const keep = { ...(x.food ? { food: x.food } : {}), ...(x.foodPinned ? { foodPinned: true } : {}) };
       x = { ...parseIngredient(raw), ...keep, group: m[1].charAt(0).toUpperCase() + m[1].slice(1) };
     } else if (x.name == null) {
-      x = { ...x, ...parseIngredient(x.raw || '') };
+      x = { ...x, ...parseLine(x.raw || '') };
+    } else if (x.qty == null && !x.unit && x.raw) {
+      // v58.1: saved before the amount after the name was read ("Biscotti secchi 200 g" with no amount)
+      const p = parseLine(x.raw);
+      if (p.qty != null) {
+        const { food: _f, foodPinned: _p, ...rest } = x;
+        x = { ...rest, ...p, ...(x.foodPinned ? { food: x.food, foodPinned: true } : {}) };
+      }
     }
     if (x.name && !x.food && !x.foodPinned) { const f = foodFields(x.name); if (f.food) x = { ...x, ...f }; }
     if (x !== i) changed = true;
