@@ -122,6 +122,11 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **Servings change the amounts of recipes from a link (v58.1, Nov 20):** nothing to copy by hand; this went straight
+  to the app repository. Many Italian sites write the amount after the name ("Biscotti secchi 200 g"): it stayed in the
+  name, so changing the number of people changed nothing and the pantry didn't recognise the ingredient. Those lines
+  are now read like "200 g Biscotti secchi", and recipes already saved are fixed after the next sync. Also: "Farina 00"
+  in a photo is no longer read as zero flour. Nothing to do in the data repo.
 - **The guide, with every picture (v58, Nov 18):** nothing to copy by hand; this went straight to the app
   repository. All guide pictures were retaken from the current app (phone and computer, IT / EN / DE), and six new ones
   were added: Language and appearance, People, + New shop in a product's sheet, Departments, When something runs out,
