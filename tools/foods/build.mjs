@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
-const js = (f) => path.join(root, 'app/js', f);
+const js = (f) => path.join(root, fs.existsSync(path.join(root, 'app/js')) ? 'app/js' : 'js', f); // the app moved to the repository root
 const simple = (s) => String(s || '').toLowerCase().replace(/ß/g, 'ss').normalize('NFD').replace(/\p{M}/gu, '')
   .replace(/\(.*?\)/g, ' ').replace(/['’`-]/g, ' ').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 

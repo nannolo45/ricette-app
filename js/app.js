@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v58.2';
+const APP_VERSION = 'v58.3';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -462,6 +462,32 @@ function normalizeIngredients(ings) {
   return changed ? out : null;
 }
 const BACKFILL_BATCH = 50;
+// v58.3: "funghi shiitake secchi" was stored as fresh shiitake (Frutta e verdura); the dictionary now knows it as
+// dried mushrooms. Once: records still holding one of these ids get their food again from their name, unless a
+// person pinned it. Records changed since the sync wait for a later one; the pref is set when none is left.
+const REFOOD_ONCE = { key: 'refoodV58_3', ids: ['shiitake'] };
+function refoodOnce() {
+  if (pref(REFOOD_ONCE.key)) return 0;
+  const since = state.meta.lastSync || 0;
+  const stale = (x) => x && x.food && !x.foodPinned && REFOOD_ONCE.ids.includes(x.food) && x.name && foodOf(x.name) && foodOf(x.name) !== x.food;
+  let n = 0; let waiting = 0;
+  for (const c of ['shopping', 'pantry']) {
+    for (const r of live(c)) {
+      if (!stale(r)) continue;
+      if ((r.updatedAt || 0) > since) { waiting++; continue; }
+      upsert(c, { ...r, food: foodOf(r.name) }, { silent: true });
+      n++;
+    }
+  }
+  for (const r of live('recipes')) {
+    if (!(r.ingredients || []).some(stale)) continue;
+    if ((r.updatedAt || 0) > since) { waiting++; continue; }
+    upsert('recipes', { ...r, ingredients: r.ingredients.map((i) => (stale(i) ? { ...i, food: foodOf(i.name) } : i)) }, { silent: true });
+    n++;
+  }
+  if (!waiting) { setPref(REFOOD_ONCE.key, Date.now()); n++; }
+  return n;
+}
 function backfillFoods() {
   const since = state.meta.lastSync || 0;
   if (!since || state.meta.contractNewer) return;
@@ -482,6 +508,7 @@ function backfillFoods() {
     setPref('catCleanV1', Date.now());
     n++;
   }
+  n += refoodOnce();
   for (const c of ['shopping', 'pantry']) {
     let k = 0;
     for (const r of live(c)) {
