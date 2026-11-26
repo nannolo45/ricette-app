@@ -122,6 +122,9 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **The keyboard no longer hides the add sheet (v58.2, Nov 26):** nothing to copy by hand; this went straight to the
+  app repository. On Android (Firefox) the keyboard covered "Aggiungi alla spesa" and the other bottom sheets, so the
+  field you were typing in was half hidden. Sheets now sit right on top of the keyboard. Nothing to do in the data repo.
 - **Servings change the amounts of recipes from a link (v58.1, Nov 20):** nothing to copy by hand; this went straight
   to the app repository. Many Italian sites write the amount after the name ("Biscotti secchi 200 g"): it stayed in the
   name, so changing the number of people changed nothing and the pantry didn't recognise the ingredient. Those lines

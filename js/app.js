@@ -8,7 +8,7 @@ import { esc, round, num, qtyText, fmtMin, kcalText, protText } from './ui/forma
 import { setupRecipeView, viewRecipe, openRecipeMenu, openStageMenu } from './views/recipe.js';
 import { setupEditView, viewEdit, afterEditRender, editClick, editInput, editKeydown, editFocusOut, editSorted, editIngredients, editIngText, editSteps, editTags, editMarkClean, editIsDirty, confirmLeaveEdit } from './views/edit.js';
 
-const APP_VERSION = 'v58.1';
+const APP_VERSION = 'v58.2';
 import { stageOf, stagePlan, stageCounts } from './recipe-stage.js';
 import { route, renderShell as renderShellFrame, setActiveTab, updateSyncBadge as shellSyncBadge, paint } from './shell.js';
 import {
@@ -47,6 +47,21 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const view = $('#view');
 const modal = $('#modal');
 const ui = { servings: {}, search: '', prefillUrl: '', connMsg: '', edit: null };
+
+// v58.2: the phone keyboard covered the bottom sheets (Firefox on Android keeps the page full height under it).
+// --kb is how much of the page the keyboard hides; sheets sit on top of it. 0 where the browser shrinks the page itself.
+(function keyboardInset() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const root = document.documentElement;
+  const update = () => {
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    root.style.setProperty('--kb', `${kb > 40 ? kb : 0}px`);
+  };
+  vv.addEventListener('resize', update);
+  vv.addEventListener('scroll', update);
+  update();
+})();
 
 // Preferences shared by all devices (data/prefs.json): one record per setting.
 function pref(id, fallback) { const p = get('prefs', id); return p && p.value !== undefined ? p.value : fallback; }
