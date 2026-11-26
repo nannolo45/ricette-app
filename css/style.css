@@ -674,7 +674,7 @@ dialog.confirm-dialog .button-row { justify-content: flex-end; flex-direction: r
 #toast.has-action { pointer-events: auto; padding-right: 8px; }
 #toast .toast-undo { border: 0; background: transparent; color: var(--accent-soft); font: inherit; font-weight: 700; padding: 6px 8px; min-height: 36px; cursor: pointer; }
 :root.dark #toast .toast-undo { color: var(--accent-light); }
-dialog.sheet { margin: auto 0 0; width: 100vw; max-width: 100vw; border-radius: 22px 22px 0 0; max-height: 92dvh; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+dialog.sheet { margin: auto 0 var(--kb, 0px); width: 100vw; max-width: 100vw; border-radius: 22px 22px 0 0; max-height: calc(92dvh - var(--kb, 0px)); padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 dialog.sheet::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 6px auto 0; }
 @media (min-width: 700px) { dialog.sheet { margin: auto; width: min(520px, calc(100vw - 24px)); border-radius: 18px; } dialog.sheet::before { display: none; } }
 #toast { width: max-content; }
@@ -746,7 +746,7 @@ main:has(> .fab, .fab) { padding-bottom: 84px; }
 
 /* sheets */
 dialog.sheet { padding: 0; }
-.sheet-body { padding: 4px 16px 8px; max-height: calc(92dvh - 20px); overflow: auto; }
+.sheet-body { padding: 4px 16px 8px; max-height: calc(92dvh - 20px - var(--kb, 0px)); overflow: auto; }
 .sheet-head { display: flex; align-items: center; gap: 8px; position: sticky; top: 0; background: var(--bg); z-index: 1; padding-top: 6px; }
 .sheet-head h2 { flex: 1; margin: .4rem 0; }
 .sheet-x { width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
