@@ -41,7 +41,7 @@ porcini|produce|funghi porcini|Steinpilze|porcini|porcini mushrooms;steinpilz;po
 chanterelles|produce|finferli|Pfifferlinge|chanterelles|gallinacci;pfifferling;kraterellen|funghi|of:mushrooms
 shiitake|produce|funghi shiitake|Shiitake|shiitake|shiitake mushrooms|funghi|of:mushrooms
 oyster-mushrooms|produce|funghi pleurotus|Austernpilze|oyster mushrooms|pleurotus;austernpilz|funghi|of:mushrooms
-dried-mushrooms|staples|funghi secchi|getrocknete Pilze|dried mushrooms|porcini secchi;funghi porcini secchi;dried porcini;getrocknete steinpilze|funghi secchi|
+dried-mushrooms|staples|funghi secchi|getrocknete Pilze|dried mushrooms|porcini secchi;funghi porcini secchi;dried porcini;getrocknete steinpilze;shiitake secchi;funghi shiitake secchi;dried shiitake;dried shiitake mushrooms;getrocknete shiitake;getrocknete shiitake-pilze|funghi secchi|
 peas|produce|piselli|Erbsen|peas|pisellini;garden peas;green peas;erbschen;petits pois;frozen peas|piselli|
 green-beans|produce|fagiolini|grüne Bohnen|green beans|french beans;string beans;grune bohnen;prinzessbohnen;buschbohnen;stangenbohnen;cornetti|fagiolini|
 snow-peas|produce|taccole|Zuckerschoten|snow peas|mangetout;kaiserschoten;sugar snap peas|fagiolini|

@@ -122,6 +122,11 @@ your `data/` files, so copying it can't overwrite your recipes. (`ricette-data/.
 delete are listed in the version's entry below. (Older entries say "copy the contents of `app/`": earlier zips had
 an extra `app/` folder.)
 
+- **Dried shiitake go with the dry goods (v58.3, Nov 26):** nothing to copy into ricette-app by hand; this went straight
+  to the app repository. "Funghi shiitake secchi" was read as fresh shiitake and landed in Frutta e verdura; the food
+  dictionary now knows dried shiitake as dried mushrooms. Items, pantry products and recipes already saved are fixed
+  once, after the next sync. `js/foods.js` changed (md5 `3fea20ee3f51f787794b3363f1e21d41`): copy it to `scripts/lib/foods.js` in the data repo
+  and to `js/foods.js` in Everyday.
 - **The keyboard no longer hides the add sheet (v58.2, Nov 26):** nothing to copy by hand; this went straight to the
   app repository. On Android (Firefox) the keyboard covered "Aggiungi alla spesa" and the other bottom sheets, so the
   field you were typing in was half hidden. Sheets now sit right on top of the keyboard. Nothing to do in the data repo.
